@@ -51,10 +51,6 @@ int main(int argc, char** argv)
                     "animmerger will always output PNG files into the current\n"
                     "working directory, with the filename pattern tile-####.png\n"
                     "where #### is a sequential number beginning from 0000.\n"
-                    "You can convert them into a GIF animation with external\n"
-                    "programs such as (ImageMagick and Gifsicle required):\n"
-                    "   mogrify -format gif tile-????.png\n"
-                    "   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif\n"
                     "\n"
                     "AVAILABLE PIXEL TYPES\n"
                     "\n"
@@ -91,6 +87,16 @@ int main(int argc, char** argv)
                     "       From the 8x40 wide section at coordinates 16x16,\n"
                     "       mask out those pixels whose color is either\n"
                     "       black (#000000) or dark slate blue (#483D8B)\n"
+                    "\n"
+                    "TIPS\n"
+                    "\n"
+                    "Converting tile-*.png into a GIF animation:\n"
+                    "   mogrify -format gif tile-????.png\n"
+                    "   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif\n"
+                    "\n"
+                    "Converting a GIF animation into individual frame files:\n"
+                    "   gifsicle -U -E animation.gif\n"
+                    "   animmerger <...> animation.gif.*\n"
                     "\n");
                 return 0;
             }

@@ -23,7 +23,7 @@ SMALL    {font-size:70%}
   <h1>Animation merger</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of animmerger-1.0.0.
+  This is the documentation of animmerger-1.0.1.
 <div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#usage">Usage</a><br></td>
 <td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;3. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
@@ -34,7 +34,7 @@ Overlap.
 
 </div><H2 id="usage" class="level2"><a name="usage"></a>2. Usage</H2><div class="level2" id="divusage">
 
-<pre class=smallerpre>animmerger v1.0.0 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
+<pre class=smallerpre>animmerger v1.0.1 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
 
 Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [&lt;...&gt;]
 
@@ -49,10 +49,6 @@ Merges animation frames together with motion shifting.
 animmerger will always output PNG files into the current
 working directory, with the filename pattern tile-####.png
 where #### is a sequential number beginning from 0000.
-You can convert them into a GIF animation with external
-programs such as (ImageMagick and Gifsicle required):
-   mogrify -format gif tile-????.png
-   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif
 
 AVAILABLE PIXEL TYPES
 
@@ -90,6 +86,16 @@ DEFINING MASKS
        mask out those pixels whose color is either
        black (#000000) or dark slate blue (#483D8B)
 
+TIPS
+
+Converting tile-*.png into a GIF animation:
+   mogrify -format gif tile-????.png
+   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif
+
+Converting a GIF animation into individual frame files:
+   gifsicle -U -E animation.gif
+   animmerger &lt;...&gt; animation.gif.*
+
 </pre>
 
 </div><H2 id="h1" class="level2"><a name="h1"></a>3. Copying</H2><div class="level2" id="divh1">
@@ -109,9 +115,9 @@ libgd is also required.
    is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
    Check there for new versions.
 </div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Thu, 29 Jul 2010 00:37:20 +0300)<br>
-  with <tt>docmaker.php</tt> (last updated: Thu, 29 Jul 2010 00:37:20 +0300)<br>
-  at Thu, 29 Jul 2010 00:37:20 +0300</small>
+       <tt>progdesc.php</tt> (last updated: Thu, 29 Jul 2010 00:44:36 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Thu, 29 Jul 2010 00:44:36 +0300)<br>
+  at Thu, 29 Jul 2010 00:44:36 +0300</small>
  </p>
 </body>
 </html>
