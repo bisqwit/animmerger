@@ -19,9 +19,18 @@ class MostUsedWithinPixel
     {
         // If we have already read BUFFER_SIZE pixels, ignore the rest:
         if(pixelIndex == BUFFER_SIZE) return;
-
         const unsigned newPixel = (r<<16) | (g<<8) | b;
-
+        set_p(newPixel);
+    }
+    
+    void set(uint32 p)
+    {
+        if(pixelIndex == BUFFER_SIZE) return;
+        set_p(p);
+    }
+    
+    void set_p(const unsigned newPixel)
+    {
         // Insert the new pixel into its sorted place:
         unsigned i = pixelIndex;
         while(i > 0 && pixels[i-1] > newPixel)

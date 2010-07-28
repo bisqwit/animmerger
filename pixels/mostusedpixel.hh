@@ -16,9 +16,9 @@ public:
     {
         //if(final) return;
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set_p(p);
+        set(p);
     }
-    void set_p(uint32 p)
+    void set(uint32 p)
     {
         unsigned short v = ++values[p];
         if(v > max) { max = v; pix = p; }

@@ -7,9 +7,9 @@ public:
     }
     void set(unsigned R,unsigned G,unsigned B)
     {
-        set_p(((R) << 16) + ((G) << 8) + B);
+        set(((R) << 16) + ((G) << 8) + B);
     }
-    void set_p(uint32 p)
+    void set(uint32 p)
     {
         pix = p;
     }

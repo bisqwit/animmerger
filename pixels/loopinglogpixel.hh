@@ -16,16 +16,20 @@ public:
     void set(unsigned R,unsigned G,unsigned B)
     {
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
+        set(p);
+    }
+    void set(uint32 p)
+    {
         if(CurrentTimer == 0)
         {
             // Ignore first frame. It's gray.
             return;
         }
-        most_used.set_p(p);
+        most_used.set(p);
 
         unsigned offs = CurrentTimer % LOOP_LENGTH;
         if(history[offs] == DefaultPixel || p != most_used)
-            history[offs].set_p(p);
+            history[offs].set(p);
     }
     operator uint32() const
     {

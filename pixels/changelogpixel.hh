@@ -133,7 +133,9 @@ private:
         /* Pre-begin value: reasonable default */
         if(i == history.begin())
         {
-            return CHANGELOG_GUESS_OUTSIDES ? lastpixel : DefaultPixel;
+            return CHANGELOG_GUESS_OUTSIDES
+                ? (history.empty() ? lastpixel : history[0].pixel)
+                : DefaultPixel;
         }
 
 #if 1
@@ -144,7 +146,9 @@ private:
              * take the reasonable default instead */
             if(lastmoment+0 < time)
             {
-                return CHANGELOG_GUESS_OUTSIDES ? history[0].pixel : DefaultPixel;
+                return CHANGELOG_GUESS_OUTSIDES
+                    ? (history.empty() ? lastpixel : history[0].pixel)
+                    : DefaultPixel;
             }
         }
 #endif
