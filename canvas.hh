@@ -72,7 +72,7 @@ public:
 
     void Cleanup()
     {
-        fprintf(stderr, "Compressing...\n");
+        std::fprintf(stderr, "Compressing...\n");
         for(ymaptype::iterator y=screens.begin(); y!=screens.end(); ++y)
         {
             xmaptype& xmap = y->second;
@@ -102,7 +102,7 @@ public:
             CurrentTimer = 0;
         }
         
-        fprintf(stderr, " Resetting\n");
+        std::fprintf(stderr, " Resetting\n");
         screens.clear();
         org_x = 0x40000000;
         org_y = 0x40000000;
@@ -131,7 +131,7 @@ public:
         
         //if(offs_x != 0 || offs_y != 0)
         {
-            fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
+            std::fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
         }
 
         org_x += offs_x; org_y += offs_y;

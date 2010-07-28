@@ -29,7 +29,7 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
     const int yscreen_end   = yend  /256;
     
 /*
-    fprintf(stderr, "Loading screens x(%d..%d)y(%d..%d)\n",
+    std::fprintf(stderr, "Loading screens x(%d..%d)y(%d..%d)\n",
         xscreen_begin,xscreen_end,
         yscreen_begin,yscreen_end);
 */
@@ -49,7 +49,7 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
         {
             unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
 /*
-            fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
+            std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
                 this_cube_xstart,this_cube_xend,
                 this_cube_ystart,this_cube_yend);
 */
@@ -105,7 +105,7 @@ TILE_Tracker::PutScreen
     const int yscreen_end   = yend  /256;
     
 /*
-    fprintf(stderr, "Writing screens x(%d..%d)y(%d..%d)\n",
+    std::fprintf(stderr, "Writing screens x(%d..%d)y(%d..%d)\n",
         xscreen_begin,xscreen_end,
         yscreen_begin,yscreen_end);
 */
@@ -130,7 +130,7 @@ TILE_Tracker::PutScreen
             cube.changed = true;
             
 /*
-            fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
+            std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
                 this_cube_xstart,this_cube_xend,
                 this_cube_ystart,this_cube_yend);
 */
@@ -162,9 +162,9 @@ TILE_Tracker::PutScreen
 void TILE_Tracker::Save()
 {
     if(UncertainPixel::is_animated())
-        fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
+        std::fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
     else
-        fprintf(stderr, "Saving(%d)\n", first);
+        std::fprintf(stderr, "Saving(%d)\n", first);
     if(first) return;
     
     if(UncertainPixel::is_animated())
@@ -184,7 +184,7 @@ void TILE_Tracker::Save()
             for(CurrentTimer=0; CurrentTimer<SavedTimer; CurrentTimer += 1)
             {
                 count = CurrentTimer + SequenceBegin;
-                fprintf(stderr, "Saving frame %u/%u @ %u\n",
+                std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
                     count-SequenceBegin,SavedTimer, SequenceBegin);
                 Save();
             }
@@ -212,7 +212,7 @@ void TILE_Tracker::Save()
     
     if(wid <= 1 || hei <= 1) return;
     
-    fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
+    std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
     
     char Filename[512];
     sprintf(Filename, "tile-%04u.png", count++);
@@ -223,7 +223,7 @@ void TILE_Tracker::Save()
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
-            fprintf(stderr, "->link (%u,%u)\n",
+            std::fprintf(stderr, "->link (%u,%u)\n",
                 (unsigned)screen.size(),
                 (unsigned)LastScreen.size());
             std::string cmd = "ln "+LastFilename+" "+Filename;
@@ -337,6 +337,21 @@ namespace
         unsigned sx, unsigned sy,
         bool force_all_pixels)
     {
+        /* Calculate the type and interestingness for all pixels.
+         *
+         * PLAN 1:
+         * Then narrow them down, by selecting the most interesting
+         * spot from every 32x32 size region.
+         * This gets 8x8, i.e. 64 spots for each cube,
+         * and 8x7, i.e. 56 spots for input image.
+         * 
+         * PLAN 2:
+         *
+         * Sort the pixels in order of rarity, and take N most rare
+         * ones, still sufficiently far apart and sufficiently many
+         * to avoid just choosing all onscreen actors.
+         *
+         */
         std::vector<char> Transparent(sx*sy, false);
         std::vector<unsigned char> Y(sx*sy);
         for(unsigned p=0, y=0; y<sy; ++y)
@@ -364,8 +379,13 @@ namespace
             for(unsigned x=0; x+4<=sx; ++x, ++p)
             {
                 if(Transparent[p]) continue;
-                uint32 pix[4] = { *(uint32*)&Y[p],
-                                  *(uint32*)&Y[p+sx],
+                /* A sufficiently unique code describing this pixel
+                 * should be made by comparing the brightness of this
+                 * pixel to its immediate surroundings, scaled by the
+                 * average
+                 */
+                uint32 pix[4] = { *(uint32*)&Y[p     ],
+                                  *(uint32*)&Y[p+sx  ],
                                   *(uint32*)&Y[p+sx*2],
                                   *(uint32*)&Y[p+sx*3] };
                 SpotType data ( pix[0] | (uint64(pix[1]) << 32),
@@ -389,7 +409,7 @@ namespace
         const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
         const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
         
-        typedef std::map<SpotType, std::vector<size_t>,
+        typedef std::map<SpotType, std::vector<unsigned>,
             std::less<SpotType>,
             FSBAllocator<int> > RarityType;
         
@@ -400,6 +420,8 @@ namespace
                 Rarities[ (y/y_divide) * x_shrunk + (x/x_divide) ]
                     [ spots[p] ].push_back(p);
         
+        /* From each table, pick the least common PixelLabel,
+         * and show the first coordinate for it */
         for(unsigned p=0, y=0; y<y_shrunk; ++y)
             for(unsigned x=0; x<x_shrunk; ++x, ++p)
             {
@@ -410,7 +432,7 @@ namespace
                     if(i->second.size() < winner->second.size())
                         winner = i;
 
-                const size_t coordinate = winner->second.front();
+                const unsigned coordinate = winner->second.front();
                 InterestingSpot spot =
                     { { xoffs+ coordinate%sx,
                         yoffs+ coordinate/sx },
@@ -431,7 +453,7 @@ namespace
         SpotLocSetType input_spot_locations;
         for(size_t b=input_spots.size(), a=0; a<b; ++a)
         {
-            /*fprintf(stderr, "in[%3u]: %16llX,%16llX @ %d,%d\n",
+            /*std::fprintf(stderr, "in[%3u]: %16llX,%16llX @ %d,%d\n",
                 (unsigned)a,
                 input_spots[a].data.first,
                 input_spots[a].data.second,
@@ -444,7 +466,7 @@ namespace
         SpotLocSetType reference_spot_locations;
         for(size_t b=reference_spots.size(), a=0; a<b; ++a)
         {
-            /*fprintf(stderr, "ref[%3u]: %16llX,%16llX @ %d,%d\n",
+            /*std::fprintf(stderr, "ref[%3u]: %16llX,%16llX @ %d,%d\n",
                 (unsigned)a,
                 reference_spots[a].data.first,
                 reference_spots[a].data.second,
@@ -544,7 +566,7 @@ namespace
                 }
             }
             
-            /*fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
+            /*std::fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
                 i->first.x, i->first.y, i->second,
                 (unsigned) n_match);*/
             
@@ -555,7 +577,7 @@ namespace
             }
         }
 
-        /*fprintf(stderr, "Choice: %d,%d: %u\n",
+        /*std::fprintf(stderr, "Choice: %d,%d: %u\n",
             best_coord.x, best_coord.y,
             (unsigned) best_match);*/
         

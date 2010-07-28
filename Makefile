@@ -26,14 +26,14 @@ include Makefile.sets
 OBJS=\
 	main.o canvas.o pixel.o
 PROGS=\
-	test
+	animmerger
 
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
 all: $(PROGS)
 
-test: $(OBJS)
+animmerger: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
 
 
