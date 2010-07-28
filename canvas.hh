@@ -301,6 +301,6 @@ public:
             ++CurrentTimer;
         }
     }
-} TILE_Tracker;
+};
 
 #endif

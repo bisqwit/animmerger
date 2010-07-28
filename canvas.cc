@@ -1,4 +1,5 @@
 #include "canvas.hh"
+#include "alloc/FSBAllocator.hh"
 
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
@@ -292,15 +293,39 @@ namespace
     typedef std::pair<uint64,uint64> SpotType;
     struct InterestingSpot
     {
-        IntCoordinate   point;
+        IntCoordinate   where;
         SpotType        data;
     };
     
+    struct RelativeCoordinate
+    {
+        int x, y;
+        
+        RelativeCoordinate(int xx,int yy) : x(xx), y(yy) { }
+        
+        bool operator<< (const RelativeCoordinate& b) const
+        {
+            int l = length(), bl = b.length();
+            if(l != bl) return l < bl;
+            if(x != b.x) return x < b.x;
+            return y < b.y;
+        }
+        bool operator== (const RelativeCoordinate& b) const
+        {
+            return x == b.x && y == b.y;
+        }
+        
+        int length() const
+        {
+            return (x<0 ? -x : x) + (y<0 ? -y : y);
+        }
+    };
+
     struct AlignResult
     {
-        int  x_offs;
-        int  y_offs;
-        bool suspect_change;
+        int  offs_x;
+        int  offs_y;
+        bool suspect_reset;
     };
 
     void FindInterestingSpots(
@@ -341,6 +366,163 @@ namespace
                     spots[p] = data;
                 }
             }
+        if(force_all_pixels)
+            return;
+        
+        const unsigned x_divide = 32;
+        const unsigned y_divide = 32;
+        const unsigned x_shrunk = (xs + x_divide-1) / x_divide;
+        const unsigned y_shrunk = (ys + y_divide-1) / y_divide;
+        
+        typedef std::map<SpotType, std::vector<size_t>,
+            std::less<SpotType>,
+            FSBAllocator<int> > RarityType;
+        
+        std::vector<RarityType> Rarities( x_shrunk * y_shrunk );
+        
+        for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
+            for(unsigned x=0; x+4<=sx; ++x, ++p)
+                Rarities[ (y/y_divide) * x_shrunk + (x/x_divide) ]
+                    [ spots[p] ].push_back(p);
+        
+        for(unsigned p=0, y=0; y<y_shrunk; ++y)
+            for(unsigned x=0; x<x_shrunk; ++x, ++p)
+            {
+                /* Pick the SpotType that occurs the least number of times */
+                const RarityType& r = Rarities[p];
+                RarityType::const_iterator winner = r.begin();
+                for(RarityType::const_iterator i = winner; ++i != r.end(); )
+                    if(i->second.size() < winner->second.size())
+                        winner = i;
+
+                const size_t coordinate = winner->second.front();
+                InterestingSpot spot =
+                    { { xoffs+ coordinate%sx,
+                        yoffs+ coordinate/sx },
+                      winner->first };
+                output.push_back(spot);
+            }
+    }
+    
+    AlignResult Align(
+        const std::vector<InterestingSpot>& input_spots,
+        const std::vector<InterestingSpot>& reference_spots,
+        int org_x,
+        int org_y)
+    {
+        typedef std::map<SpotType, std::vector<IntCoordinate>,
+            std::less<SpotType>, FSBAllocator<int> > SpotLocSetType;
+
+        SpotLocSetType input_spot_locations;
+        for(size_t b=input_spots.size(), a=0; a<b; ++a)
+            input_spot_locations[ input_spots[a].data ]
+                .push_back( input_spots[a].where ];
+
+        SpotLocSetType reference_spot_locations;
+        for(size_t b=reference_spots.size(), a=0; a<b; ++a)
+            reference_spot_locations[ reference_spots[a].data ]
+                .push_back( reference_spots[a].where ];
+        
+        /* Find a set of possible offsets */
+        std::map<RelativeCoordinate, unsigned,
+            std::less<RelativeCoordinate>,
+            FSBAllocator<int> > offset_suggestions;
+        for(int y=-4; y<=4; ++y)
+            for(int x=-4; x<=4; ++x)
+                offset_suggestions.insert
+                    (std::make_pair( RelativeCoordinate(x,y), 999 ));
+        
+        /* If a rarely occurring vista is found in the reference picture,
+         * add the offset to the list of offsets to be tested
+         */ 
+        for(SpotLocSetType::const_iterator
+            i = input_spot_locations.begin();
+            i != input_spot_locations.end();
+            ++i)
+        {
+            const std::vector<IntCoordinate>& coords = i->second;
+
+            if(coords.size() > 5) continue;
+            const SpotType& pixel = i->first;
+            
+            SpotLocSetType::const_iterator r
+                = reference_spot_locations.find( pixel );
+            if(r == reference_spot_locations.end()) continue;
+            
+            const std::vector<IntCoordinate>& rcoords = r->second;
+            if(rcoords.size() > 20) continue;
+            
+            for(size_t c=0; c<coords.size(); ++c)
+                for(size_t d=0; d<rcoords.size(); ++d)
+                {
+                    offset_suggestions[
+                        RelativeCoordinate(
+                            coords[c].x - rcoords[c].x - org_x,
+                            coords[c].y - rcoords[c].y - org_y
+                                      )] += 1;
+                }
+        }
+        
+        input_spot_locations.clear();
+        reference_spot_locations.clear();
+
+        typedef std::map<IntCoordinate, SpotType,
+            std::less<IntCoordinate>, FSBAllocator<int> > LocSpotSetType;
+        
+        LocSpotSetType reference_location_spots;
+        for(size_t b=reference_spots.size(), a=0; a<b; ++a)
+            reference_location_spots.insert(
+                std::make_pair( reference_spots[a].where,
+                                reference_spots[a].data ) );
+
+        /* For each candidate offset that has sufficient confidence,
+         * find out the one that has most overlap in spots to the reference
+         */
+        size_t             best_match = 0;
+        RelativeCoordinate best_coord;
+        
+        for(std::map<RelativeCoordinate, unsigned>::const_iterator
+            i = offset_suggestions.begin();
+            i != offset_suggestions.end();
+            ++i)
+        {
+            if(i->second < 8) continue; // Not confident enough
+            
+            const RelativeCoordinate& relcoord = i->first;
+            
+            for(size_t b=input_spots.size(), a=0; a<b; ++a)
+            {
+                const SpotType& data       = input_spots[a].data;
+                const IntCoordinate& coord = input_spots[a].where;
+                
+                IntCoordinate test_coord =
+                    {
+                        org_x + relcoord.x + coord.x,
+                        org_y + relcoord.y + coord.y
+                    };
+                
+                size_t n_match = 0;
+                
+                SpotLocSetType::const_iterator
+                    r = reference_location_spots.find(test_coord);
+                if(r == reference_location_spots.end()
+                || !(r->second == data))
+                    continue;
+                
+                ++n_match;
+            }
+            if(n_match > best_match)
+            {
+                best_match = n_match,
+                best_coord = i->first;
+            }
+        }
+        
+        AlignResult result;
+        result.suspect_reset = (best_match < input_spots.size()/16);
+        result.offs_x        = best_coord.x;
+        result.offs_y        = best_coord.y;
+        return result;
     }
 }
 
@@ -411,4 +593,10 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
         input_spots,
         reference_spots,
         org_x, org_y);
+
+    FitScreen(input,
+        sx,sy,
+        align.offs_x,
+        align.offs_y,
+        align.suspect_reset);
 }
