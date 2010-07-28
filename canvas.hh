@@ -8,13 +8,13 @@
 #include <cstring> // std::memcmp
 
 
-unsigned CurrentTimer = 0;       // For animated
-unsigned SequenceBegin = 0;      // For animated
+extern unsigned CurrentTimer = 0;       // For animated
+extern unsigned SequenceBegin = 0;      // For animated
 struct ScrollingPosition         // For animated
 {
     unsigned org_x, org_y;
 };
-static std::vector<ScrollingPosition> scrolls; // For animated
+extern std::vector<ScrollingPosition> scrolls; // For animated
 
 class TILE_Tracker
 {
@@ -34,225 +34,21 @@ class TILE_Tracker
     int get_max_x() const { return xmax; }
     
     typedef std::vector<UncertainPixel> vectype; 
+    
+    struct cubetype
+    {
+        bool changed;
+        vectype                    pixels;
+        std::vector<MostUsedPixel> mostused;
+    };
+
     typedef std::map<int,vectype> xmaptype;
     typedef std::map<int,xmaptype> ymaptype;
     ymaptype screens;
     
-    const std::vector<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
-    {
-        // Create the result vector filled with default pixel value
-        std::vector<uint32> result(sy*sx, DefaultPixel);
-
-        const int xbegin = ox;
-        const int xend   = ox+sx-1;
-        
-        const int xscreen_begin = xbegin/256;
-        const int xscreen_end   = xend  /256;
-        
-        const int ybegin = oy;
-        const int yend   = oy+sy-1;
-        
-        const int yscreen_begin = ybegin/256;
-        const int yscreen_end   = yend  /256;
-        
-/*
-        fprintf(stderr, "Loading screens x(%d..%d)y(%d..%d)\n",
-            xscreen_begin,xscreen_end,
-            yscreen_begin,yscreen_end);
-*/
-        
-        // Load each cube that falls into the requested region
-        
-        unsigned targetpos=0;
-        unsigned this_cube_ystart = oy&255;
-        for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
-        {
-            xmaptype& xmap = screens[yscreen];
-            
-            unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
-            
-            unsigned this_cube_xstart = ox&255;
-            for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
-            {
-                unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
-/*
-                fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
-                    this_cube_xstart,this_cube_xend,
-                    this_cube_ystart,this_cube_yend);
-*/
-                const vectype& cube = xmap[xscreen];
-                /* If this screen is not yet initialized, we'll skip over
-                 * it, since there's no real reason to initialize it at
-                 * this point. */
-                if(!cube.empty())
-                {
-                    /* Load this particular cube */
-                    for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
-                    { 
-                        unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
-                        unsigned destp =   sx*y + targetpos        - this_cube_xstart;
-                        for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                            result[destp + xp] = cube[srcp + xp];
-                    }
-                }
-                
-                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
-                
-                targetpos+= this_cube_xsize;
-                
-                this_cube_xstart=0;
-            }
-            
-            unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
-            
-            targetpos += sx * (this_cube_ysize-1);
-            
-            this_cube_ystart=0;
-        }
-        
-        return result;
-    }
-
-    void PutScreen(const uint16*const input, int ox,int oy, unsigned sx,unsigned sy)
-    {
-        /* Nearly the same as LoadScreen. */
-        
-        const int xbegin = ox;
-        const int xend   = ox+sx-1;
-        
-        const int xscreen_begin = xbegin/256;
-        const int xscreen_end   = xend  /256;
-        
-        const int ybegin = oy;
-        const int yend   = oy+sy-1;
-        
-        const int yscreen_begin = ybegin/256;
-        const int yscreen_end   = yend  /256;
-        
-/*
-        fprintf(stderr, "Writing screens x(%d..%d)y(%d..%d)\n",
-            xscreen_begin,xscreen_end,
-            yscreen_begin,yscreen_end);
-*/
-        unsigned targetpos=0;
-        unsigned this_cube_ystart = oy&255;
-        for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
-        {
-            xmaptype& xmap = screens[yscreen];
-            
-            unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
-            
-            unsigned this_cube_xstart = ox&255;
-            for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
-            {
-                unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
-                
-                vectype& cube = xmap[xscreen];
-                /* If this screen is not yet initialized, we'll initialize it */
-                if(cube.empty()) cube.resize(256*256);
-                
-/*
-                fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
-                    this_cube_xstart,this_cube_xend,
-                    this_cube_ystart,this_cube_yend);
-*/
-                /* Write this particular cube */
-                for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
-                    for(unsigned xp=this_cube_xstart, x=0; xp<=this_cube_xend; ++x, ++xp)
-                    {
-                        uint16 pix16 = input[targetpos + x + y*sx];
-                        unsigned r = (pix16 >> (11-3)) & 0xF8;
-                        unsigned g = (pix16 >> (5-2))  & 0xFC;
-                        unsigned b = (pix16 << -(0-3)) & 0xF8;
-                        cube[xp + 256*yp].set(r,g,b);
-                    }
-
-                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
-                
-                targetpos+= this_cube_xsize;
-                
-                this_cube_xstart=0;
-            }
-            
-            unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
-            
-            targetpos += sx * (this_cube_ysize-1);
-            
-            this_cube_ystart=0;
-        }
-    }
-    
-    struct InterestingSpot
-    {
-        int   x, y;
-        int   type;
-    };
-
-    void PutScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
-    {
-        /* Find spots of interest within the reference image,
-         * and within the input image.
-         *
-         * Select that offset which results in greatest overlap
-         * between those two sets of spots.
-         */
-         
-        std::vector<InterestingSpot> input_spots;
-        std::vector<InterestingSpot> reference_spots;
-        FindInterestingSpots(input_spots, input, 0,0, sx,sy);
-        
-        /* For speed reasons, we don't use LoadScreen(), but
-         * instead, work on cube-by-cube basis.
-         */
-        for(ymaptype::const_iterator
-            yi = screens.begin();
-            yi != screens.end();
-            ++yi)
-        {
-            const int y_screen_offset = yi->first * 256;
-            
-            for(xmaptype::const_iterator
-                xi = yi->second.begin();
-                xi != yi->second.end();
-                ++xi)
-            {
-                const int x_screen_offset = xi->first  * 256;
-                const vectype& cube       = xi->second;
-                
-                { const unsigned SavedTimer = CurrentTimer; CurrentTimer = 0;
-                uint32 result[256*256];
-                for(unsigned p=0; p<256; ++p)
-                    result[p] = cube[p];
-                
-                FindInterestingSpots(reference_spots, result,
-                    x_screen_offset,y_screen_offset,
-                    256,256);
-
-                CurrentTimer = SavedTimer; }
-            }
-        }
-    }
-    
-    void FindInterestingSpots(
-        std::vector<InterestingSpot>& output,
-        const uint32* input,
-        int xoffs, int yoffs,
-        unsigned sx, unsigned sy)
-    {
-        /* Calculate the type and interestingness for all pixels.
-         * Then narrow them down, by selecting the most interesting
-         * spot from every 32x32 size region.
-         * This gets 8x8, i.e. 64 spots for each cube,
-         * and 8x7, i.e. 56 spots for input image.
-         */
-        std::vector<
-        for(unsigned p=0, y=0; y<sy; ++y)
-            for(unsigned x=0; x<sx; ++x,++p)
-            {
-                
-            }
-    }
-
+    const std::vector<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy);
+    void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
+ 
 public:
     TILE_Tracker() : count(0)
     {
@@ -408,7 +204,9 @@ public:
         first = true;
     }
 
-    void FitScreen(const uint16* buf,
+    void FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy);
+
+    void FitScreen(const uint32* buf,
                    unsigned max_x,
                    unsigned max_y,
                    int offs_x, int offs_y, bool suspect_reset,
@@ -443,14 +241,14 @@ public:
             unsigned diff = 0;
             for(unsigned a=0; a<oldbuf.size(); ++a)
             {
-                unsigned pix   = oldbuf[a];
-                unsigned pix16 = buf[a];
-                unsigned r = (pix16 >> (11-3)) & 0xF8;
-                unsigned g = (pix16 >> (5-2))  & 0xFC;
-                unsigned b = (pix16 << -(0-3)) & 0xF8;
-                unsigned oldr = ((pix >> 16) & 0xFF);
-                unsigned oldg = ((pix >>  8) & 0xFF);
-                unsigned oldb = ((pix >>  0) & 0xFF);
+                unsigned oldpix = oldbuf[a];
+                unsigned pix   = buf[a];
+                unsigned r = (pix >> 16);
+                unsigned g = (pix >> 8) & 0xFF;
+                unsigned b = (pix) & 0xFF;
+                unsigned oldr = (oldpix >> 16);
+                unsigned oldg = (oldpix >> 8) & 0xFF;
+                unsigned oldb = (oldpix) & 0xFF;
                 int rdiff = (int)(r-oldr); if(rdiff < 0)rdiff=-rdiff;
                 int gdiff = (int)(g-oldg); if(gdiff < 0)gdiff=-gdiff;
                 int bdiff = (int)(b-oldb); if(bdiff < 0)bdiff=-bdiff;

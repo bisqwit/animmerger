@@ -4,6 +4,7 @@
 typedef unsigned int uint32;
 typedef unsigned char uint8 ;
 typedef unsigned short uint16;
+typedef unsigned long long uint64;
 
 static const uint32 DefaultPixel = 0x404041;
 
@@ -19,38 +20,38 @@ extern unsigned CurrentTimer;
 
 #include "alloc/FSBAllocator.hh"
 
-enum PixelMethod
+extern enum PixelMethod
 {
-    AveragePixel,
-    LastPixel,
-    MostUsedPixel,
-    MostUsed16Pixel,
-    ChangeLogPixel,
-    LoopingLogPixel
-};
+    pm_AveragePixel,
+    pm_LastPixel,
+    pm_MostUsedPixel,
+    pm_MostUsed16Pixel,
+    pm_ChangeLogPixel,
+    pm_LoopingLogPixel
+} method;
 
 class UncertainPixel
 {
     #define DoCases(code) \
-        switch(PixelMethod) \
+        switch(method) \
         { \
-            case AveragePixel: \
+            case pm_AveragePixel: \
                 code(AveragePixel); break; \
-            case LastPixel: \
+            case pm_LastPixel: \
                 code(LastPixel);    break; \
-            case MostUsedPixel: \
+            case pm_MostUsedPixel: \
                 code(MostUsedPixel); break; \
-            case MostUsed16Pixel: \
+            case pm_MostUsed16Pixel: \
                 code(MostUsedWithinPixel<16> ); break; \
-            case ChangeLogPixel: \
+            case pm_ChangeLogPixel: \
                 code(ChangeLogPixel); break; \
-            case LoopingLogPixel: \
+            case pm_LoopingLogPixel: \
                 code(LoopingLogPixel<90> ); break; \
         }
 public:
     UncertainPixel()
     {
-        #define init(type) data = (void*) new type
+        #define init(type) data = (void*) new type()
         DoCases(init);
         #undef init
     }
@@ -65,6 +66,7 @@ public:
         #define assign(type) *(type*)data = *(type*)b.data
         DoCases(assign);
         #undef assign
+        return *this;
     }
     
     ~UncertainPixel()
@@ -86,6 +88,12 @@ public:
         DoCases(put);
         #undef put
     }
+    void set(uint32 p)
+    {
+        #define put(type) ((type*)data)->set(p)
+        DoCases(put);
+        #undef put
+    }
     void Compress()
     {
         #define act(type) ((type*)data)->Compress()
@@ -95,11 +103,11 @@ public:
     
     static bool is_changelog()
     {
-        return PixelMethod == ChangeLogPixel;
+        return method == pm_ChangeLogPixel;
     }
     static bool is_loopinglog()
     {
-        return PixelMethod == ChangeLogPixel;
+        return method == pm_LoopingLogPixel;
     }
     static bool is_animated()
     {
