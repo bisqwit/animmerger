@@ -1,3 +1,5 @@
 #include "pixel.hh"
 
-enum PixelMethod method = pm_ChangeLogPixel;
+enum PixelMethod method = pm_LoopingLogPixel;
+
+unsigned LoopingLogLength = 16;

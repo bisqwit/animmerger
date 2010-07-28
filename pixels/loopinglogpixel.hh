@@ -3,14 +3,16 @@
 
 #include <vector>
 #include <algorithm>
-template<unsigned LOOP_LENGTH = 90>
+
+#include "vectype.hh"
+
 class LoopingLogPixel
 {
     MostUsedPixel most_used;
 
-    LastPixel history[LOOP_LENGTH];
+    VecType<LastPixel> history;
 public:
-    LoopingLogPixel()
+    LoopingLogPixel(): history(LoopingLogLength)
     {
     }
     void set(unsigned R,unsigned G,unsigned B)
@@ -20,20 +22,20 @@ public:
     }
     void set(uint32 p)
     {
-        if(CurrentTimer == 0)
+        /*if(CurrentTimer == 0)
         {
             // Ignore first frame. It's gray.
             return;
-        }
+        }*/
         most_used.set(p);
 
-        unsigned offs = CurrentTimer % LOOP_LENGTH;
+        unsigned offs = CurrentTimer % LoopingLogLength;
         if(history[offs] == DefaultPixel || p != most_used)
             history[offs].set(p);
     }
     operator uint32() const
     {
-        unsigned offs = CurrentTimer % LOOP_LENGTH;
+        unsigned offs = CurrentTimer % LoopingLogLength;
         uint32 result = history[offs];//.value_ignore(most_used);
         if(result == DefaultPixel) return most_used;
         return result;
@@ -42,7 +44,7 @@ public:
     void Compress()
     {
         most_used.Compress();
-        //for(unsigned a=0; a<LOOP_LENGTH; ++a)
+        //for(unsigned a=0; a<LoopingLogLength; ++a)
         //    history[a].CompressButIgnore(most_used);
     }
 };

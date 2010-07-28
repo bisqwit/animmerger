@@ -560,7 +560,8 @@ namespace
             (unsigned) best_match);*/
         
         AlignResult result;
-        result.suspect_reset = (best_match < input_spots.size()/16);
+        result.suspect_reset = (best_match < input_spots.size()/16)
+                           && ! UncertainPixel::is_loopinglog();
         result.offs_x        = best_coord.x;
         result.offs_y        = best_coord.y;
         return result;

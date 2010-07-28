@@ -8,6 +8,8 @@ typedef unsigned long long uint64;
 
 static const uint32 DefaultPixel = 0xFF404041u;
 
+extern unsigned LoopingLogLength;
+
 extern unsigned CurrentTimer;
 /* Timer value for set() and get methods in ChangeLog and LoopingLog methods */
 
@@ -46,7 +48,7 @@ class UncertainPixel
             case pm_ChangeLogPixel: \
                 code(ChangeLogPixel); break; \
             case pm_LoopingLogPixel: \
-                code(LoopingLogPixel<90> ); break; \
+                code(LoopingLogPixel ); break; \
         }
 public:
     UncertainPixel()
@@ -116,7 +118,7 @@ public:
     static unsigned GetLoopLength()
     {
         if(!is_loopinglog()) return 0;
-        return 90;
+        return LoopingLogLength;
     }
     
 private:

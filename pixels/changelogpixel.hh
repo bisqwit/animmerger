@@ -50,7 +50,6 @@ public:
             // Ignore first frame. It's gray.
             return;
         }*/
-        
 #if 0
         ++minvalues[p];
 #endif
@@ -82,10 +81,13 @@ public:
             
             history.push_back(item);
         }
-        if(CHANGELOG_GUESS_OUTSIDES
-        && FirstMomentIsVague)
+        if(CHANGELOG_GUESS_OUTSIDES)
         {
-            UpdateFirstMoment(p);
+            // Updates the value of the pixel at the first moment to the value
+            // that has appeared the most.
+            first_moment.set(p);
+            if(FirstMomentIsVague)
+                history[0].pixel = first_moment;
         }
         lastmoment = CurrentTimer;
     }
@@ -150,7 +152,7 @@ private:
             if(lastmoment+0 < time)
             {
                 return CHANGELOG_GUESS_OUTSIDES
-                    ? (history.empty() ? lastpixel : history[0].pixel)
+                    ? first_moment
                     : DefaultPixel;
             }
         }
@@ -159,14 +161,5 @@ private:
         /* Anything else. Take the value. */
         --i;
         return i->pixel;
-    }
-
-private:    
-    void UpdateFirstMoment(uint32 p) // For CHANGELOG_GUESS_OUTSIDES only
-    {
-        // Updates the value of the pixel at the first moment to the value
-        // that has appeared the most.
-        first_moment.set(p);
-        history[0].pixel = first_moment;
     }
 };
