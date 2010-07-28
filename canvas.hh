@@ -129,7 +129,7 @@ public:
 */
         }
         
-        if(offs_x != 0 || offs_y != 0)
+        //if(offs_x != 0 || offs_y != 0)
         {
             fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
         }

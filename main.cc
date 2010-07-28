@@ -5,7 +5,7 @@ int main(int argc, char** argv)
 {
     TILE_Tracker tracker;
     
-    tracker.NextFrame();
+    //tracker.NextFrame();
     
     for(int a=1; a<argc; ++a)
     {

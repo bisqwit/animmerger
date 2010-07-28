@@ -416,13 +416,29 @@ namespace
 
         SpotLocSetType input_spot_locations;
         for(size_t b=input_spots.size(), a=0; a<b; ++a)
+        {
+            /*fprintf(stderr, "in[%3u]: %16llX,%16llX @ %d,%d\n",
+                (unsigned)a,
+                input_spots[a].data.first,
+                input_spots[a].data.second,
+                input_spots[a].where.x,
+                input_spots[a].where.y);*/
             input_spot_locations[ input_spots[a].data ]
                 .push_back( input_spots[a].where );
+        }
 
         SpotLocSetType reference_spot_locations;
         for(size_t b=reference_spots.size(), a=0; a<b; ++a)
+        {
+            /*fprintf(stderr, "ref[%3u]: %16llX,%16llX @ %d,%d\n",
+                (unsigned)a,
+                reference_spots[a].data.first,
+                reference_spots[a].data.second,
+                reference_spots[a].where.x,
+                reference_spots[a].where.y);*/
             reference_spot_locations[ reference_spots[a].data ]
                 .push_back( reference_spots[a].where );
+        }
         
         /* Find a set of possible offsets */
         std::map<RelativeCoordinate, unsigned,
@@ -458,8 +474,8 @@ namespace
                 {
                     offset_suggestions[
                         RelativeCoordinate(
-                            coords[c].x - rcoords[c].x - org_x,
-                            coords[c].y - rcoords[c].y - org_y
+                            (rcoords[d].x-org_x) - coords[c].x,
+                            (rcoords[d].y-org_y) - coords[c].y
                                       )] += 1;
                 }
         }
@@ -500,8 +516,8 @@ namespace
                 
                 IntCoordinate test_coord =
                     {
-                        org_x + relcoord.x + coord.x,
-                        org_y + relcoord.y + coord.y
+                        coord.x + org_x + relcoord.x,
+                        coord.y + org_y + relcoord.y
                     };
                 
                 LocSpotSetType::const_iterator
@@ -512,12 +528,21 @@ namespace
                     ++n_match;
                 }
             }
+            
+            fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
+                i->first.x, i->first.y, i->second,
+                (unsigned) n_match);
+            
             if(n_match > best_match)
             {
                 best_match = n_match,
                 best_coord = i->first;
             }
         }
+
+        fprintf(stderr, "Choice: %d,%d: %u\n",
+            best_coord.x, best_coord.y,
+            (unsigned) best_match);
         
         AlignResult result;
         result.suspect_reset = (best_match < input_spots.size()/16);
@@ -566,7 +591,7 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             if(cube.changed)
             {
                 uint32 result[256*256];
-                for(unsigned p=0; p<256; ++p)
+                for(unsigned p=0; p<256*256; ++p)
                     result[p] = cube.mostused[p];
                 
                 size_t prev_size = reference_spots.size();

@@ -45,11 +45,11 @@ public:
     }
     void set(uint32 p)
     {
-        if(CurrentTimer == 0)
+        /*if(CurrentTimer == 0)
         {
             // Ignore first frame. It's gray.
             return;
-        }
+        }*/
         
 #if 0
         ++minvalues[p];
