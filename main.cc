@@ -5,8 +5,6 @@ int main(int argc, char** argv)
 {
     TILE_Tracker tracker;
     
-    //tracker.NextFrame();
-    
     for(int a=1; a<argc; ++a)
     {
         const char* fn = argv[a];
@@ -31,8 +29,12 @@ int main(int argc, char** argv)
         std::vector<uint32> pixels(sx*sy);
         for(unsigned p=0, y=0; y<sy; ++y)
             for(unsigned x=0; x<sx; ++x,++p)
+            {
                 pixels[p] = gdImageGetTrueColorPixel(im, x,y);
-        
+                if(y < 32)
+                    pixels[p] |= 0xFF000000u;
+            }
+
         tracker.FitScreenAutomatic(&pixels[0], sx,sy);
         tracker.NextFrame();
     }

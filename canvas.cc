@@ -139,6 +139,7 @@ TILE_Tracker::PutScreen
                 for(unsigned xp=this_cube_xstart, x=0; xp<=this_cube_xend; ++x, ++xp)
                 {
                     uint32 pix = input[targetpos + x + y*sx];
+                    if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
                     cube.pixels  [xp + 256*yp].set(pix);
                     cube.mostused[xp + 256*yp].set(pix);
                 }
@@ -243,9 +244,9 @@ void TILE_Tracker::Save()
             unsigned pix32 = screen[p++];
             unsigned pix = pix32/*gdTrueColor
             (
-                (pix32 >> 24) & 0xFF,
                 (pix32 >> 16) & 0xFF,
-                (pix32 >> 8) & 0xFF
+                (pix32 >> 8) & 0xFF,
+                (pix32     ) & 0xFF
             )*/;
             gdImageSetPixel(im, x,y, pix);
         }
@@ -336,13 +337,25 @@ namespace
         unsigned sx, unsigned sy,
         bool force_all_pixels)
     {
+        std::vector<char> Transparent(sx*sy, false);
         std::vector<unsigned char> Y(sx*sy);
         for(unsigned p=0, y=0; y<sy; ++y)
             for(unsigned x=0; x<sx; ++x, ++p)
-                Y[p] = ((((input[p] >> 16)      ) * RY
-                      +  ((input[p] >> 8) & 0xFF) * GY
-                      +  ((input[p]     ) & 0xFF) * BY
-                        ) >> RGB2YUV_SHIFT) + Y_ADD;
+            {
+                if((input[p] & 0xFF000000u) == 0)
+                {
+                    Y[p] = ((((input[p] >> 16) & 0xFF) * RY
+                          +  ((input[p] >> 8)  & 0xFF) * GY
+                          +  ((input[p]     )  & 0xFF) * BY
+                            ) >> RGB2YUV_SHIFT) + Y_ADD;
+                }
+                else
+                {
+                    for(unsigned yos=0, yo=0; yo<4 && yo<=y; ++yo, yos+=sx)
+                        for(unsigned xo=0; xo<4 && xo<=x; ++xo)
+                            Transparent[p - xo - yos] = true;
+                }
+            }
 
         std::vector<SpotType> spots;
         if(!force_all_pixels)
@@ -350,10 +363,11 @@ namespace
         for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
             for(unsigned x=0; x+4<=sx; ++x, ++p)
             {
+                if(Transparent[p]) continue;
                 uint32 pix[4] = { *(uint32*)&Y[p],
-                                  *(uint32*)&Y[p+sy],
-                                  *(uint32*)&Y[p+sy*2],
-                                  *(uint32*)&Y[p+sy*3] };
+                                  *(uint32*)&Y[p+sx],
+                                  *(uint32*)&Y[p+sx*2],
+                                  *(uint32*)&Y[p+sx*3] };
                 SpotType data ( pix[0] | (uint64(pix[1]) << 32),
                                 pix[2] | (uint64(pix[3]) << 32) );
 
@@ -459,7 +473,7 @@ namespace
         {
             const std::vector<IntCoordinate>& coords = i->second;
 
-            if(coords.size() > 5) continue;
+            if(coords.size() > 15) continue;
             const SpotType& pixel = i->first;
             
             SpotLocSetType::const_iterator r
@@ -467,10 +481,11 @@ namespace
             if(r == reference_spot_locations.end()) continue;
             
             const std::vector<IntCoordinate>& rcoords = r->second;
-            if(rcoords.size() > 20) continue;
+            size_t cmax = coords.size();
+            size_t rmax = rcoords.size(); if(rmax > 20) rmax = 20;
             
-            for(size_t c=0; c<coords.size(); ++c)
-                for(size_t d=0; d<rcoords.size(); ++d)
+            for(size_t c=0; c<cmax; ++c)
+                for(size_t d=0; d<rmax; ++d)
                 {
                     offset_suggestions[
                         RelativeCoordinate(
@@ -529,9 +544,9 @@ namespace
                 }
             }
             
-            fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
+            /*fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
                 i->first.x, i->first.y, i->second,
-                (unsigned) n_match);
+                (unsigned) n_match);*/
             
             if(n_match > best_match)
             {
@@ -540,9 +555,9 @@ namespace
             }
         }
 
-        fprintf(stderr, "Choice: %d,%d: %u\n",
+        /*fprintf(stderr, "Choice: %d,%d: %u\n",
             best_coord.x, best_coord.y,
-            (unsigned) best_match);
+            (unsigned) best_match);*/
         
         AlignResult result;
         result.suspect_reset = (best_match < input_spots.size()/16);

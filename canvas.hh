@@ -150,12 +150,12 @@ public:
             {
                 unsigned oldpix = oldbuf[a];
                 unsigned pix   = buf[a];
-                unsigned r = (pix >> 16);
+                unsigned r = (pix >> 16) & 0xFF;
                 unsigned g = (pix >> 8) & 0xFF;
-                unsigned b = (pix) & 0xFF;
-                unsigned oldr = (oldpix >> 16);
+                unsigned b = (pix    ) & 0xFF;
+                unsigned oldr = (oldpix >> 16) & 0xFF;
                 unsigned oldg = (oldpix >> 8) & 0xFF;
-                unsigned oldb = (oldpix) & 0xFF;
+                unsigned oldb = (oldpix    ) & 0xFF;
                 int rdiff = (int)(r-oldr); if(rdiff < 0)rdiff=-rdiff;
                 int gdiff = (int)(g-oldg); if(gdiff < 0)gdiff=-gdiff;
                 int bdiff = (int)(b-oldb); if(bdiff < 0)bdiff=-bdiff;

@@ -6,7 +6,7 @@ typedef unsigned char uint8 ;
 typedef unsigned short uint16;
 typedef unsigned long long uint64;
 
-static const uint32 DefaultPixel = 0x404041;
+static const uint32 DefaultPixel = 0xFF404041u;
 
 extern unsigned CurrentTimer;
 /* Timer value for set() and get methods in ChangeLog and LoopingLog methods */

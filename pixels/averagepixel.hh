@@ -9,7 +9,7 @@ public:
     }
     void set(uint32 p)
     {
-        set(p >> 16, (p>>8)&0xFF, p&0xFF);
+        set((p>>16)&0xFF, (p>>8)&0xFF, p&0xFF);
     }
     void set(unsigned R,unsigned G,unsigned B)
     {
