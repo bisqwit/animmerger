@@ -6,11 +6,12 @@
 #include <vector>
 #include <map>
 #include <cstring> // std::memcmp
+#include <string>
+#include <cstdio>
 
-
-extern unsigned CurrentTimer = 0;       // For animated
-extern unsigned SequenceBegin = 0;      // For animated
-struct ScrollingPosition         // For animated
+extern unsigned CurrentTimer;       // For animated
+extern unsigned SequenceBegin;      // For animated
+struct ScrollingPosition            // For animated
 {
     unsigned org_x, org_y;
 };
@@ -42,7 +43,7 @@ class TILE_Tracker
         std::vector<MostUsedPixel> mostused;
     };
 
-    typedef std::map<int,vectype> xmaptype;
+    typedef std::map<int,cubetype> xmaptype;
     typedef std::map<int,xmaptype> ymaptype;
     ymaptype screens;
     
@@ -77,7 +78,7 @@ public:
             xmaptype& xmap = y->second;
             for(xmaptype::iterator x=xmap.begin(); x!=xmap.end(); ++x)
             {
-                vectype& vec = x->second;
+                vectype& vec = x->second.pixels;
                 for(unsigned a=0; a<vec.size(); ++a)
                     vec[a].Compress();
             }
@@ -91,101 +92,7 @@ public:
         Reset();
     }
 
-    void Save()
-    {
-        if(UncertainPixel::is_animated())
-            fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
-        else
-            fprintf(stderr, "Saving(%d)\n", first);
-        if(first) return;
-        
-        if(UncertainPixel::is_animated())
-        {
-            static bool Saving = false;
-            if(!Saving)
-            {
-                Saving = true;
-                unsigned SavedTimer = CurrentTimer;
-                
-                if(UncertainPixel::is_loopinglog())
-                {
-                    const unsigned LoopLength = UncertainPixel::GetLoopLength();
-                    if(SavedTimer >= LoopLength) SavedTimer = LoopLength;
-                }
-
-                for(CurrentTimer=0; CurrentTimer<SavedTimer; CurrentTimer += 1)
-                {
-                    count = CurrentTimer + SequenceBegin;
-                    fprintf(stderr, "Saving frame %u/%u @ %u\n",
-                        count-SequenceBegin,SavedTimer, SequenceBegin);
-                    Save();
-                }
-                CurrentTimer  = SavedTimer;
-                scrolls.clear();
-                Saving = false;
-            }
-            else
-            {
-                printf("/*%u*/ %u,%u, %u,%u,\n",
-                    count,
-                    scrolls[CurrentTimer].org_x - get_min_x(),
-                    scrolls[CurrentTimer].org_y - get_min_y(),
-                    0,0
-                    );
-                fflush(stdout);
-            }
-        }
-        
-        int ymi = get_min_y(), yma = get_max_y();
-        int xmi = get_min_x(), xma = get_max_x();
-
-        unsigned wid = xma-xmi+1;
-        unsigned hei = yma-ymi+1;
-        
-        if(wid <= 1 || hei <= 1) return;
-        
-        fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
-        
-        char Filename[512];
-        sprintf(Filename, "tile-%04u.png", count++);
-        
-        std::vector<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
-        
-        if(UncertainPixel::is_changelog())
-        {
-            if(veq(screen, LastScreen) && !LastFilename.empty())
-            {
-                fprintf(stderr, "->link (%u,%u)\n", screen.size(), LastScreen.size());
-                std::string cmd = "ln "+LastFilename+" "+Filename;
-                system(cmd.c_str());
-                LastScreen   = screen;
-                LastFilename = Filename;
-                return;
-            }
-            LastScreen   = screen;
-            LastFilename = Filename;
-        }
-
-        gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-        
-        for(unsigned p=0, y=0; y<hei; ++y)
-            for(unsigned x=0; x<wid; ++x)
-            {
-                unsigned pix32 = screen[p++];
-                unsigned pix = pix32/*gdTrueColor
-                (
-                    (pix32 >> 24) & 0xFF,
-                    (pix32 >> 16) & 0xFF,
-                    (pix32 >> 8) & 0xFF
-                )*/;
-                gdImageSetPixel(im, x,y, pix);
-            }
-        
-        FILE* fp = fopen(Filename, "wb");
-        gdImagePngEx(im, fp, 1);
-        fclose(fp);
-        gdImageDestroy(im);
-    }
+    void Save();
 
     void Reset()
     {

@@ -6,12 +6,12 @@ static const bool CHANGELOG_GUESS_OUTSIDES = true;
 #include <vector>
 #include <algorithm>
 
-class UncertainPixel
+class ChangeLogPixel
 {
     struct historyitem
     {
         unsigned moment;
-        unsigned pixel;
+        uint32 pixel;
     public:
         historyitem() { }
         
@@ -24,7 +24,7 @@ class UncertainPixel
     };
     
     std::vector<historyitem> history;
-    unsigned lastpixel;
+    uint32 lastpixel;
     unsigned lastmoment;
 
     bool FirstMomentIsVague;    // Used when CHANGELOG_GUESS_OUTSIDES
@@ -34,14 +34,17 @@ class UncertainPixel
     MapType<uint32, unsigned short> minvalues;
 #endif
 public:
-    UncertainPixel() : lastpixel(DefaultPixel), lastmoment(0)
+    ChangeLogPixel() : lastpixel(DefaultPixel), lastmoment(0)
         , FirstMomentIsVague(true)
     {
     }
     void set(unsigned R,unsigned G,unsigned B)
     {
-        unsigned p = (((R) << 16) + ((G) << 8) + (B));
-        
+        uint32 p = (((R) << 16) + ((G) << 8) + (B));
+        set(p);
+    }
+    void set(uint32 p)
+    {
         if(CurrentTimer == 0)
         {
             // Ignore first frame. It's gray.
@@ -163,7 +166,7 @@ private:
     {
         // Updates the value of the pixel at the first moment to the value
         // that has appeared the most.
-        first_moment.set_p(p);
+        first_moment.set(p);
         history[0].pixel = first_moment;
     }
 };

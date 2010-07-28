@@ -18,8 +18,8 @@ int main(int argc, char** argv)
         }
         
         gdImagePtr im = gdImageCreateFromPng(fp);
-        if(!im) { rewind(fp); im = gdImageCreateFromJpeg(fp);
-        if(!im) { rewind(fp); im = gdImageCreateFromGif(fp); } }
+        if(!im) { rewind(fp); im = gdImageCreateFromGif(fp);
+        if(!im) { rewind(fp); im = gdImageCreateFromJpeg(fp); } }
         fclose(fp);
         if(!im)
         {
@@ -31,7 +31,7 @@ int main(int argc, char** argv)
         std::vector<uint32> pixels(sx*sy);
         for(unsigned p=0, y=0; y<sy; ++y)
             for(unsigned x=0; x<sx; ++x,++p)
-                pixels[p] = gdImageGetPixelTrueColor(im, x,y);
+                pixels[p] = gdImageGetTrueColorPixel(im, x,y);
         
         tracker.FitScreenAutomatic(&pixels[0], sx,sy);
         tracker.NextFrame();

@@ -1,15 +1,14 @@
 #include "canvas.hh"
 #include "alloc/FSBAllocator.hh"
 
+#include <gd.h>
+
+#include <map>
+
+
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
-struct ScrollingPosition         // For animated
-{
-    unsigned org_x, org_y;
-};
 std::vector<ScrollingPosition> scrolls; // For animated
-
-
 
 const std::vector<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
@@ -223,7 +222,9 @@ void TILE_Tracker::Save()
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
-            fprintf(stderr, "->link (%u,%u)\n", screen.size(), LastScreen.size());
+            fprintf(stderr, "->link (%u,%u)\n",
+                (unsigned)screen.size(),
+                (unsigned)LastScreen.size());
             std::string cmd = "ln "+LastFilename+" "+Filename;
             system(cmd.c_str());
             LastScreen   = screen;
@@ -279,7 +280,7 @@ namespace
     {
         int x, y;
         
-        bool operator<< (const IntCoordinate& b) const
+        bool operator< (const IntCoordinate& b) const
         {
             if(x != b.x) return x < b.x;
             return y < b.y;
@@ -303,7 +304,7 @@ namespace
         
         RelativeCoordinate(int xx,int yy) : x(xx), y(yy) { }
         
-        bool operator<< (const RelativeCoordinate& b) const
+        bool operator< (const RelativeCoordinate& b) const
         {
             int l = length(), bl = b.length();
             if(l != bl) return l < bl;
@@ -353,8 +354,8 @@ namespace
                                   *(uint32*)&Y[p+sy],
                                   *(uint32*)&Y[p+sy*2],
                                   *(uint32*)&Y[p+sy*3] };
-                SpotType data = { pix[0] | (uint64(pix[1]) << 32),
-                                  pix[2] | (uint64(pix[3]) << 32) };
+                SpotType data ( pix[0] | (uint64(pix[1]) << 32),
+                                pix[2] | (uint64(pix[3]) << 32) );
 
                 if(force_all_pixels)
                 {
@@ -371,8 +372,8 @@ namespace
         
         const unsigned x_divide = 32;
         const unsigned y_divide = 32;
-        const unsigned x_shrunk = (xs + x_divide-1) / x_divide;
-        const unsigned y_shrunk = (ys + y_divide-1) / y_divide;
+        const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
+        const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
         
         typedef std::map<SpotType, std::vector<size_t>,
             std::less<SpotType>,
@@ -416,12 +417,12 @@ namespace
         SpotLocSetType input_spot_locations;
         for(size_t b=input_spots.size(), a=0; a<b; ++a)
             input_spot_locations[ input_spots[a].data ]
-                .push_back( input_spots[a].where ];
+                .push_back( input_spots[a].where );
 
         SpotLocSetType reference_spot_locations;
         for(size_t b=reference_spots.size(), a=0; a<b; ++a)
             reference_spot_locations[ reference_spots[a].data ]
-                .push_back( reference_spots[a].where ];
+                .push_back( reference_spots[a].where );
         
         /* Find a set of possible offsets */
         std::map<RelativeCoordinate, unsigned,
@@ -479,8 +480,8 @@ namespace
          * find out the one that has most overlap in spots to the reference
          */
         size_t             best_match = 0;
-        RelativeCoordinate best_coord;
-        
+        RelativeCoordinate best_coord(0,0);
+
         for(std::map<RelativeCoordinate, unsigned>::const_iterator
             i = offset_suggestions.begin();
             i != offset_suggestions.end();
@@ -490,6 +491,8 @@ namespace
             
             const RelativeCoordinate& relcoord = i->first;
             
+            size_t n_match = 0;
+
             for(size_t b=input_spots.size(), a=0; a<b; ++a)
             {
                 const SpotType& data       = input_spots[a].data;
@@ -501,15 +504,13 @@ namespace
                         org_y + relcoord.y + coord.y
                     };
                 
-                size_t n_match = 0;
-                
-                SpotLocSetType::const_iterator
+                LocSpotSetType::const_iterator
                     r = reference_location_spots.find(test_coord);
-                if(r == reference_location_spots.end()
-                || !(r->second == data))
-                    continue;
-                
-                ++n_match;
+                if(r != reference_location_spots.end()
+                && r->second == data)
+                {
+                    ++n_match;
+                }
             }
             if(n_match > best_match)
             {
@@ -558,8 +559,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             ++xi)
         {
             const int x_screen_offset = xi->first  * 256;
-            const vectype& cube       = xi->second;
-            
+            const cubetype& cube      = xi->second;
+
             IntCoordinate cache_key = {x_screen_offset,y_screen_offset};
             
             if(cube.changed)
