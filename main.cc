@@ -121,9 +121,11 @@ int main(int argc, char** argv)
                         if(*arg && *arg != ',') goto m_opt_err;
                     }
                 }
+                alpha_ranges.push_back(range);
                 break;
             }
             case 'e':
+            case 'p':
             {
                 char* arg = optarg;
                 if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
@@ -190,6 +192,11 @@ int main(int argc, char** argv)
             tmp.y1 = a.y1 < sy ? a.y1 : sy;
             tmp.width  = (tmp.x1 + a.width ) < sx ? a.width  : sx-tmp.x1;
             tmp.height = (tmp.y1 + a.height) < sy ? a.height : sy-tmp.y1;
+            
+            /*std::fprintf(stderr, "%u,%u, %u,%u\n",
+                tmp.x1,tmp.y1, tmp.width,tmp.height);
+            for(size_t b=0; b<a.colors.size(); ++b)
+                fprintf(stderr, "- %06X\n", a.colors[b]);*/
             
             unsigned p = tmp.y1 * sx + tmp.x1;
             for(unsigned y=0; y<tmp.height; ++y, p += (sx-tmp.width))

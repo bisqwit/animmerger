@@ -1,0 +1,117 @@
+<html><head><meta http-equiv="Content-type" content="text/html; charset=iso-8859-1">
+ <title>Animation merger</title>
+ <style type="text/css"><!--
+TABLE.toc {border:0px}
+A:link,A:visited{text-decoration:none;color:#2A3B83}
+A:hover{text-decoration:underline;color:#002040}
+A:active{text-decoration:underline;color:#004060;background:#CCD8FF}
+TD.toc   {font-size:80%; font-family:Tahoma; text-align:left}
+H1       {font-size:250%; font-weight:bold} .level1 {text-align:center}
+H2       {font-size:200%; font-weight:bold} .level2 {margin-left:1%}
+H3       {font-size:160%; font-weight:bold} .level3 {margin-left:2%}
+H4       {font-size:145%; font-weight:bold} .level4 {margin-left:3%}
+H5       {font-size:130%; font-weight:bold} .level5 {margin-left:4%}
+H6       {font-size:110%; font-weight:bold} .level5 {margin-left:5%}
+BODY{background:white;color:black}
+CODE{font-family:lucida console,courier new,courier;color:#105000}
+PRE.smallerpre{font-family:lucida console,courier new,courier;font-size:80%;color:#500010;margin-left:30px}
+SMALL    {font-size:70%}
+.nonmail { visibility:hidden;position:absolute; top:0px;left:0px }
+.ismail  { font-weight:normal }
+--></style></head>
+ <body>
+  <h1>Animation merger</h1>
+  <h2 class=level2> 0. Contents </h2>
+  
+  This is the documentation of animmaker-1.0.0.
+<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#usage">Usage</a><br></td>
+<td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;3. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#download">Downloading</a><br></td>
+</tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
+
+Animmerger.<br>
+Motion detection.<br>
+Overlap.
+
+</div><H2 id="usage" class="level2"><a name="usage"></a>2. Usage</H2><div class="level2" id="divusage">
+
+<pre class=smallerpre>animmerger v1.0.0 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
+
+Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [&lt;...&gt;]
+
+Merges animation frames together with motion shifting.
+
+ --help, -h             This help
+ --mask, -m &lt;defs&gt;      Define a mask, see instructions below
+ --method, -p &lt;mode&gt;    Select pixel type, see below
+ --looplength, -l &lt;int&gt; Set loop length for the LOOPINGLOG mode
+ --version, -V          Displays version information
+
+animmerger will always output PNG files into the current
+working directory, with the filename pattern tile-####.png
+where #### is a sequential number beginning from 0000.
+You can convert them into a GIF animation with external
+programs such as (ImageMagick and Gifsicle required):
+   mogrify -format gif tile-????.png
+   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif
+
+AVAILABLE PIXEL TYPES
+
+  AVERAGE, long option: --method=average , short option: -pa
+     Produces a single image. Each pixel
+     is the average of all frames addressing that pixel.
+  LAST, long option: --method=long , short option: -pl
+     Produces a single image. Each pixel
+     records the latest color addressing that pixel.
+  MOSTUSED, long option: --method=mostused, short option: -pm
+     Produces a single image. Each pixel
+     records the color that most often occured in that location.
+     Use this option for making maps!
+  CHANGELOG, long option: --method=changelog, short option: -pc
+     Produces an animation.
+  LOOPINGLOG, long option: --methods=loopinglog, short option: -po
+     Produces a time-restricted animation.
+     Also called, &quot;lemmings mode&quot;.
+     Use the -l option to set loop length in frames.
+
+DEFINING MASKS
+
+  You can use masks to block out HUD / splitscreens
+  so that it will not intervene with the animation.
+  To define mask, use the --mask option, or -m for short.
+  Mask syntax: x1,y1,width,height,colors
+  Examples:
+    -m0,0,256,32
+       Mask out a 256x32 wide section at the top of screen
+    -m0,0,256,32,FFFFFF
+       From the 256x32 wide section at the top of screen,
+       mask out those pixels whose color is white (#FFFFFF)
+    -m16,16,8,40,000000,483D8B
+       From the 8x40 wide section at coordinates 16x16,
+       mask out those pixels whose color is either
+       black (#000000) or dark slate blue (#483D8B)
+
+</pre>
+
+</div><H2 id="h1" class="level2"><a name="h1"></a>3. Copying</H2><div class="level2" id="divh1">
+
+nesmock has been written by Joel Yliluoma, a.k.a.
+<a href="http://iki.fi/bisqwit/">Bisqwit</a>,<br>
+and is distributed under the terms of the
+<a href="http://www.gnu.org/licenses/licenses.html#GPL">General Public License</a> (GPL).
+
+</div><H2 id="h2" class="level2"><a name="h2"></a>4. Requirements</H2><div class="level2" id="divh2">
+
+GNU make and C++ compiler is required to recompile the source code.<br>
+libgd is also required.
+
+</div><H2 id="download" class="level2"><a name="download"></a>5. Downloading</H2><div class="level2" id="divdownload">
+   The official home page of animmerger
+   is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
+   Check there for new versions.
+</div> <p align=right><small>Generated from
+       <tt>progdesc.php</tt> (last updated: Thu, 29 Jul 2010 00:25:49 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Thu, 29 Jul 2010 00:25:49 +0300)<br>
+  at Thu, 29 Jul 2010 00:26:00 +0300</small>
+ </p>
+</body>
+</html>

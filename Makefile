@@ -19,6 +19,7 @@ ARCHFILES=\
 	alloc/style.css \
 	main.cc \
 	\
+	COPYING progdesc.php \
 	Makefile.sets
 
 include Makefile.sets
