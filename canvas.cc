@@ -1,10 +1,6 @@
 #include "canvas.hh"
-#include "alloc/FSBAllocator.hh"
-
+#include "align.hh"
 #include <gd.h>
-
-#include <map>
-
 
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
@@ -18,32 +14,32 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
 
     const int xbegin = ox;
     const int xend   = ox+sx-1;
-    
+
     const int xscreen_begin = xbegin/256;
     const int xscreen_end   = xend  /256;
-    
+
     const int ybegin = oy;
     const int yend   = oy+sy-1;
-    
+
     const int yscreen_begin = ybegin/256;
     const int yscreen_end   = yend  /256;
-    
+
 /*
     std::fprintf(stderr, "Loading screens x(%d..%d)y(%d..%d)\n",
         xscreen_begin,xscreen_end,
         yscreen_begin,yscreen_end);
 */
-    
+
     // Load each cube that falls into the requested region
-    
+
     unsigned targetpos=0;
     unsigned this_cube_ystart = oy&255;
     for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
     {
         xmaptype& xmap = screens[yscreen];
-        
+
         unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
-        
+
         unsigned this_cube_xstart = ox&255;
         for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
         {
@@ -61,28 +57,28 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
             {
                 /* Load this particular cube */
                 for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
-                { 
+                {
                     unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
                     unsigned destp =   sx*y + targetpos        - this_cube_xstart;
                     for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
                         result[destp + xp] = cube[srcp + xp];
                 }
             }
-            
+
             unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
-            
+
             targetpos+= this_cube_xsize;
-            
+
             this_cube_xstart=0;
         }
-        
+
         unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
-        
+
         targetpos += sx * (this_cube_ysize-1);
-        
+
         this_cube_ystart=0;
     }
-    
+
     return result;
 }
 
@@ -91,19 +87,19 @@ TILE_Tracker::PutScreen
     (const uint32*const input, int ox,int oy, unsigned sx,unsigned sy)
 {
     /* Nearly the same as LoadScreen. */
-    
+
     const int xbegin = ox;
     const int xend   = ox+sx-1;
-    
+
     const int xscreen_begin = xbegin/256;
     const int xscreen_end   = xend  /256;
-    
+
     const int ybegin = oy;
     const int yend   = oy+sy-1;
-    
+
     const int yscreen_begin = ybegin/256;
     const int yscreen_end   = yend  /256;
-    
+
 /*
     std::fprintf(stderr, "Writing screens x(%d..%d)y(%d..%d)\n",
         xscreen_begin,xscreen_end,
@@ -114,21 +110,21 @@ TILE_Tracker::PutScreen
     for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
     {
         xmaptype& xmap = screens[yscreen];
-        
+
         unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
-        
+
         unsigned this_cube_xstart = ox&255;
         for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
         {
             unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
-            
+
             cubetype& cube = xmap[xscreen];
 
             /* If this screen is not yet initialized, we'll initialize it */
             if(cube.pixels.empty()) cube.pixels.resize(256*256);
             if(cube.mostused.empty()) cube.mostused.resize(256*256);
             cube.changed = true;
-            
+
 /*
             std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
                 this_cube_xstart,this_cube_xend,
@@ -145,16 +141,16 @@ TILE_Tracker::PutScreen
                 }
 
             unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
-            
+
             targetpos+= this_cube_xsize;
-            
+
             this_cube_xstart=0;
         }
-        
+
         unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
-        
+
         targetpos += sx * (this_cube_ysize-1);
-        
+
         this_cube_ystart=0;
     }
 }
@@ -166,7 +162,7 @@ void TILE_Tracker::Save()
     else
         std::fprintf(stderr, "Saving(%d)\n", first);
     if(first) return;
-    
+
     if(UncertainPixel::is_animated())
     {
         static bool Saving = false;
@@ -174,7 +170,7 @@ void TILE_Tracker::Save()
         {
             Saving = true;
             unsigned SavedTimer = CurrentTimer;
-            
+
             if(UncertainPixel::is_loopinglog())
             {
                 const unsigned LoopLength = UncertainPixel::GetLoopLength();
@@ -203,22 +199,22 @@ void TILE_Tracker::Save()
             fflush(stdout);
         }
     }
-    
+
     int ymi = get_min_y(), yma = get_max_y();
     int xmi = get_min_x(), xma = get_max_x();
 
     unsigned wid = xma-xmi+1;
     unsigned hei = yma-ymi+1;
-    
+
     if(wid <= 1 || hei <= 1) return;
-    
+
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
-    
+
     char Filename[512];
     sprintf(Filename, "tile-%04u.png", count++);
-    
+
     std::vector<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
-    
+
     if(UncertainPixel::is_changelog())
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
@@ -237,7 +233,7 @@ void TILE_Tracker::Save()
     }
 
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-    
+
     for(unsigned p=0, y=0; y<hei; ++y)
         for(unsigned x=0; x<wid; ++x)
         {
@@ -250,344 +246,11 @@ void TILE_Tracker::Save()
             )*/;
             gdImageSetPixel(im, x,y, pix);
         }
-    
+
     FILE* fp = fopen(Filename, "wb");
     gdImagePngEx(im, fp, 1);
     fclose(fp);
     gdImageDestroy(im);
-}
-
-namespace
-{
-    static const int RGB2YUV_SHIFT = 15; /* highest value where [RGB][YUV] fit in signed short */
-
-    static const int RY = 8414;  //  ((int)(( 65.738/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int RV = 14392; //  ((int)((112.439/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int RU = -4856; //  ((int)((-37.945/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int GY = 16519; //  ((int)((129.057/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int GV = -12051;//  ((int)((-94.154/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int GU = -9534; //  ((int)((-74.494/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int BY = 3208;  //  ((int)(( 25.064/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int BV = -2339; //  ((int)((-18.285/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int BU = 14392; //  ((int)((112.439/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int Y_ADD = 16;
-    static const int U_ADD = 128;
-    static const int V_ADD = 128;
-
-    struct IntCoordinate
-    {
-        int x, y;
-        
-        bool operator< (const IntCoordinate& b) const
-        {
-            if(x != b.x) return x < b.x;
-            return y < b.y;
-        }
-        bool operator== (const IntCoordinate& b) const
-        {
-            return x == b.x && y == b.y;
-        }
-    };
-
-    typedef std::pair<uint64,uint64> SpotType;
-    struct InterestingSpot
-    {
-        IntCoordinate   where;
-        SpotType        data;
-    };
-    
-    struct RelativeCoordinate
-    {
-        int x, y;
-        
-        RelativeCoordinate(int xx,int yy) : x(xx), y(yy) { }
-        
-        bool operator< (const RelativeCoordinate& b) const
-        {
-            int l = length(), bl = b.length();
-            if(l != bl) return l < bl;
-            if(x != b.x) return x < b.x;
-            return y < b.y;
-        }
-        bool operator== (const RelativeCoordinate& b) const
-        {
-            return x == b.x && y == b.y;
-        }
-        
-        int length() const
-        {
-            return (x<0 ? -x : x) + (y<0 ? -y : y);
-        }
-    };
-
-    struct AlignResult
-    {
-        int  offs_x;
-        int  offs_y;
-        bool suspect_reset;
-    };
-
-    void FindInterestingSpots(
-        std::vector<InterestingSpot>& output,
-        const uint32* input,
-        int xoffs, int yoffs,
-        unsigned sx, unsigned sy,
-        bool force_all_pixels)
-    {
-        /* Calculate the type and interestingness for all pixels.
-         *
-         * PLAN 1:
-         * Then narrow them down, by selecting the most interesting
-         * spot from every 32x32 size region.
-         * This gets 8x8, i.e. 64 spots for each cube,
-         * and 8x7, i.e. 56 spots for input image.
-         * 
-         * PLAN 2:
-         *
-         * Sort the pixels in order of rarity, and take N most rare
-         * ones, still sufficiently far apart and sufficiently many
-         * to avoid just choosing all onscreen actors.
-         *
-         */
-        std::vector<char> Transparent(sx*sy, false);
-        std::vector<unsigned char> Y(sx*sy);
-        for(unsigned p=0, y=0; y<sy; ++y)
-            for(unsigned x=0; x<sx; ++x, ++p)
-            {
-                if((input[p] & 0xFF000000u) == 0)
-                {
-                    Y[p] = ((((input[p] >> 16) & 0xFF) * RY
-                          +  ((input[p] >> 8)  & 0xFF) * GY
-                          +  ((input[p]     )  & 0xFF) * BY
-                            ) >> RGB2YUV_SHIFT) + Y_ADD;
-                }
-                else
-                {
-                    for(unsigned yos=0, yo=0; yo<4 && yo<=y; ++yo, yos+=sx)
-                        for(unsigned xo=0; xo<4 && xo<=x; ++xo)
-                            Transparent[p - xo - yos] = true;
-                }
-            }
-
-        std::vector<SpotType> spots;
-        if(!force_all_pixels)
-            spots.resize(sx*sy);
-        for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
-            for(unsigned x=0; x+4<=sx; ++x, ++p)
-            {
-                if(Transparent[p]) continue;
-                /* A sufficiently unique code describing this pixel
-                 * should be made by comparing the brightness of this
-                 * pixel to its immediate surroundings, scaled by the
-                 * average
-                 */
-                uint32 pix[4] = { *(uint32*)&Y[p     ],
-                                  *(uint32*)&Y[p+sx  ],
-                                  *(uint32*)&Y[p+sx*2],
-                                  *(uint32*)&Y[p+sx*3] };
-                SpotType data ( pix[0] | (uint64(pix[1]) << 32),
-                                pix[2] | (uint64(pix[3]) << 32) );
-
-                if(force_all_pixels)
-                {
-                    InterestingSpot spot = { { xoffs+x, yoffs+y }, data };
-                    output.push_back(spot);
-                }
-                else
-                {
-                    spots[p] = data;
-                }
-            }
-        if(force_all_pixels)
-            return;
-        
-        const unsigned x_divide = 32;
-        const unsigned y_divide = 32;
-        const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
-        const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
-        
-        typedef std::map<SpotType, std::vector<unsigned>,
-            std::less<SpotType>,
-            FSBAllocator<int> > RarityType;
-        
-        std::vector<RarityType> Rarities( x_shrunk * y_shrunk );
-        
-        for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
-            for(unsigned x=0; x+4<=sx; ++x, ++p)
-                Rarities[ (y/y_divide) * x_shrunk + (x/x_divide) ]
-                    [ spots[p] ].push_back(p);
-        
-        /* From each table, pick the least common PixelLabel,
-         * and show the first coordinate for it */
-        for(unsigned p=0, y=0; y<y_shrunk; ++y)
-            for(unsigned x=0; x<x_shrunk; ++x, ++p)
-            {
-                /* Pick the SpotType that occurs the least number of times */
-                const RarityType& r = Rarities[p];
-                RarityType::const_iterator winner = r.begin();
-                for(RarityType::const_iterator i = winner; ++i != r.end(); )
-                    if(i->second.size() < winner->second.size())
-                        winner = i;
-
-                const unsigned coordinate = winner->second.front();
-                InterestingSpot spot =
-                    { { xoffs+ coordinate%sx,
-                        yoffs+ coordinate/sx },
-                      winner->first };
-                output.push_back(spot);
-            }
-    }
-    
-    AlignResult Align(
-        const std::vector<InterestingSpot>& input_spots,
-        const std::vector<InterestingSpot>& reference_spots,
-        int org_x,
-        int org_y)
-    {
-        typedef std::map<SpotType, std::vector<IntCoordinate>,
-            std::less<SpotType>, FSBAllocator<int> > SpotLocSetType;
-
-        SpotLocSetType input_spot_locations;
-        for(size_t b=input_spots.size(), a=0; a<b; ++a)
-        {
-            /*std::fprintf(stderr, "in[%3u]: %16llX,%16llX @ %d,%d\n",
-                (unsigned)a,
-                input_spots[a].data.first,
-                input_spots[a].data.second,
-                input_spots[a].where.x,
-                input_spots[a].where.y);*/
-            input_spot_locations[ input_spots[a].data ]
-                .push_back( input_spots[a].where );
-        }
-
-        SpotLocSetType reference_spot_locations;
-        for(size_t b=reference_spots.size(), a=0; a<b; ++a)
-        {
-            /*std::fprintf(stderr, "ref[%3u]: %16llX,%16llX @ %d,%d\n",
-                (unsigned)a,
-                reference_spots[a].data.first,
-                reference_spots[a].data.second,
-                reference_spots[a].where.x,
-                reference_spots[a].where.y);*/
-            reference_spot_locations[ reference_spots[a].data ]
-                .push_back( reference_spots[a].where );
-        }
-        
-        /* Find a set of possible offsets */
-        std::map<RelativeCoordinate, unsigned,
-            std::less<RelativeCoordinate>,
-            FSBAllocator<int> > offset_suggestions;
-        for(int y=-4; y<=4; ++y)
-            for(int x=-4; x<=4; ++x)
-                offset_suggestions.insert
-                    (std::make_pair( RelativeCoordinate(x,y), 999 ));
-        
-        /* If a rarely occurring vista is found in the reference picture,
-         * add the offset to the list of offsets to be tested
-         */ 
-        for(SpotLocSetType::const_iterator
-            i = input_spot_locations.begin();
-            i != input_spot_locations.end();
-            ++i)
-        {
-            const std::vector<IntCoordinate>& coords = i->second;
-
-            if(coords.size() > 15) continue;
-            const SpotType& pixel = i->first;
-            
-            SpotLocSetType::const_iterator r
-                = reference_spot_locations.find( pixel );
-            if(r == reference_spot_locations.end()) continue;
-            
-            const std::vector<IntCoordinate>& rcoords = r->second;
-            size_t cmax = coords.size();
-            size_t rmax = rcoords.size(); if(rmax > 20) rmax = 20;
-            
-            for(size_t c=0; c<cmax; ++c)
-                for(size_t d=0; d<rmax; ++d)
-                {
-                    offset_suggestions[
-                        RelativeCoordinate(
-                            (rcoords[d].x-org_x) - coords[c].x,
-                            (rcoords[d].y-org_y) - coords[c].y
-                                      )] += 1;
-                }
-        }
-        
-        input_spot_locations.clear();
-        reference_spot_locations.clear();
-
-        typedef std::map<IntCoordinate, SpotType,
-            std::less<IntCoordinate>, FSBAllocator<int> > LocSpotSetType;
-        
-        LocSpotSetType reference_location_spots;
-        for(size_t b=reference_spots.size(), a=0; a<b; ++a)
-            reference_location_spots.insert(
-                std::make_pair( reference_spots[a].where,
-                                reference_spots[a].data ) );
-
-        /* For each candidate offset that has sufficient confidence,
-         * find out the one that has most overlap in spots to the reference
-         */
-        size_t             best_match = 0;
-        RelativeCoordinate best_coord(0,0);
-
-        for(std::map<RelativeCoordinate, unsigned>::const_iterator
-            i = offset_suggestions.begin();
-            i != offset_suggestions.end();
-            ++i)
-        {
-            if(i->second < 8) continue; // Not confident enough
-            
-            const RelativeCoordinate& relcoord = i->first;
-            
-            size_t n_match = 0;
-
-            for(size_t b=input_spots.size(), a=0; a<b; ++a)
-            {
-                const SpotType& data       = input_spots[a].data;
-                const IntCoordinate& coord = input_spots[a].where;
-                
-                IntCoordinate test_coord =
-                    {
-                        coord.x + org_x + relcoord.x,
-                        coord.y + org_y + relcoord.y
-                    };
-                
-                LocSpotSetType::const_iterator
-                    r = reference_location_spots.find(test_coord);
-                if(r != reference_location_spots.end()
-                && r->second == data)
-                {
-                    ++n_match;
-                }
-            }
-            
-            /*std::fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
-                i->first.x, i->first.y, i->second,
-                (unsigned) n_match);*/
-            
-            if(n_match > best_match)
-            {
-                best_match = n_match,
-                best_coord = i->first;
-            }
-        }
-
-        /*std::fprintf(stderr, "Choice: %d,%d: %u\n",
-            best_coord.x, best_coord.y,
-            (unsigned) best_match);*/
-        
-        AlignResult result;
-        result.suspect_reset = (best_match < input_spots.size()/16)
-                           && ! UncertainPixel::is_loopinglog();
-        result.offs_x        = best_coord.x;
-        result.offs_y        = best_coord.y;
-        return result;
-    }
 }
 
 void
@@ -599,11 +262,11 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
      * Select that offset which results in greatest overlap
      * between those two sets of spots.
      */
-     
+
     std::vector<InterestingSpot> input_spots;
     std::vector<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
-    
+
     static std::map<IntCoordinate, std::vector<InterestingSpot> > cache;
 
     /* For speed reasons, we don't use LoadScreen(), but
@@ -615,7 +278,7 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
         ++yi)
     {
         const int y_screen_offset = yi->first * 256;
-        
+
         for(xmaptype::const_iterator
             xi = yi->second.begin();
             xi != yi->second.end();
@@ -625,19 +288,19 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             const cubetype& cube      = xi->second;
 
             IntCoordinate cache_key = {x_screen_offset,y_screen_offset};
-            
+
             if(cube.changed)
             {
                 uint32 result[256*256];
                 for(unsigned p=0; p<256*256; ++p)
                     result[p] = cube.mostused[p];
-                
+
                 size_t prev_size = reference_spots.size();
                 FindInterestingSpots(reference_spots, result,
                     x_screen_offset,y_screen_offset,
                     256,256,
                     false);
-                
+
                 cache[cache_key].assign(
                     reference_spots.begin() + prev_size,
                     reference_spots.end() );
@@ -652,7 +315,7 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             }
         }
     }
-    
+
     AlignResult align = Align(
         input_spots,
         reference_spots,

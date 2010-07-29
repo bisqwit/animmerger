@@ -70,7 +70,7 @@ public:
         #undef assign
         return *this;
     }
-    
+
     ~UncertainPixel()
     {
         #define done(type) delete (type*)data
@@ -102,7 +102,7 @@ public:
         DoCases(act);
         #undef act
     }
-    
+
     static bool is_changelog()
     {
         return method == pm_ChangeLogPixel;
@@ -120,7 +120,7 @@ public:
         if(!is_loopinglog()) return 0;
         return LoopingLogLength;
     }
-    
+
 private:
     #undef DoCases
     void* data;
