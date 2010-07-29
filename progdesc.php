@@ -65,16 +65,16 @@ To be exact, here is the list of commands used to generate these pictures.
  gifsicle -O2 -o ../../demo/original.gif -l0 -d3 *.gif)<br>
 <br>
 # Produce the static pictures<br>
-for s in a l m;do (mkdir \$s;cd \$s ; ../animmerger -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mv tile-0000.png ../demo/method-\$s.png;<br> cd ../demo; pngout-hard method-\$s.png)&amp;done &amp;> /dev/null<br>
+for s in a l m;do (mkdir \$s;cd \$s ; ../animmerger -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mv tile-0000.png ../demo/method-\$s.png;<br> cd ../demo; pngout-hard method-\$s.png);done <br>
 <br>
 # Produce the changelog animation<br>
-for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-\$s.gif -l0 -d3 tile-*.gif)&amp;done &amp;>/dev/null<br>
+for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-\$s.gif -l0 -d3 tile-*.gif);done <br>
 <br>
 # Produce the loopinglog animations (vary the loop length)<br>
-for l in 4 10 30;do (mkdir o;cd o ; rm tile-????.???; ../animmerger -l\$l -po ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif);done &amp;>/dev/null<br>
+for l in 4 10 30;do (mkdir o;cd o ; rm tile-????.???; ../animmerger -l\$l -po ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif);done <br>
 <br>
 # Produce the changelog animation without HUD removal<br>
-for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png ;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-t\$s.gif -l0 -d3 tile-*.gif)&amp;done &amp;>/dev/null
+for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png ;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-t\$s.gif -l0 -d3 tile-*.gif);done
 </code></div>
 
 ", 'static:1.1. Static methods' => "
@@ -118,7 +118,7 @@ method, simply recording the last pixel value in any location.
 ", 'changelog:1.1.1. CHANGELOG' => "
 
 The \"changelog\" method records the entire animation (121995 bytes in this example).<br>
-It takes considerably less disk space (and network bandwidth) than the original animation, because now the background does not scroll.
+It takes considerably less disk space (and is faster to load) than the original animation, because now the background does not scroll.
 <p>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif\"
      alt=\"Changelog\">
