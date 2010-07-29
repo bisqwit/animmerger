@@ -19,13 +19,13 @@ public:
     typedef const T* const_iterator;
     typedef T& reference;
     typedef const T& const_reference;
-    
+
 public:
     VecType() : data(0),len(0) { }
     ~VecType() { if(len) delete[] data; }
-    
+
     void reserve(unsigned) { } /* ignore */
-    
+
     VecType(const VecType& b) : len(b.len)
     {
         if(len)
@@ -42,7 +42,7 @@ public:
         data = new T[len];
         std::copy(b.begin(),b.end(), data);
         return *this;
-    }    
+    }
 public:
     reference operator[] (unsigned ind) { return data[ind]; }
     iterator begin() { return data; }
@@ -53,7 +53,7 @@ public:
     iterator insert(iterator pos, T value)
     {
         if(!len) { data = new T[1]; *data = value; return data; }
-        
+
         T* newdata = new T[len+1];
         unsigned diff = pos-data;
         std::copy(data,pos, newdata);

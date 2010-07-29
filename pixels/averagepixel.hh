@@ -15,7 +15,7 @@ public:
     {
         r+=R; g+=G; b+=B;
         ++n;
-        
+
         pix = (((r/n) << 16) + ((g/n) << 8) + (b/n));
     }
     operator uint32() const { return pix; }

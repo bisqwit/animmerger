@@ -14,7 +14,7 @@ class ChangeLogPixel
         uint32 pixel;
     public:
         historyitem() { }
-        
+
         // Because std::upper_bound doesn't allow searching by types
         // other than what the container has, here are utility functions
         // to handle this container as if it only contained the "moment" value.
@@ -22,7 +22,7 @@ class ChangeLogPixel
         historyitem(unsigned time) : moment(time) { }
         bool operator< (const historyitem& b) const { return moment < b.moment; }
     };
-    
+
     std::vector<historyitem> history;
     uint32 lastpixel;
     unsigned lastmoment;
@@ -59,7 +59,7 @@ public:
         if(lastpixel != p || history.empty())
         {
             lastpixel = p;
-            
+
             if(CurrentTimer == 0)
             {
                 // The value of the pixel at first moment is precisely known.
@@ -74,11 +74,11 @@ public:
                     history.push_back(historyitem(0));
                 }
             }
-            
+
             historyitem item;
             item.pixel  = p;
             item.moment = CurrentTimer;
-            
+
             history.push_back(item);
         }
         if(CHANGELOG_GUESS_OUTSIDES)
@@ -91,7 +91,7 @@ public:
         }
         lastmoment = CurrentTimer;
     }
-    
+
     operator uint32() const
     {
 #if 0
@@ -124,11 +124,11 @@ private:
     {
         // Find the pixel value that was present at the given time.
         /*
-          map::lower_bound: 
+          map::lower_bound:
             Returns an iterator pointing to first element >= key, or end().
           map::upper_bound:
             Returns an iterator pointing to the first element > key, or end().
-          
+
           What we want is an iterator pointing
             to the last element that is <= key.
          */
@@ -157,7 +157,7 @@ private:
             }
         }
 #endif
-        
+
         /* Anything else. Take the value. */
         --i;
         return i->pixel;

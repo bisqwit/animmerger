@@ -4,6 +4,7 @@ ARCHNAME=animmerger-$(VERSION)
 ARCHDIR=archives/
 ARCHFILES=\
 	canvas.cc canvas.hh \
+	align.cc align.hh \
 	maptype.hh \
 	vectype.hh \
 	pixel.cc pixel.hh \
@@ -25,7 +26,7 @@ ARCHFILES=\
 include Makefile.sets
 
 OBJS=\
-	main.o canvas.o pixel.o
+	main.o canvas.o pixel.o align.o
 PROGS=\
 	animmerger
 

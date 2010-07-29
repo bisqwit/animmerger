@@ -22,20 +22,20 @@ class TILE_Tracker
     /* In this tracker, alpha = visibility. 0=transparent */
 
     int org_x, org_y;
-    
+
     int xmin,ymin;
     int xmax,ymax;
     bool first;
-    
+
     unsigned count;
-    
+
     int get_min_y() const { return ymin; }
     int get_max_y() const { return ymax; }
     int get_min_x() const { return xmin; }
     int get_max_x() const { return xmax; }
-    
-    typedef std::vector<UncertainPixel> vectype; 
-    
+
+    typedef std::vector<UncertainPixel> vectype;
+
     struct cubetype
     {
         bool changed;
@@ -46,10 +46,10 @@ class TILE_Tracker
     typedef std::map<int,cubetype> xmaptype;
     typedef std::map<int,xmaptype> ymaptype;
     ymaptype screens;
-    
+
     const std::vector<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy);
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
- 
+
 public:
     TILE_Tracker() : count(0)
     {
@@ -59,10 +59,10 @@ public:
     ~TILE_Tracker()
     {
     }
-    
+
     std::vector<uint32> LastScreen;  // For ChangeLog
     std::string LastFilename;        // For ChangeLog
-    
+
     bool veq(const std::vector<uint32>& a,
              const std::vector<uint32>& b) const // For ChangeLog
     {
@@ -101,7 +101,7 @@ public:
             SequenceBegin += CurrentTimer;
             CurrentTimer = 0;
         }
-        
+
         std::fprintf(stderr, " Resetting\n");
         screens.clear();
         org_x = 0x40000000;
@@ -128,17 +128,17 @@ public:
         if(++framecounter == 600) { Save(); framecounter=0; }
 */
         }
-        
+
         //if(offs_x != 0 || offs_y != 0)
         {
             std::fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
         }
 
         org_x += offs_x; org_y += offs_y;
-        
+
         int this_org_x = org_x + extra_offs_x;
         int this_org_y = org_y + extra_offs_y;
-        
+
         if(suspect_reset)
         {
 #if 0
@@ -162,7 +162,7 @@ public:
                 unsigned absdiff = rdiff+gdiff+bdiff;
                 diff += absdiff;
             }
-            
+
             if(diff > oldbuf.size() * 128)
             {
 #if 0
@@ -178,13 +178,13 @@ public:
 #endif
             }
         }
-        
+
         if(first || this_org_x < xmin) xmin = this_org_x;
         if(first || this_org_y < ymin) ymin = this_org_y;
         int xtmp = this_org_x+max_x; if(first || xtmp > xmax) xmax=xtmp;
         int ytmp = this_org_y+max_y; if(first || ytmp > ymax) ymax=ytmp;
         first=false;
-        
+
 #if 0
         /* If the image geometry would exceed some bounds */
         if(xmax-xmin > 800 || ymax-ymin > 800)
@@ -193,7 +193,7 @@ public:
             first=true;
         }
 #endif
-        
+
         PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
     }
     void NextFrame()

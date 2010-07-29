@@ -13,11 +13,11 @@ struct AlphaRange
 int main(int argc, char** argv)
 {
     std::vector<AlphaRange> alpha_ranges;
-    
+
     for(;;)
     {
         int option_index = 0;
-        static struct option long_options[] = 
+        static struct option long_options[] =
         {
             {"help",       0,0,'h'},
             {"version",    0,0,'V'},
@@ -173,7 +173,7 @@ int main(int argc, char** argv)
             perror(fn);
             continue;
         }
-        
+
         gdImagePtr im = gdImageCreateFromPng(fp);
         if(!im) { rewind(fp); im = gdImageCreateFromGif(fp);
         if(!im) { rewind(fp); im = gdImageCreateFromJpeg(fp); } }
@@ -198,12 +198,12 @@ int main(int argc, char** argv)
             tmp.y1 = a.y1 < sy ? a.y1 : sy;
             tmp.width  = (tmp.x1 + a.width ) < sx ? a.width  : sx-tmp.x1;
             tmp.height = (tmp.y1 + a.height) < sy ? a.height : sy-tmp.y1;
-            
+
             /*std::fprintf(stderr, "%u,%u, %u,%u\n",
                 tmp.x1,tmp.y1, tmp.width,tmp.height);
             for(size_t b=0; b<a.colors.size(); ++b)
                 fprintf(stderr, "- %06X\n", a.colors[b]);*/
-            
+
             unsigned p = tmp.y1 * sx + tmp.x1;
             for(unsigned y=0; y<tmp.height; ++y, p += (sx-tmp.width))
                 for(unsigned x=0; x<tmp.width; ++x, ++p)
