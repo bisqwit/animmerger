@@ -3,6 +3,7 @@
 
 $title = 'Animation merger';
 $progname = 'animmerger';
+$git = 'git://bisqwit.iki.fi/animmerger.git';
 
 function usagetext($prog)
 {
