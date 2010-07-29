@@ -4,6 +4,12 @@
 #include <map>
 #include <set>
 
+unsigned x_divide_input = 1;
+unsigned y_divide_input = 1;
+
+unsigned x_divide_reference = 32;
+unsigned y_divide_reference = 32;
+
 namespace
 {
     static const int RGB2YUV_SHIFT = 15; /* highest value where [RGB][YUV] fit in signed short */
@@ -106,9 +112,11 @@ void FindInterestingSpots(
             }
         }
 
-    std::vector<SpotType> spots;
-    if(!force_all_pixels)
-        spots.resize(sx*sy);
+    const unsigned x_divide = force_all_pixels ? x_divide_input : x_divide_reference;
+    const unsigned y_divide = force_all_pixels ? y_divide_input : y_divide_reference;
+
+    std::vector<SpotType> spots(sx*sy);
+    //unsigned randkey = 1;
     for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
         for(unsigned x=0; x+4<=sx; ++x, ++p)
         {
@@ -125,21 +133,24 @@ void FindInterestingSpots(
             SpotType data ( pix[0] | (uint64(pix[1]) << 32),
                             pix[2] | (uint64(pix[3]) << 32) );
 
-            if(force_all_pixels)
+            if(x_divide==1 && y_divide==1)
             {
-                InterestingSpot spot = { { xoffs+x, yoffs+y }, data };
-                output.push_back(spot);
+                //randkey = randkey*0x8088405+1;
+                //if((randkey % 3) == 0 || (x&3)==0)
+                {
+                    InterestingSpot spot = { { xoffs+x, yoffs+y }, data };
+                    output.push_back(spot);
+                }
             }
             else
             {
                 spots[p] = data;
             }
         }
-    if(force_all_pixels)
+
+    if(x_divide==1 && y_divide==1)
         return;
 
-    const unsigned x_divide = 32;
-    const unsigned y_divide = 32;
     const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
     const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
 

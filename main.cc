@@ -130,6 +130,12 @@ int main(int argc, char** argv)
                 alpha_ranges.push_back(range);
                 break;
             }
+            case 'l':
+            {
+                char* arg = optarg;
+                LoopingLogLength = strtol(arg, 0, 10);
+                break;
+            }
             case 'e':
             case 'p':
             {
