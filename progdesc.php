@@ -52,30 +52,12 @@ and begins at 0,8. The hexadecimal numbers listed are these colors:
  </tr>
 </table>
 This removes the text (white) as well as the blinking coin.
-
-</td></tr></table>
-<p>
-To be exact, here is the list of commands used to generate these pictures.
-
-<div style=\"margin-left:3em;font-size:10px\">
-<code>
-# Produce the \"original\" gif from the screenshots (png files produced by the emulator)<br>
-(mkdir pano3/q; cd pano3/q<br>
- ln ../*.png . ; mogrify -format gif *.png<br>
- gifsicle -O2 -o ../../demo/original.gif -l0 -d3 *.gif)<br>
-<br>
-# Produce the static pictures<br>
-for s in a l m;do (mkdir \$s;cd \$s ; ../animmerger -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mv tile-0000.png ../demo/method-\$s.png;<br> cd ../demo; pngout-hard method-\$s.png);done <br>
-<br>
-# Produce the changelog animation<br>
-for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-\$s.gif -l0 -d3 tile-*.gif);done <br>
-<br>
-# Produce the loopinglog animations (vary the loop length)<br>
-for l in 4 10 30;do (mkdir o;cd o ; rm tile-????.???; ../animmerger -l\$l -po ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif);done <br>
-<br>
-# Produce the changelog animation without HUD removal<br>
-for s in c;do (mkdir \$s;cd \$s ; rm tile-????.???; ../animmerger -l30 -p\$s ../pano3/*.png ;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-t\$s.gif -l0 -d3 tile-*.gif);done
-</code></div>
+</td></tr></table><br>
+<small>
+The graphics material comes from Super Mario Bros.<br>
+Mario, Super Mario Bros, and The Nintendo Entertainment System (NES)
+are registered trademarks of Nintendo of America Inc.
+But you knew that, right?</small>
 
 ", 'static:1.1. Static methods' => "
 
@@ -90,6 +72,11 @@ input, reducing it into a single frame.
 You can see a faint trace of all animated actors that appeared in
 the animation. Mario moved very fast so his trace is quite difficult
 to spot.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-a.png<br>
+# <a href=\"http://advsys.net/ken/utils.htm\">pngout</a>-hard demo/method-a.png</code>
 
 ", 'mostused:1.1.1. MOSTUSED' => "
 
@@ -104,6 +91,11 @@ for a long time, it is also recorded.<br>
 In this example, there were none though.<br>
 This mode does not thus remove all actors, but it does remove
 anything that wanders around.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pm snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-m.png<br>
+# pngout-hard demo/method-m.png</code>
 
 ", 'last:1.1.1. LAST'=> "
 
@@ -112,6 +104,11 @@ method, simply recording the last pixel value in any location.
 <p>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png\"
      alt=\"Last\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-l.png<br>
+# pngout-hard demo/method-l.png</code>
 
 ", 'animated:1.1. Animated methods' => "
 
@@ -141,6 +138,15 @@ Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
 Exteriors, i.e. content outside the \"current\" viewport of the animation
 are colored as in the \"most used\" pixel method.<br>
 This is evident in the trails left by the HUD as it scrolls by at different speeds.
+<p>
+Produced with commandline:<br>
+<code>
+# rm tile-*.png tile-*.gif<br>
+# animmerger -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# <a href=\"http://www.imagemagick.org/\">mogrify</a> -format gif tile-*.png<br>
+# <a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
+The version with HUD intact was created with the same commandline,
+except with the -m option removed.
 
 ", 'loopinglog:1.1.1. LOOPINGLOG' => "
 
@@ -162,6 +168,15 @@ is the \"lemmings\" effect.
 4 frames (49890 bytes):<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol4.gif\"
      alt=\"Loop, 4 frames\">
+<p>
+Produced with commandline:<br>
+<code>
+# for l in 4 10 30; do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mogrify -format gif tile-*.png<br>
+# &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
 
 ", 'usage:1. Usage' => "
 
