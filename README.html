@@ -23,14 +23,19 @@ SMALL    {font-size:70%}
   <h1>Animation merger</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of animmerger-1.1.0.
+  This is the documentation of animmerger-1.1.2.
 <div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#last">LAST</a><br></td>
 <td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
 
-Animmerger.<br>
-Motion detection.<br>
-Overlap.
+Animmerger converts a 2D animation from local-frame-of-reference
+into global-frame-of-reference. That is, for a movie that follows
+an actor around (and the background scrolls to follow them), it
+creates a movie that has a fixed background, and the camera moves
+around in the scene.
+<p>
+It does this with a motion detection algorithm, and a set of
+different pixel methods.
 
 </div><H2 id="methods" class="level2"><a name="methods"></a>2. Pixel methods</H2><div class="level2" id="divmethods">
 
@@ -65,30 +70,12 @@ and begins at 0,8. The hexadecimal numbers listed are these colors:
  </tr>
 </table>
 This removes the text (white) as well as the blinking coin.
-
-</td></tr></table>
-<p>
-To be exact, here is the list of commands used to generate these pictures.
-
-<div style="margin-left:3em;font-size:10px">
-<code>
-# Produce the "original" gif from the screenshots (png files produced by the emulator)<br>
-(mkdir pano3/q; cd pano3/q<br>
- ln ../*.png . ; mogrify -format gif *.png<br>
- gifsicle -O2 -o ../../demo/original.gif -l0 -d3 *.gif)<br>
-<br>
-# Produce the static pictures<br>
-for s in a l m;do (mkdir $s;cd $s ; ../animmerger -p$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mv tile-0000.png ../demo/method-$s.png;<br> cd ../demo; pngout-hard method-$s.png)&amp;done &amp;> /dev/null<br>
-<br>
-# Produce the changelog animation<br>
-for s in c;do (mkdir $s;cd $s ; rm tile-????.???; ../animmerger -l30 -p$s ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-$s.gif -l0 -d3 tile-*.gif)&amp;done &amp;>/dev/null<br>
-<br>
-# Produce the loopinglog animations (vary the loop length)<br>
-for l in 4 10 30;do (mkdir o;cd o ; rm tile-????.???; ../animmerger -l$l -po ../pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-ol"$l".gif -l0 -d3 tile-*.gif);done &amp;>/dev/null<br>
-<br>
-# Produce the changelog animation without HUD removal<br>
-for s in c;do (mkdir $s;cd $s ; rm tile-????.???; ../animmerger -l30 -p$s ../pano3/*.png ;<br> mogrify -format gif tile-*.png ;<br> gifsicle -O2 -o ../demo/method-t$s.gif -l0 -d3 tile-*.gif)&amp;done &amp;>/dev/null
-</code></div>
+</td></tr></table><br>
+<small>
+The graphics material comes from Super Mario Bros.<br>
+Mario, Super Mario Bros, and The Nintendo Entertainment System (NES)
+are registered trademarks of Nintendo of America Inc.
+But you knew that, right?</small>
 
 </div><H3 id="static" class="level3"><a name="static"></a>2.1. Static methods</H3><div class="level3" id="divstatic">
 
@@ -103,6 +90,11 @@ input, reducing it into a single frame.
 You can see a faint trace of all animated actors that appeared in
 the animation. Mario moved very fast so his trace is quite difficult
 to spot.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-a.png<br>
+# <a href="http://advsys.net/ken/utils.htm">pngout</a>-hard demo/method-a.png</code>
 
 </div><H4 id="mostused" class="level4"><a name="mostused"></a>2.1.2. MOSTUSED</H4><div class="level4" id="divmostused">
 
@@ -117,6 +109,11 @@ for a long time, it is also recorded.<br>
 In this example, there were none though.<br>
 This mode does not thus remove all actors, but it does remove
 anything that wanders around.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pm snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-m.png<br>
+# pngout-hard demo/method-m.png</code>
 
 </div><H4 id="last" class="level4"><a name="last"></a>2.1.3. LAST</H4><div class="level4" id="divlast">
 
@@ -125,13 +122,18 @@ method, simply recording the last pixel value in any location.
 <p>
 <img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png"
      alt="Last">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-l.png<br>
+# pngout-hard demo/method-l.png</code>
 
 </div><H3 id="animated" class="level3"><a name="animated"></a>2.2. Animated methods</H3><div class="level3" id="divanimated">
 
 </div><H4 id="changelog" class="level4"><a name="changelog"></a>2.2.1. CHANGELOG</H4><div class="level4" id="divchangelog">
 
 The "changelog" method records the entire animation (121995 bytes in this example).<br>
-It takes considerably less disk space (and network bandwidth) than the original animation, because now the background does not scroll.
+It takes considerably less disk space (and is faster to load) than the original animation, because now the background does not scroll.
 <p>
 <img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif"
      alt="Changelog">
@@ -154,6 +156,15 @@ Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
 Exteriors, i.e. content outside the "current" viewport of the animation
 are colored as in the "most used" pixel method.<br>
 This is evident in the trails left by the HUD as it scrolls by at different speeds.
+<p>
+Produced with commandline:<br>
+<code>
+# rm tile-*.png tile-*.gif<br>
+# animmerger -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# <a href="http://www.imagemagick.org/">mogrify</a> -format gif tile-*.png<br>
+# <a href="http://www.lcdf.org/gifsicle/">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
+The version with HUD intact was created with the same commandline,
+except with the -m option removed.
 
 </div><H4 id="loopinglog" class="level4"><a name="loopinglog"></a>2.2.2. LOOPINGLOG</H4><div class="level4" id="divloopinglog">
 
@@ -175,10 +186,19 @@ is the "lemmings" effect.
 4 frames (49890 bytes):<br>
 <img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol4.gif"
      alt="Loop, 4 frames">
+<p>
+Produced with commandline:<br>
+<code>
+# for l in 4 10 30; do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger -l$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mogrify -format gif tile-*.png<br>
+# &nbsp; gifsicle -O2 -o demo/method-ol"$l".gif -l0 -d3 tile-*.gif<br>
+# done</code>
 
 </div><H2 id="usage" class="level2"><a name="usage"></a>3. Usage</H2><div class="level2" id="divusage">
 
-<pre class=smallerpre>animmerger v1.0.1 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
+<pre class=smallerpre>animmerger v1.1.2 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
 
 Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [&lt;...&gt;]
 
@@ -189,6 +209,17 @@ Merges animation frames together with motion shifting.
  --method, -p &lt;mode&gt;    Select pixel type, see below
  --looplength, -l &lt;int&gt; Set loop length for the LOOPINGLOG mode
  --version, -V          Displays version information
+ --refscale, -r &lt;x&gt;,&lt;y&gt; Change the grid size that controls
+     how many samples are taken from the background image
+     for comparing with the input image, for image alignment.
+     Smaller grid = more accurate but slower aligning.
+     Default: -r32,32
+     Set to e.g. -r8,8 if you experience misalignment problems.
+ --mvrange, -a &lt;xmin&gt;,&lt;ymin&gt;,&lt;xmax&gt;,&lt;ymax&gt;
+     Change the limits of motion vectors.
+     Default: -9999,-9999,9999,9999
+     Example: --mvrange -4,0,4,0 specifies that the screen may
+     only scroll horizontally and by 4 pixels at most per frame.
 
 animmerger will always output PNG files into the current
 working directory, with the filename pattern tile-####.png
@@ -259,9 +290,9 @@ libgd is also required.
    is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for animmerger can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/animmerger.git">git://bisqwit.iki.fi/animmerger.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Fri, 30 Jul 2010 02:30:31 +0300)<br>
-  with <tt>docmaker.php</tt> (last updated: Fri, 30 Jul 2010 02:30:31 +0300)<br>
-  at Fri, 30 Jul 2010 02:30:31 +0300</small>
+       <tt>progdesc.php</tt> (last updated: Mon, 02 Aug 2010 15:42:56 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Mon, 02 Aug 2010 15:42:56 +0300)<br>
+  at Mon, 02 Aug 2010 15:42:57 +0300</small>
  </p>
 </body>
 </html>

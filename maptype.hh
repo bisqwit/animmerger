@@ -41,6 +41,10 @@ public:
         data.~rep();          // std::_Destroy(&data);
         new(&data) rep();     // std::_Construct(&data);
     }
+    bool empty() const
+    {
+        return data.empty();
+    }
 
     void insert(iterator i, const value_type& val)
     {
@@ -58,6 +62,25 @@ public:
         #endif
         {
             iterator middle = first + (limit>>1);
+            if(middle->first < key)
+                first = middle+1;
+            else
+                last = middle;
+        }
+        return first;
+    }
+
+    const_iterator lower_bound(K key) const
+    {
+        const_iterator first = begin(), last = end();
+        size_t limit;
+        #ifdef __GNUC__
+        while(__builtin_expect((limit=last-first) > 0, 1))
+        #else
+        while(                 (limit=last-first) > 0    )
+        #endif
+        {
+            const_iterator middle = first + (limit>>1);
             if(middle->first < key)
                 first = middle+1;
             else
