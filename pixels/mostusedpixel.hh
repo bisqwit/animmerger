@@ -4,8 +4,8 @@ class MostUsedPixel
 {
     typedef MapType<uint32, unsigned short> vmap;
     vmap values;
-    unsigned pix;
-    unsigned short max;
+    uint32   pix;       // current result
+    unsigned short max; // maximum occurrence count
     //bool final;
 public:
     MostUsedPixel() : pix(DefaultPixel),max(0) //, final(false)
@@ -22,9 +22,8 @@ public:
     {
         unsigned short v = ++values[p];
         if(v > max) { max = v; pix = p; }
-        //if(v > 300) { final=true; values.clear(); }
     }
-    uint32 value_ignore(uint32 ignore) const
+    /*uint32 value_ignore(uint32 ignore) const
     {
         if(pix != ignore) return pix;
         unsigned max2 = 0;
@@ -38,15 +37,15 @@ public:
             }
         }
         return result;
-    }
+    }*/
     operator uint32() const { return pix; }
     void Compress()
     {
         values.clear();
     }
-    void CompressButIgnore(uint32 ignore)
+    /*void CompressButIgnore(uint32 ignore)
     {
         pix = value_ignore(ignore);
         values.clear();
-    }
+    }*/
 };

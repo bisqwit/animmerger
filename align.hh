@@ -8,7 +8,6 @@
 struct IntCoordinate
 {
     int x, y;
-
     bool operator< (const IntCoordinate& b) const
     {
         if(x != b.x) return x < b.x;
@@ -79,5 +78,14 @@ struct AlignResult
     int  offs_y;
     bool suspect_reset; // Scene change alert or scene shift alert
 };
+
+
+/* These parameters control the aligner. */
+extern unsigned x_divide_input;
+extern unsigned y_divide_input;
+extern unsigned x_divide_reference;
+extern unsigned y_divide_reference;
+
+extern int mv_xmin, mv_ymin, mv_xmax, mv_ymax;
 
 #endif

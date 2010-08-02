@@ -1,16 +1,13 @@
-#ifndef bqtAnimMergerMapTypeHH
-#define bqtAnimMergerMapTypeHH
+#ifndef bqtAnimMergerSetTypeHH
+#define bqtAnimMergerSetTypeHH
 
-#include <utility>
-#include "vectype.hh"
+#include "maptype.hh"
 
-template<typename K,typename V>
-class MapType
+template<typename K>
+class SetType
 {
 public:
-    typedef K key_type;
-    typedef V mapped_type;
-    typedef std::pair<K,V> value_type;
+    typedef K value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
     typedef value_type& reference;
@@ -20,7 +17,7 @@ private:
     rep data;
 
 public:
-    MapType() { }
+    SetType() { }
 
     typedef typename rep::iterator iterator;
     typedef typename rep::const_iterator const_iterator;
@@ -50,6 +47,18 @@ public:
     {
         data.insert(i, val);
     }
+    void insert(const value_type& val)
+    {
+        iterator i = lower_bound(val);
+        if(i != end() && *i == val) return;
+        insert(i, val);
+    }
+    const_iterator find(const value_type& val) const
+    {
+        const_iterator i = lower_bound(val);
+        if(i != end() && *i != val) return end();
+        return i;
+    }
 
     iterator lower_bound(K key)
     {
@@ -62,7 +71,7 @@ public:
         #endif
         {
             iterator middle = first + (limit>>1);
-            if(middle->first < key)
+            if(*middle < key)
                 first = middle+1;
             else
                 last = middle;
@@ -81,7 +90,7 @@ public:
         #endif
         {
             const_iterator middle = first + (limit>>1);
-            if(middle->first < key)
+            if(*middle < key)
                 first = middle+1;
             else
                 last = middle;
@@ -100,7 +109,7 @@ public:
         #endif
         {
             const_iterator middle = first + (limit>>1);
-            if(key < middle->first)
+            if(key < *middle)
                 last = middle;
             else
                 first = middle+1;
@@ -108,15 +117,6 @@ public:
         return first;
     }
 
-    V& operator[] (K key)
-    {
-        iterator i = lower_bound(key);
-        if(i == end() || i->first > key)
-        {
-            i = data.insert(i, value_type(key, V()));
-        }
-        return i->second;
-    }
 };
 
 #endif

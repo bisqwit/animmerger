@@ -1,4 +1,4 @@
-VERSION=1.1.0
+VERSION=1.1.2
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -20,7 +20,7 @@ ARCHFILES=\
 	alloc/style.css \
 	main.cc \
 	\
-	COPYING progdesc.php \
+	COPYING progdesc.php docmaker.php makediff.php \
 	Makefile.sets
 
 include Makefile.sets

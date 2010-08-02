@@ -10,6 +10,11 @@ unsigned y_divide_input = 1;
 unsigned x_divide_reference = 32;
 unsigned y_divide_reference = 32;
 
+int mv_xmin = -9999;
+int mv_ymin = -9999;
+int mv_xmax = +9999;
+int mv_ymax = +9999;
+
 namespace
 {
     static const int RGB2YUV_SHIFT = 15; /* highest value where [RGB][YUV] fit in signed short */
@@ -262,11 +267,11 @@ AlignResult Align(
             size_t rmax = 0;
             for(it d=rcoords.begin(); d!=rcoords.end(); ++d)
             {
-                offset_suggestions[
-                    RelativeCoordinate(
-                        (d->x - org_x) - (c->x),
-                        (d->y - org_y) - (c->y)
-                                  )] += 1;
+                int rx = (d->x - org_x) - (c->x);
+                int ry = (d->y - org_y) - (c->y);
+                if(rx < mv_xmin || rx > mv_xmax
+                || ry < mv_ymin || ry > mv_ymax) continue;
+                offset_suggestions[RelativeCoordinate(rx,ry)] += 1;
                 if(++rmax >= 20) break;
             }
         }
@@ -284,6 +289,10 @@ AlignResult Align(
         ++i)
     {
         if(i->second < 8) continue; // Not confident enough
+        if(i->first.x < mv_xmin
+        || i->first.x > mv_xmax
+        || i->first.y < mv_ymin
+        || i->first.y > mv_ymax) continue; // Out of range
 
         const RelativeCoordinate& relcoord = i->first;
 

@@ -1,5 +1,7 @@
 #include <gd.h>
 #include "canvas.hh"
+#include "settype.hh"
+#include "align.hh"
 
 #include <cstdio>
 #include <getopt.h>
@@ -7,7 +9,7 @@
 struct AlphaRange
 {
     unsigned x1,y1, width,height;
-    std::vector<unsigned> colors;
+    SetType<unsigned> colors;
 };
 
 int main(int argc, char** argv)
@@ -24,9 +26,11 @@ int main(int argc, char** argv)
             {"mask",       1,0,'m'},
             {"method",     1,0,'p'},
             {"looplength", 1,0,'l'},
+            {"refscale",   1,0,'r'},
+            {"mvrange",    1,0,'a'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:p:l:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:p:l:r:a:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -47,6 +51,17 @@ int main(int argc, char** argv)
                     " --method, -p <mode>    Select pixel type, see below\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGLOG mode\n"
                     " --version, -V          Displays version information\n"
+                    " --refscale, -r <x>,<y> Change the grid size that controls\n"
+                    "     how many samples are taken from the background image\n"
+                    "     for comparing with the input image, for image alignment.\n"
+                    "     Smaller grid = more accurate but slower aligning.\n"
+                    "     Default: -r32,32\n"
+                    "     Set to e.g. -r8,8 if you experience misalignment problems.\n"
+                    " --mvrange, -a <xmin>,<ymin>,<xmax>,<ymax>\n"
+                    "     Change the limits of motion vectors.\n"
+                    "     Default: -9999,-9999,9999,9999\n"
+                    "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
+                    "     only scroll horizontally and by 4 pixels at most per frame.\n"
                     "\n"
                     "animmerger will always output PNG files into the current\n"
                     "working directory, with the filename pattern tile-####.png\n"
@@ -122,7 +137,7 @@ int main(int argc, char** argv)
                         if(!*arg) break;
                         char* end = 0;
                         long color = strtol(arg, &end, 16);
-                        range.colors.push_back(color);
+                        range.colors.insert(color);
                         arg = end;
                         if(*arg && *arg != ',') goto m_opt_err;
                     }
@@ -134,6 +149,32 @@ int main(int argc, char** argv)
             {
                 char* arg = optarg;
                 LoopingLogLength = strtol(arg, 0, 10);
+                break;
+            }
+            case 'r':
+            {
+                char* arg = optarg;
+                int n = sscanf(arg, "%u,%u", &x_divide_reference,&y_divide_reference);
+                if(x_divide_reference < 1 || y_divide_reference < 1
+                || x_divide_reference > 1024 || y_divide_reference > 1024
+                || n != 2)
+                {
+                    fprintf(stderr, "animmerger: Invalid parameter to -r: %s\n", arg);
+                    x_divide_reference=32;
+                    y_divide_reference=32;
+                }
+                break;
+            }
+            case 'a':
+            {
+                char* arg = optarg;
+                int n = sscanf(arg, "%d,%d,%d,%d",
+                    &mv_xmin,&mv_ymin,
+                    &mv_xmax,&mv_ymax);
+                if(n != 4)
+                {
+                    fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
+                }
                 break;
             }
             case 'e':
@@ -214,11 +255,11 @@ int main(int argc, char** argv)
             for(unsigned y=0; y<tmp.height; ++y, p += (sx-tmp.width))
                 for(unsigned x=0; x<tmp.width; ++x, ++p)
                 {
-                    if(a.colors.empty())
-                        blotout: pixels[p] |= 0xFF000000u;
-                    else for(size_t b=0; b<a.colors.size(); ++b)
-                        if(pixels[p] == a.colors[b])
-                            goto blotout;
+                    if(a.colors.empty()
+                    || a.colors.find(pixels[p]) != a.colors.end())
+                    {
+                        pixels[p] |= 0xFF000000u;
+                    }
                 }
         }
 

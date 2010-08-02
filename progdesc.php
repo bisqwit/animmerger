@@ -15,9 +15,14 @@ function usagetext($prog)
 $text = array(
    '1. Purpose' => "
 
-Animmerger.<br>
-Motion detection.<br>
-Overlap.
+Animmerger converts a 2D animation from local-frame-of-reference
+into global-frame-of-reference. That is, for a movie that follows
+an actor around (and the background scrolls to follow them), it
+creates a movie that has a fixed background, and the camera moves
+around in the scene.
+<p>
+It does this with a motion detection algorithm, and a set of
+different pixel methods.
 
 ", 'methods:1. Pixel methods' => "
 
