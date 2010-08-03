@@ -86,6 +86,8 @@ void FindInterestingSpots(
      * to avoid just choosing all onscreen actors.
      *
      * What is actually done here is a mixture of these two plans.
+     * For each cell in the cube (i.e. 8x8 for a 256x256 screen),
+     * we save the one spot that occurs most rarely.
      */
 
     /* Convert the input image into a YUV image.

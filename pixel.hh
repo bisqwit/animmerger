@@ -38,28 +38,30 @@ class UncertainPixel
         switch(method) \
         { \
             case pm_AveragePixel: \
-                code(AveragePixel); break; \
+                { code(AveragePixel); break; } \
             case pm_LastPixel: \
-                code(LastPixel);    break; \
+                { code(LastPixel);    break; } \
             case pm_MostUsedPixel: \
-                code(MostUsedPixel); break; \
+                { code(MostUsedPixel); break; } \
             case pm_MostUsed16Pixel: \
-                code(MostUsedWithinPixel<16> ); break; \
+                { code(MostUsedWithinPixel<16> ); break; } \
             case pm_ChangeLogPixel: \
-                code(ChangeLogPixel); break; \
+                { code(ChangeLogPixel); break; } \
             case pm_LoopingLogPixel: \
-                code(LoopingLogPixel ); break; \
+                { code(LoopingLogPixel ); break; } \
         }
 public:
     UncertainPixel()
     {
-        #define init(type) data = (void*) new type()
+        #define init(type) \
+            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type()
         DoCases(init);
         #undef init
     }
     UncertainPixel(const UncertainPixel& b)
     {
-        #define copy(type) data = (void*) new type(*(type*)b.data)
+        #define copy(type) \
+            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type(*(const type*)b.data)
         DoCases(copy);
         #undef copy
     }
@@ -73,7 +75,8 @@ public:
 
     ~UncertainPixel()
     {
-        #define done(type) delete (type*)data
+        #define done(type) \
+            FSBAllocator<type> a; a.destroy( (type*) data); a.deallocate( (type*)data, 1 )
         DoCases(done);
         #undef done
     }
@@ -120,6 +123,8 @@ public:
         if(!is_loopinglog()) return 0;
         return LoopingLogLength;
     }
+    
+    void* GetPtr() const { return data; }
 
 private:
     #undef DoCases

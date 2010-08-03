@@ -40,6 +40,7 @@ public:
         if(result == DefaultPixel) return most_used;
         return result;
     }
+    inline const MostUsedPixel& GetMostUsed() const { return most_used; }
 
     void Compress()
     {

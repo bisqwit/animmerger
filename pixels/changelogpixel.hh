@@ -10,9 +10,10 @@ class ChangeLogPixel
 {
     MapType<unsigned, uint32> history;
     MostUsedPixel most_used;
+    unsigned last_time;
 
 public:
-    ChangeLogPixel() : history(), most_used()
+    ChangeLogPixel() : history(), most_used(), last_time(0)
     {
     }
     void set(unsigned R,unsigned G,unsigned B)
@@ -28,6 +29,7 @@ public:
             return;
         }*/
         most_used.set(p);
+        if(CurrentTimer > last_time) last_time = CurrentTimer;
         // Store the value into the history.
         // However, do not store three consecutive identical values.
         // Only store the first timer value where it occurs,
@@ -66,7 +68,17 @@ public:
                to support later insertions into middle
                of timestream.
         */
-
+        if(i != history.begin())
+        {
+            MapType<unsigned, uint32>::iterator j(i);
+            --j;
+            if(j->second == p)
+            {
+                // Ignore repeating value
+                return;
+            }
+        }
+        
         history.insert(i,
             std::pair<unsigned, uint32> (CurrentTimer, p)
                       );
@@ -76,6 +88,7 @@ public:
     {
         return Find(CurrentTimer);
     }
+    inline const MostUsedPixel& GetMostUsed() const { return most_used; }
 
     void Compress()
     {
@@ -110,7 +123,7 @@ private:
 
         /* Anything else. Take the value. */
         --i;
-        if(i->first < time && last)
+        if(i->first < time && last && time > last_time)
         {
             return CHANGELOG_GUESS_OUTSIDES
                 ? most_used

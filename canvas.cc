@@ -123,7 +123,10 @@ TILE_Tracker::PutScreen
 
             /* If this screen is not yet initialized, we'll initialize it */
             if(cube.pixels.empty()) cube.pixels.resize(256*256);
-            if(cube.mostused.empty()) cube.mostused.resize(256*256);
+            if(method != pm_MostUsedPixel
+            && method != pm_ChangeLogPixel
+            && method != pm_LoopingLogPixel)
+                if(cube.mostused.empty()) cube.mostused.resize(256*256);
             cube.changed = true;
 
 /*
@@ -138,7 +141,8 @@ TILE_Tracker::PutScreen
                     uint32 pix = input[targetpos + x + y*sx];
                     if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
                     cube.pixels  [xp + 256*yp].set(pix);
-                    cube.mostused[xp + 256*yp].set(pix);
+                    if(!cube.mostused.empty())
+                        cube.mostused[xp + 256*yp].set(pix);
                 }
 
             unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
@@ -268,7 +272,9 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
     std::vector<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
 
-    static std::map<IntCoordinate, std::vector<InterestingSpot> > cache;
+    static std::map<IntCoordinate, std::vector<InterestingSpot>,
+                    std::less<IntCoordinate>,
+                    FSBAllocator<int> > cache;
 
     /* For speed reasons, we don't use LoadScreen(), but
      * instead, work on cube-by-cube basis.
@@ -293,8 +299,30 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             if(cube.changed)
             {
                 uint32 result[256*256];
-                for(unsigned p=0; p<256*256; ++p)
-                    result[p] = cube.mostused[p];
+                switch(method)
+                {
+                    case pm_MostUsedPixel:
+                        for(unsigned p=0; p<256*256; ++p)
+                            result[p] = cube.pixels[p];
+                        break;
+                    case pm_ChangeLogPixel:
+                        for(unsigned p=0; p<256*256; ++p)
+                        {
+                            void* ptr = cube.pixels[p].GetPtr();
+                            result[p] = ((ChangeLogPixel*)ptr) ->GetMostUsed();
+                        }
+                        break;
+                    case pm_LoopingLogPixel:
+                        for(unsigned p=0; p<256*256; ++p)
+                        {
+                            void* ptr = cube.pixels[p].GetPtr();
+                            result[p] = ((LoopingLogPixel*)ptr) ->GetMostUsed();
+                        }
+                        break;
+                    default:
+                        for(unsigned p=0; p<256*256; ++p)
+                            result[p] = cube.mostused[p];
+                }
 
                 size_t prev_size = reference_spots.size();
                 FindInterestingSpots(reference_spots, result,
