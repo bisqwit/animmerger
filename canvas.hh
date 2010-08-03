@@ -16,8 +16,6 @@ extern unsigned SequenceBegin;      // For animated
 
 class TILE_Tracker
 {
-    /* In this tracker, alpha = visibility. 0=transparent */
-
     int org_x, org_y;
 
     int xmin,ymin;
@@ -25,11 +23,6 @@ class TILE_Tracker
     bool first;
 
     unsigned count;
-
-    int get_min_y() const { return ymin; }
-    int get_max_y() const { return ymax; }
-    int get_min_x() const { return xmin; }
-    int get_max_x() const { return xmax; }
 
     typedef UncertainPixelVector256x256 vectype;
 
@@ -43,8 +36,8 @@ class TILE_Tracker
     typedef std::map<int,xmaptype, std::less<int>, FSBAllocator<int> > ymaptype;
     ymaptype screens;
 
-    const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const;
-    void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
+    VecType<uint32> LastScreen;  // For ChangeLog
+    std::string LastFilename;    // For ChangeLog
 
 public:
     TILE_Tracker() : count(0), LastFilename()
@@ -55,9 +48,6 @@ public:
     ~TILE_Tracker()
     {
     }
-
-    VecType<uint32> LastScreen;  // For ChangeLog
-    std::string LastFilename;    // For ChangeLog
 
     void Cleanup();
 
@@ -71,6 +61,10 @@ public:
     void Save();
 
     void Reset();
+
+    const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const;
+
+    void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
 
     void FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy);
 

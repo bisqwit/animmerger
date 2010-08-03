@@ -35,8 +35,8 @@ public:
 
     void clear()
     {
-        data.~rep();          // std::_Destroy(&data);
-        new(&data) rep();     // std::_Construct(&data);
+        data.~rep();
+        new(&data) rep();
     }
     bool empty() const
     {

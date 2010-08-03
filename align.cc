@@ -107,6 +107,9 @@ void FindInterestingSpots(
                       +  ((input[p] >> 8)  & 0xFF) * GY
                       +  ((input[p]     )  & 0xFF) * BY
                         ) >> RGB2YUV_SHIFT) + Y_ADD;
+                // U and V could be calculated similarly,
+                // by using RU,GU,BY,U_ADD for U
+                // and by using RV,GV,BV,V_ADD for V.
             }
             else
             {
@@ -137,7 +140,10 @@ void FindInterestingSpots(
             /* A sufficiently unique code describing this pixel
              * should be made by comparing the brightness of this
              * pixel to its immediate surroundings, scaled by the
-             * average
+             * average.
+             * That was the plan. The implementation here is simpler,
+             * and simply takes a 4x4 pixel block of Y (brightness) values
+             * and stores them verbatim into 16 bytes (two 8-byte integers).
              */
             uint32 pix[4] = { *(uint32*)&Y[p     ],
                               *(uint32*)&Y[p+sx  ],
@@ -187,7 +193,6 @@ void FindInterestingSpots(
                 if(i->second.size() < winner->second.size())
                     winner = i;
 
-            if(winner->second.empty()) continue;
             const unsigned coordinate = winner->second.front();
             InterestingSpot spot =
                 { { xoffs+ coordinate%sx,

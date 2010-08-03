@@ -139,11 +139,11 @@ class ChangeLogPixelAndMostUsedPixel
 public:
     ChangeLogPixel  pixel;
 public:
-    void set(uint32 p)
+    inline void set(uint32 p)
     {
         pixel.set(p);
     }
-    uint32 get_pixel() const    { return pixel; }
-    uint32 get_mostused() const { return pixel.GetMostUsed(); }
-    void Compress() { pixel.Compress(); }
+    inline uint32 get_pixel() const    { return pixel; }
+    inline uint32 get_mostused() const { return pixel.GetMostUsed(); }
+    inline void Compress() { pixel.Compress(); }
 };

@@ -267,16 +267,16 @@ void TILE_Tracker::Save()
         {
             printf("/*%u*/ %d,%d, %d,%d,\n",
                 count,
-                scrolls[CurrentTimer].org_x - get_min_x(),
-                scrolls[CurrentTimer].org_y - get_min_y(),
+                scrolls[CurrentTimer].org_x - xmin,
+                scrolls[CurrentTimer].org_y - ymin,
                 0,0
                 );
             fflush(stdout);
         }
     }
 
-    int ymi = get_min_y(), yma = get_max_y();
-    int xmi = get_min_x(), xma = get_max_x();
+    int ymi = ymin, yma = ymax;
+    int xmi = xmin, xma = xmax;
 
     unsigned wid = xma-xmi;
     unsigned hei = yma-ymi;

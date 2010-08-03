@@ -211,7 +211,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    std::vector<uint32> pixels;
+    VecType<uint32> pixels;
     for(int a=optind; a<argc; ++a)
     {
         const char* fn = argv[a];
