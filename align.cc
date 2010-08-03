@@ -119,6 +119,10 @@ void FindInterestingSpots(
 
     const unsigned x_divide = force_all_pixels ? x_divide_input : x_divide_reference;
     const unsigned y_divide = force_all_pixels ? y_divide_input : y_divide_reference;
+    const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
+    const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
+
+    output.reserve(output.size() + x_shrunk * y_shrunk);
 
     std::vector<SpotType> spots(sx*sy);
     //unsigned randkey = 1;
@@ -155,9 +159,6 @@ void FindInterestingSpots(
 
     if(x_divide==1 && y_divide==1)
         return;
-
-    const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
-    const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
 
     typedef std::map<SpotType, std::vector<unsigned>,
         std::less<SpotType>,

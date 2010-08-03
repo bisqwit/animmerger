@@ -1,6 +1,7 @@
 #include "canvas.hh"
 #include "align.hh"
 #include <gd.h>
+#include <cstdio>
 
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
@@ -210,8 +211,8 @@ void TILE_Tracker::Save()
 
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
 
-    char Filename[512];
-    sprintf(Filename, "tile-%04u.png", count++);
+    char Filename[512] = {0}; // explicit init keeps valgrind happy
+    std::sprintf(Filename, "tile-%04u.png", count++);
 
     std::vector<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
 
@@ -247,9 +248,9 @@ void TILE_Tracker::Save()
             gdImageSetPixel(im, x,y, pix);
         }
 
-    FILE* fp = fopen(Filename, "wb");
+    FILE* fp = std::fopen(Filename, "wb");
     gdImagePngEx(im, fp, 1);
-    fclose(fp);
+    std::fclose(fp);
     gdImageDestroy(im);
 }
 
@@ -326,4 +327,89 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
         align.offs_x,
         align.offs_y,
         align.suspect_reset);
+}
+
+void TILE_Tracker::FitScreen
+    (const uint32* buf,
+     unsigned max_x,
+     unsigned max_y,
+     int offs_x, int offs_y, bool suspect_reset,
+     int extra_offs_x,
+     int extra_offs_y
+    )
+{
+    if(! UncertainPixel::is_animated())
+    {
+/*
+    static unsigned framecounter=0;
+    if(++framecounter == 600) { Save(); framecounter=0; }
+*/
+    }
+
+    //if(offs_x != 0 || offs_y != 0)
+    {
+        std::fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
+    }
+
+    org_x += offs_x; org_y += offs_y;
+
+    int this_org_x = org_x + extra_offs_x;
+    int this_org_y = org_y + extra_offs_y;
+
+    if(suspect_reset)
+    {
+#if 0
+        goto AlwaysReset;
+#endif
+        std::vector<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y);
+        unsigned diff = 0;
+        for(unsigned a=0; a<oldbuf.size(); ++a)
+        {
+            unsigned oldpix = oldbuf[a];
+            unsigned pix   = buf[a];
+            unsigned r = (pix >> 16) & 0xFF;
+            unsigned g = (pix >> 8) & 0xFF;
+            unsigned b = (pix    ) & 0xFF;
+            unsigned oldr = (oldpix >> 16) & 0xFF;
+            unsigned oldg = (oldpix >> 8) & 0xFF;
+            unsigned oldb = (oldpix    ) & 0xFF;
+            int rdiff = (int)(r-oldr); if(rdiff < 0)rdiff=-rdiff;
+            int gdiff = (int)(g-oldg); if(gdiff < 0)gdiff=-gdiff;
+            int bdiff = (int)(b-oldb); if(bdiff < 0)bdiff=-bdiff;
+            unsigned absdiff = rdiff+gdiff+bdiff;
+            diff += absdiff;
+        }
+
+        if(diff > oldbuf.size() * 128)
+        {
+#if 0
+            /* Castlevania hack */
+            static int org_diff = -180;
+            org_y += org_diff;
+            org_diff = -org_diff;
+#else
+#if 1
+        AlwaysReset:
+            SaveAndReset();
+#endif
+#endif
+        }
+    }
+
+    if(first || this_org_x < xmin) xmin = this_org_x;
+    if(first || this_org_y < ymin) ymin = this_org_y;
+    int xtmp = this_org_x+max_x; if(first || xtmp > xmax) xmax=xtmp;
+    int ytmp = this_org_y+max_y; if(first || ytmp > ymax) ymax=ytmp;
+    first=false;
+
+#if 0
+    /* If the image geometry would exceed some bounds */
+    if(xmax-xmin > 800 || ymax-ymin > 800)
+    {
+        SaveAndReset();
+        first=true;
+    }
+#endif
+
+    PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
 }

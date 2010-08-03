@@ -5,7 +5,6 @@
 static const bool CHANGELOG_GUESS_OUTSIDES = true;
 
 #include <vector>
-#include <algorithm>
 
 class ChangeLogPixel
 {

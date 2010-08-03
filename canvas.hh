@@ -2,6 +2,7 @@
 #define bqtTileTrackerCanvasHH
 
 #include "pixel.hh"
+#include "alloc/FSBAllocator.hh"
 
 #include <vector>
 #include <map>
@@ -43,15 +44,15 @@ class TILE_Tracker
         std::vector<MostUsedPixel> mostused;
     };
 
-    typedef std::map<int,cubetype> xmaptype;
-    typedef std::map<int,xmaptype> ymaptype;
+    typedef std::map<int,cubetype, std::less<int>, FSBAllocator<int> > xmaptype;
+    typedef std::map<int,xmaptype, std::less<int>, FSBAllocator<int> > ymaptype;
     ymaptype screens;
 
     const std::vector<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy);
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
 
 public:
-    TILE_Tracker() : count(0)
+    TILE_Tracker() : count(0), LastFilename()
     {
         Reset();
     }
@@ -119,83 +120,8 @@ public:
                    int offs_x, int offs_y, bool suspect_reset,
                    int extra_offs_x=0,
                    int extra_offs_y=0
-                  )
-    {
-        if(! UncertainPixel::is_animated())
-        {
-/*
-        static unsigned framecounter=0;
-        if(++framecounter == 600) { Save(); framecounter=0; }
-*/
-        }
+                  );
 
-        //if(offs_x != 0 || offs_y != 0)
-        {
-            std::fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
-        }
-
-        org_x += offs_x; org_y += offs_y;
-
-        int this_org_x = org_x + extra_offs_x;
-        int this_org_y = org_y + extra_offs_y;
-
-        if(suspect_reset)
-        {
-#if 0
-            goto AlwaysReset;
-#endif
-            std::vector<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y);
-            unsigned diff = 0;
-            for(unsigned a=0; a<oldbuf.size(); ++a)
-            {
-                unsigned oldpix = oldbuf[a];
-                unsigned pix   = buf[a];
-                unsigned r = (pix >> 16) & 0xFF;
-                unsigned g = (pix >> 8) & 0xFF;
-                unsigned b = (pix    ) & 0xFF;
-                unsigned oldr = (oldpix >> 16) & 0xFF;
-                unsigned oldg = (oldpix >> 8) & 0xFF;
-                unsigned oldb = (oldpix    ) & 0xFF;
-                int rdiff = (int)(r-oldr); if(rdiff < 0)rdiff=-rdiff;
-                int gdiff = (int)(g-oldg); if(gdiff < 0)gdiff=-gdiff;
-                int bdiff = (int)(b-oldb); if(bdiff < 0)bdiff=-bdiff;
-                unsigned absdiff = rdiff+gdiff+bdiff;
-                diff += absdiff;
-            }
-
-            if(diff > oldbuf.size() * 128)
-            {
-#if 0
-                /* Castlevania hack */
-                static int org_diff = -180;
-                org_y += org_diff;
-                org_diff = -org_diff;
-#else
-#if 1
-            AlwaysReset:
-                SaveAndReset();
-#endif
-#endif
-            }
-        }
-
-        if(first || this_org_x < xmin) xmin = this_org_x;
-        if(first || this_org_y < ymin) ymin = this_org_y;
-        int xtmp = this_org_x+max_x; if(first || xtmp > xmax) xmax=xtmp;
-        int ytmp = this_org_y+max_y; if(first || ytmp > ymax) ymax=ytmp;
-        first=false;
-
-#if 0
-        /* If the image geometry would exceed some bounds */
-        if(xmax-xmin > 800 || ymax-ymin > 800)
-        {
-            SaveAndReset();
-            first=true;
-        }
-#endif
-
-        PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
-    }
     void NextFrame()
     {
         if(UncertainPixel::is_animated())

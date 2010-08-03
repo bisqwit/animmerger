@@ -211,6 +211,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
+    std::vector<uint32> pixels;
     for(int a=optind; a<argc; ++a)
     {
         const char* fn = argv[a];
@@ -232,10 +233,11 @@ int main(int argc, char** argv)
         }
 
         unsigned sx = gdImageSX(im), sy = gdImageSY(im);
-        std::vector<uint32> pixels(sx*sy);
+        pixels.resize(sx*sy);
         for(unsigned p=0, y=0; y<sy; ++y)
             for(unsigned x=0; x<sx; ++x,++p)
                 pixels[p] = gdImageGetTrueColorPixel(im, x,y);
+        gdImageDestroy(im);
 
         for(size_t r=0; r<alpha_ranges.size(); ++r)
         {
