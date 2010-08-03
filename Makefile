@@ -35,6 +35,8 @@ LDLIBS += -lgd
 
 CXXFLAGS += -std=c++0x
 
+#OPTIM=-O2 -fno-inline
+
 all: $(PROGS)
 
 animmerger: $(OBJS)

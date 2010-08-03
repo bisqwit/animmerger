@@ -4,6 +4,8 @@
 #include <map>
 #include <set>
 
+#include "settype.hh"
+
 unsigned x_divide_input = 1;
 unsigned y_divide_input = 1;
 
@@ -185,6 +187,7 @@ void FindInterestingSpots(
                 if(i->second.size() < winner->second.size())
                     winner = i;
 
+            if(winner->second.empty()) continue;
             const unsigned coordinate = winner->second.front();
             InterestingSpot spot =
                 { { xoffs+ coordinate%sx,

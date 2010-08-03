@@ -1,10 +1,10 @@
 #ifndef bqtAnimMergerSetTypeHH
 #define bqtAnimMergerSetTypeHH
 
-#include "maptype.hh"
+#include "vectype.hh"
 
-template<typename K>
-class SetType
+template<typename K, bool Multiple>
+class SetBaseType
 {
 public:
     typedef K value_type;
@@ -17,7 +17,7 @@ private:
     rep data;
 
 public:
-    SetType() { }
+    SetBaseType() { }
 
     typedef typename rep::iterator iterator;
     typedef typename rep::const_iterator const_iterator;
@@ -43,6 +43,8 @@ public:
         return data.empty();
     }
 
+    typename rep::size_type size() const { return data.size(); }
+
     void insert(iterator i, const value_type& val)
     {
         data.insert(i, val);
@@ -50,16 +52,16 @@ public:
     void insert(const value_type& val)
     {
         iterator i = lower_bound(val);
-        if(i != end() && *i == val) return;
-        insert(i, val);
+        if(!Multiple && i != end() && *i == val) return;
+        data.insert(i, val);
     }
     const_iterator find(const value_type& val) const
     {
         const_iterator i = lower_bound(val);
-        if(i != end() && *i != val) return end();
+        if(i != end() && !(*i == val)) return end();
         return i;
     }
-
+    
     iterator lower_bound(K key)
     {
         iterator first = begin(), last = end();
@@ -116,7 +118,15 @@ public:
         }
         return first;
     }
+};
 
+template<typename K>
+class SetType: public SetBaseType<K,false>
+{
+};
+template<typename K>
+class MultiSetType: public SetBaseType<K,true>
+{
 };
 
 #endif

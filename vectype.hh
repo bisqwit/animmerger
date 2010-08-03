@@ -120,7 +120,7 @@ public:
     void push_back(K value)
     {
         //insert(end(), value);
-        if(len >= cap) reserve(cap ? cap*2 : 1);
+        if(len >= cap) reserve(cap ? cap*2 : default_size());
         new(&data[len++]) T ( value );
     }
 
@@ -141,7 +141,7 @@ public:
             ++len;
             return data+ins_pos;
         }
-        size_type newcap = cap ? cap*2 : 1;
+        size_type newcap = cap ? cap*2 : default_size();
         if(ins_pos == len)
         {
             reserve(newcap);
@@ -158,7 +158,7 @@ public:
         ++len;
         data = newdata;
         cap  = newcap;
-        return data + ins_pos;
+        return data+ins_pos;
     }
 
     template<typename It>
@@ -279,7 +279,11 @@ public:
     }
 
     bool empty() const { return len==0; }
-    void clear() { resize(0); }
+    void clear()
+    {
+        destroy(&data[0], len);
+        len = 0;
+    }
     size_type size()     const { return len; }
     size_type capacity() const { return cap; }
 
@@ -347,6 +351,11 @@ private:
         for(size_type a=0; a<count; ++a)
             new(&target[a]) T( *source++ );
         return source;
+    }
+    
+    static size_t default_size()
+    {
+        return 1; //sizeof(T) < 16 ? 2 : (sizeof(T) < 256 ? 2 : 1);
     }
 
 private:

@@ -14,7 +14,7 @@ struct AlphaRange
 
 int main(int argc, char** argv)
 {
-    std::vector<AlphaRange> alpha_ranges;
+    VecType<AlphaRange> alpha_ranges;
 
     for(;;)
     {

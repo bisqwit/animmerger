@@ -274,16 +274,6 @@ void TILE_Tracker::Save()
     gdImageDestroy(im);
 }
 
-namespace
-{
-    /* Cache InterestingSpot lists for each cube */
-    /* NOTE: GLOBAL */
-    std::map
-        <IntCoordinate, VecType<InterestingSpot>,
-         std::less<IntCoordinate>,
-         FSBAllocator<int> > cache;
-}
-
 void
 TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
 {
@@ -297,6 +287,12 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
     VecType<InterestingSpot> input_spots;
     VecType<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
+
+    /* Cache InterestingSpot lists for each cube */
+    static std::map
+        <IntCoordinate, VecType<InterestingSpot>,
+         std::less<IntCoordinate>,
+         FSBAllocator<int> > cache;
 
     /* For speed reasons, we don't use LoadScreen(), but
      * instead, work on cube-by-cube basis.
