@@ -278,8 +278,8 @@ void TILE_Tracker::Save()
     int ymi = get_min_y(), yma = get_max_y();
     int xmi = get_min_x(), xma = get_max_x();
 
-    unsigned wid = xma-xmi+1;
-    unsigned hei = yma-ymi+1;
+    unsigned wid = xma-xmi;
+    unsigned hei = yma-ymi;
 
     if(wid <= 1 || hei <= 1) return;
 
