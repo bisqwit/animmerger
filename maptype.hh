@@ -105,7 +105,7 @@ public:
         }
         return first;
     }
-    
+
     template<typename Kt>
     iterator find(Kt key)
     {

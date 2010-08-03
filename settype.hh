@@ -61,7 +61,7 @@ public:
         if(i != end() && !(*i == val)) return end();
         return i;
     }
-    
+
     iterator lower_bound(K key)
     {
         iterator first = begin(), last = end();

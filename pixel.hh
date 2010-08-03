@@ -37,81 +37,7 @@ extern enum PixelMethod
 
 class UncertainPixel
 {
-/*
-    #define DoCases(code) \
-        switch(method) \
-        { \
-            case pm_AveragePixel: \
-                { code(AveragePixel); break; } \
-            case pm_LastPixel: \
-                { code(LastPixel);    break; } \
-            case pm_MostUsedPixel: \
-                { code(MostUsedPixel); break; } \
-            case pm_MostUsed16Pixel: \
-                { code(MostUsedWithinPixel<16> ); break; } \
-            case pm_ChangeLogPixel: \
-                { code(ChangeLogPixel); break; } \
-            case pm_LoopingLogPixel: \
-                { code(LoopingLogPixel ); break; } \
-        }
-*/
 public:
-/*
-    UncertainPixel()
-    {
-        #define init(type) \
-            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type()
-        DoCases(init);
-        #undef init
-    }
-    UncertainPixel(const UncertainPixel& b)
-    {
-        #define copy(type) \
-            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type(*(const type*)b.data)
-        DoCases(copy);
-        #undef copy
-    }
-    UncertainPixel& operator= (const UncertainPixel& b)
-    {
-        #define assign(type) *(type*)data = *(type*)b.data
-        DoCases(assign);
-        #undef assign
-        return *this;
-    }
-
-    ~UncertainPixel()
-    {
-        #define done(type) \
-            FSBAllocator<type> a; a.destroy( (type*) data); a.deallocate( (type*)data, 1 )
-        DoCases(done);
-        #undef done
-    }
-    operator uint32() const
-    {
-        #define get(type) return *((type*)data)
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
-    }
-    void set(unsigned R,unsigned G,unsigned B)
-    {
-        #define put(type) ((type*)data)->set(R,G,B)
-        DoCases(put);
-        #undef put
-    }
-    void set(uint32 p)
-    {
-        #define put(type) ((type*)data)->set(p)
-        DoCases(put);
-        #undef put
-    }
-    void Compress()
-    {
-        #define act(type) ((type*)data)->Compress()
-        DoCases(act);
-        #undef act
-    }
-*/
     static bool is_changelog()
     {
         return method == pm_ChangeLogPixel;
@@ -129,13 +55,6 @@ public:
         if(!is_loopinglog()) return 0;
         return LoopingLogLength;
     }
-/*
-    void* GetPtr() const { return data; }
-
-private:
-    #undef DoCases
-    void* data;
-*/
 };
 
 template<typename T>
@@ -148,7 +67,8 @@ private:
     Array256x256of(const Array256x256of&);
     void operator=(const Array256x256of&);
     ~Array256x256of();
-public:    
+protected:
+    friend class UncertainPixelVector256x256;
     void Construct()
     {
         for(unsigned a=0; a<256*256; ++a)
@@ -164,11 +84,19 @@ public:
         for(unsigned a=0; a<256*256; ++a)
             data[a].~T();
     }
+public:
+    inline uint32 GetPixel(unsigned index) const
+        { return data[index].get_pixel(); }
+    inline uint32 GetMostUsed(unsigned index) const
+        { return data[index].get_mostused(); }
+    inline void set(unsigned index, uint32 p)
+        { data[index].set(p); }
 };
 
 class UncertainPixelVector256x256
 {
-    #define DoCode(code,type) code(type, Array256x256of<type >)
+    /* Precompiler polymorphism. */
+    #define DoCode(code,t) typedef Array256x256of<t> type2; code(t,type2)
     #define DoCases(code) \
         switch(method) \
         { \
@@ -192,7 +120,7 @@ public:
     void init()
     {
         if(data) return;
-        #define init(type, type2) \
+        #define init(type,type2) \
             std::allocator<type2> a; \
             /**/std::fprintf(stderr, "Allocating %lu bytes for %s\n", (unsigned long) sizeof(type2), #type2);/**/ \
             type2* aptr = a.allocate(1); \
@@ -204,7 +132,7 @@ public:
     UncertainPixelVector256x256(const UncertainPixelVector256x256& b) : data(0)
     {
         if(!b.data) return;
-        #define copy(type, type2) \
+        #define copy(type,type2) \
             std::allocator<type2> a; \
             type2* aptr = a.allocate(1); \
             aptr->Construct( *(const type2*) b.data ); \
@@ -214,7 +142,7 @@ public:
     }
     UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b);/*
     {
-        #define assign(type, type2) \
+        #define assign(type,type2) \
             std::allocator<type2> a; \
             if(!data) \
             { \
@@ -247,7 +175,7 @@ public:
     ~UncertainPixelVector256x256()
     {
         if(!data) return;
-        #define done(type, type2) \
+        #define done(type,type2) \
             type2* aptr = (type2*) data; \
             std::allocator<type2> a; \
             aptr->Destruct(); \
@@ -255,39 +183,43 @@ public:
         DoCases(done);
         #undef done
     }
-    uint32 GetPixel(unsigned index) const
+
+    /* Visit allows one to use freely the pixel methods
+     * for an entire group of 256x256 pixels without
+     * having to do the method selection on each pixel.
+     * Because virtual functions cannot be template
+     * functions, this must be done with templates and
+     * preprocessor rather than with the virtual keyword.
+     */
+    template<typename F>
+    void Visit(F func)
     {
-        #define get(type, type2) return ((const type2*)data)->data[index].get_pixel()
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
+        if(!data) return;
+        #define act(type,type2) func(* (type2*) data)
+        DoCases(act);
+        #undef act
     }
-    uint32 GetMostUsed(unsigned index) const
+
+    template<typename F>
+    void Visit(F func) const
     {
-        #define get(type, type2) return ((const type2*)data)->data[index].get_mostused()
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
+        if(!data) return;
+        #define act(type,type2) func(* (const type2*) data)
+        DoCases(act);
+        #undef act
     }
-    void set(unsigned index, uint32 p)
-    {
-        #define put(type, type2) ((type2*)data)->data[index].set(p)
-        DoCases(put);
-        #undef put
-    }
+
     void Compress()
     {
         if(!data) return;
-        #define act(type, type2) \
+        #define act(type,type2) \
             type2* aptr = (type2*)data; \
             for(unsigned a=0; a<256*256; ++a) aptr->data[a].Compress()
         DoCases(act);
         #undef act
     }
 
-    void* GetPtr() const { return data; }
     bool empty() const { return !data; }
-    unsigned size() const { return data ? 256*256 : 0; }
 
 private:
     #undef DoCases

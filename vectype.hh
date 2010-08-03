@@ -352,7 +352,7 @@ private:
             new(&target[a]) T( *source++ );
         return source;
     }
-    
+
     static size_t default_size()
     {
         return 1; //sizeof(T) < 16 ? 2 : (sizeof(T) < 256 ? 2 : 1);
