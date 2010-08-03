@@ -5,7 +5,23 @@
 
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
-std::vector<ScrollingPosition> scrolls; // For animated
+
+namespace
+{
+    struct ScrollingPosition            // For animated
+    {
+        unsigned org_x, org_y;
+    };
+    std::vector<ScrollingPosition> scrolls; // For animated
+}
+
+static inline bool veq
+    (const std::vector<uint32>& a,
+     const std::vector<uint32>& b) // For ChangeLog
+{
+    if(a.size() != b.size()) return false;
+    return std::memcmp(&a[0], &b[0], a.size()*sizeof(a[0])) == 0;
+}
 
 const std::vector<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
@@ -258,6 +274,16 @@ void TILE_Tracker::Save()
     gdImageDestroy(im);
 }
 
+namespace
+{
+    /* Cache InterestingSpot lists for each cube */
+    /* NOTE: GLOBAL */
+    std::map
+        <IntCoordinate, std::vector<InterestingSpot>,
+         std::less<IntCoordinate>,
+         FSBAllocator<int> > cache;
+}
+
 void
 TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
 {
@@ -271,10 +297,6 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
     std::vector<InterestingSpot> input_spots;
     std::vector<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
-
-    static std::map<IntCoordinate, std::vector<InterestingSpot>,
-                    std::less<IntCoordinate>,
-                    FSBAllocator<int> > cache;
 
     /* For speed reasons, we don't use LoadScreen(), but
      * instead, work on cube-by-cube basis.
@@ -417,7 +439,7 @@ void TILE_Tracker::FitScreen
             org_diff = -org_diff;
 #else
 #if 1
-        AlwaysReset:
+        //AlwaysReset:
             SaveAndReset();
 #endif
 #endif
@@ -440,4 +462,17 @@ void TILE_Tracker::FitScreen
 #endif
 
     PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
+}
+
+void TILE_Tracker::NextFrame()
+{
+    if(UncertainPixel::is_animated())
+    {
+        ScrollingPosition s;
+        s.org_x = org_x;
+        s.org_y = org_y;
+        scrolls.push_back(s);
+
+        ++CurrentTimer;
+    }
 }

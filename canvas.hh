@@ -12,11 +12,6 @@
 
 extern unsigned CurrentTimer;       // For animated
 extern unsigned SequenceBegin;      // For animated
-struct ScrollingPosition            // For animated
-{
-    unsigned org_x, org_y;
-};
-extern std::vector<ScrollingPosition> scrolls; // For animated
 
 class TILE_Tracker
 {
@@ -63,13 +58,6 @@ public:
 
     std::vector<uint32> LastScreen;  // For ChangeLog
     std::string LastFilename;        // For ChangeLog
-
-    bool veq(const std::vector<uint32>& a,
-             const std::vector<uint32>& b) const // For ChangeLog
-    {
-        if(a.size() != b.size()) return false;
-        return std::memcmp(&a[0], &b[0], a.size()*sizeof(a[0])) == 0;
-    }
 
     void Cleanup()
     {
@@ -122,18 +110,7 @@ public:
                    int extra_offs_y=0
                   );
 
-    void NextFrame()
-    {
-        if(UncertainPixel::is_animated())
-        {
-            ScrollingPosition s;
-            s.org_x = org_x;
-            s.org_y = org_y;
-            scrolls.push_back(s);
-
-            ++CurrentTimer;
-        }
-    }
+    void NextFrame();
 };
 
 #endif
