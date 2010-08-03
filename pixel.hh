@@ -35,83 +35,8 @@ extern enum PixelMethod
     pm_LoopingLogPixel
 } method;
 
-class UncertainPixel
+struct UncertainPixel
 {
-/*
-    #define DoCases(code) \
-        switch(method) \
-        { \
-            case pm_AveragePixel: \
-                { code(AveragePixel); break; } \
-            case pm_LastPixel: \
-                { code(LastPixel);    break; } \
-            case pm_MostUsedPixel: \
-                { code(MostUsedPixel); break; } \
-            case pm_MostUsed16Pixel: \
-                { code(MostUsedWithinPixel<16> ); break; } \
-            case pm_ChangeLogPixel: \
-                { code(ChangeLogPixel); break; } \
-            case pm_LoopingLogPixel: \
-                { code(LoopingLogPixel ); break; } \
-        }
-*/
-public:
-/*
-    UncertainPixel()
-    {
-        #define init(type) \
-            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type()
-        DoCases(init);
-        #undef init
-    }
-    UncertainPixel(const UncertainPixel& b)
-    {
-        #define copy(type) \
-            FSBAllocator<type> a; data = (void*)a.allocate(1); new(data) type(*(const type*)b.data)
-        DoCases(copy);
-        #undef copy
-    }
-    UncertainPixel& operator= (const UncertainPixel& b)
-    {
-        #define assign(type) *(type*)data = *(type*)b.data
-        DoCases(assign);
-        #undef assign
-        return *this;
-    }
-
-    ~UncertainPixel()
-    {
-        #define done(type) \
-            FSBAllocator<type> a; a.destroy( (type*) data); a.deallocate( (type*)data, 1 )
-        DoCases(done);
-        #undef done
-    }
-    operator uint32() const
-    {
-        #define get(type) return *((type*)data)
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
-    }
-    void set(unsigned R,unsigned G,unsigned B)
-    {
-        #define put(type) ((type*)data)->set(R,G,B)
-        DoCases(put);
-        #undef put
-    }
-    void set(uint32 p)
-    {
-        #define put(type) ((type*)data)->set(p)
-        DoCases(put);
-        #undef put
-    }
-    void Compress()
-    {
-        #define act(type) ((type*)data)->Compress()
-        DoCases(act);
-        #undef act
-    }
-*/
     static bool is_changelog()
     {
         return method == pm_ChangeLogPixel;
@@ -129,25 +54,29 @@ public:
         if(!is_loopinglog()) return 0;
         return LoopingLogLength;
     }
-/*
-    void* GetPtr() const { return data; }
+};
 
-private:
-    #undef DoCases
-    void* data;
-*/
+struct Array256x256of_Base
+{
+public:
+    virtual uint32 GetPixel(unsigned index) const = 0;
+    virtual uint32 GetMostUsed(unsigned index) const = 0;
+    virtual void Set(unsigned index, uint32 p) = 0;
+    virtual void Compress() = 0;
 };
 
 template<typename T>
-struct Array256x256of
+struct Array256x256of: public Array256x256of_Base
 {
 public:
     T data[256*256];
-private:
-    Array256x256of();
-    Array256x256of(const Array256x256of&);
-    void operator=(const Array256x256of&);
-    ~Array256x256of();
+public:
+    Array256x256of()
+    {
+    }
+    virtual ~Array256x256of()
+    {
+    }
 public:    
     void Construct()
     {
@@ -163,6 +92,24 @@ public:
     {
         for(unsigned a=0; a<256*256; ++a)
             data[a].~T();
+    }
+public:
+    virtual uint32 GetPixel(unsigned index) const
+    {
+        return data[index].get_pixel();
+    }
+    virtual uint32 GetMostUsed(unsigned index) const
+    {
+        return data[index].get_pixel();
+    }
+    virtual void Set(unsigned index, uint32 p)
+    {
+        data[index].set(p);
+    }
+    virtual void Compress()
+    {
+        for(unsigned a=0; a<256*256; ++a)
+            data[a].Compress();
     }
 };
 
@@ -192,107 +139,58 @@ public:
     void init()
     {
         if(data) return;
-        #define init(type, type2) \
-            std::allocator<type2> a; \
-            /**/std::fprintf(stderr, "Allocating %lu bytes for %s\n", (unsigned long) sizeof(type2), #type2);/**/ \
-            type2* aptr = a.allocate(1); \
-            aptr->Construct(); \
-            data = (void*) aptr
+        #define init(type, type2) data = new type2
         DoCases(init);
         #undef init
     }
     UncertainPixelVector256x256(const UncertainPixelVector256x256& b) : data(0)
     {
         if(!b.data) return;
-        #define copy(type, type2) \
-            std::allocator<type2> a; \
-            type2* aptr = a.allocate(1); \
-            aptr->Construct( *(const type2*) b.data ); \
-            data = (void*) aptr
+        #define copy(type, type2) data = new type2( *(const type2*) b.data )
         DoCases(copy);
         #undef copy
     }
-    UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b);/*
+    UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b)
     {
+        if(!b.data) { if(data) { delete data; data=0; } return *this; }
         #define assign(type, type2) \
-            std::allocator<type2> a; \
-            if(!data) \
-            { \
-                if(b.data) \
-                { \
-                    type2* aptr = a.allocate(1); \
-                    aptr->Construct( *(const type2*) b.data ); \
-                    data = (void*) aptr; \
-                } \
-            } \
-            else \
-            { \
-                type2* aptr = (type2*)data; \
-                if(!b.data) \
-                { \
-                    aptr->Destruct(); \
-                    a.deallocate(aptr, 1); \
-                    aptr = 0; \
-                } \
-                else \
-                { \
-                    const type2* bptr = (const type2*) b.data; \
-                    for(unsigned a=0; a<256*256; ++a) aptr->data[a] = bptr->data[a]; \
-                } \
-            }
+            if(data) *data = *(const type2*) b.data; \
+            else     data = new type2( *(const type2*) b.data )
         DoCases(assign);
         #undef assign
         return *this;
-    }*/
+    }
     ~UncertainPixelVector256x256()
     {
         if(!data) return;
-        #define done(type, type2) \
-            type2* aptr = (type2*) data; \
-            std::allocator<type2> a; \
-            aptr->Destruct(); \
-            a.deallocate(aptr, 1)
+        #define done(type, type2) delete data
         DoCases(done);
         #undef done
     }
-    uint32 GetPixel(unsigned index) const
+    inline uint32 GetPixel(unsigned index) const
     {
-        #define get(type, type2) return ((const type2*)data)->data[index].get_pixel()
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
+        return data ? data->GetPixel(index) : DefaultPixel;
     }
-    uint32 GetMostUsed(unsigned index) const
+    inline uint32 GetMostUsed(unsigned index) const
     {
-        #define get(type, type2) return ((const type2*)data)->data[index].get_mostused()
-        DoCases(get);
-        #undef get
-        return DefaultPixel;
+        return data ? data->GetMostUsed(index) : DefaultPixel;
     }
-    void set(unsigned index, uint32 p)
+    inline void set(unsigned index, uint32 p)
     {
-        #define put(type, type2) ((type2*)data)->data[index].set(p)
-        DoCases(put);
-        #undef put
+        if(data) data->Set(index, p);
     }
-    void Compress()
+    inline void Compress()
     {
-        if(!data) return;
-        #define act(type, type2) \
-            type2* aptr = (type2*)data; \
-            for(unsigned a=0; a<256*256; ++a) aptr->data[a].Compress()
-        DoCases(act);
-        #undef act
+        if(data) data->Compress();
     }
 
-    void* GetPtr() const { return data; }
     bool empty() const { return !data; }
     unsigned size() const { return data ? 256*256 : 0; }
 
 private:
     #undef DoCases
     #undef DoCode
-    void* data;
+    Array256x256of_Base* data;
 };
 
 #endif
