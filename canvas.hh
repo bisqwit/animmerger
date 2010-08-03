@@ -30,7 +30,7 @@ class TILE_Tracker
     int get_min_x() const { return xmin; }
     int get_max_x() const { return xmax; }
 
-    typedef std::vector<UncertainPixel> vectype;
+    typedef UncertainPixelVector256x256 vectype;
 
     struct cubetype
     {
@@ -59,20 +59,7 @@ public:
     std::vector<uint32> LastScreen;  // For ChangeLog
     std::string LastFilename;        // For ChangeLog
 
-    void Cleanup()
-    {
-        std::fprintf(stderr, "Compressing...\n");
-        for(ymaptype::iterator y=screens.begin(); y!=screens.end(); ++y)
-        {
-            xmaptype& xmap = y->second;
-            for(xmaptype::iterator x=xmap.begin(); x!=xmap.end(); ++x)
-            {
-                vectype& vec = x->second.pixels;
-                for(unsigned a=0; a<vec.size(); ++a)
-                    vec[a].Compress();
-            }
-        }
-    }
+    void Cleanup();
 
     void SaveAndReset()
     {
@@ -83,22 +70,7 @@ public:
 
     void Save();
 
-    void Reset()
-    {
-        if(UncertainPixel::is_animated())
-        {
-            SequenceBegin += CurrentTimer;
-            CurrentTimer = 0;
-        }
-
-        std::fprintf(stderr, " Resetting\n");
-        screens.clear();
-        org_x = 0x40000000;
-        org_y = 0x40000000;
-        xmin=xmax=org_x;
-        ymin=ymax=org_y;
-        first = true;
-    }
+    void Reset();
 
     void FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy);
 

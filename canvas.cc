@@ -138,11 +138,18 @@ TILE_Tracker::PutScreen
             cubetype& cube = xmap[xscreen];
 
             /* If this screen is not yet initialized, we'll initialize it */
-            if(cube.pixels.empty()) cube.pixels.resize(256*256);
+            if(cube.pixels.empty())
+            {
+                //cube.pixels.resize(256*256);
+                cube.pixels.init();
+            }
             if(method != pm_MostUsedPixel
             && method != pm_ChangeLogPixel
             && method != pm_LoopingLogPixel)
-                if(cube.mostused.empty()) cube.mostused.resize(256*256);
+            {
+                if(cube.mostused.empty())
+                    cube.mostused.resize(256*256);
+            }
             cube.changed = true;
 
 /*
@@ -156,7 +163,7 @@ TILE_Tracker::PutScreen
                 {
                     uint32 pix = input[targetpos + x + y*sx];
                     if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
-                    cube.pixels  [xp + 256*yp].set(pix);
+                    cube.pixels.set( xp + 256*yp, pix );
                     if(!cube.mostused.empty())
                         cube.mostused[xp + 256*yp].set(pix);
                 }
@@ -328,19 +335,21 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
                             result[p] = cube.pixels[p];
                         break;
                     case pm_ChangeLogPixel:
+                    {
+                        void* vptr = cube.pixels.GetPtr();
+                        ChangeLogPixel* ptr = (ChangeLogPixel*) vptr;
                         for(unsigned p=0; p<256*256; ++p)
-                        {
-                            void* ptr = cube.pixels[p].GetPtr();
-                            result[p] = ((ChangeLogPixel*)ptr) ->GetMostUsed();
-                        }
+                            result[p] = ptr[p].GetMostUsed();
                         break;
+                    }
                     case pm_LoopingLogPixel:
+                    {
+                        void* vptr = cube.pixels.GetPtr();
+                        LoopingLogPixel* ptr = (LoopingLogPixel*) vptr;
                         for(unsigned p=0; p<256*256; ++p)
-                        {
-                            void* ptr = cube.pixels[p].GetPtr();
-                            result[p] = ((LoopingLogPixel*)ptr) ->GetMostUsed();
-                        }
+                            result[p] = ptr[p].GetMostUsed();
                         break;
+                    }
                     default:
                         for(unsigned p=0; p<256*256; ++p)
                             result[p] = cube.mostused[p];
@@ -462,6 +471,37 @@ void TILE_Tracker::FitScreen
 #endif
 
     PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
+}
+
+void TILE_Tracker::Reset()
+{
+    if(UncertainPixel::is_animated())
+    {
+        SequenceBegin += CurrentTimer;
+        CurrentTimer = 0;
+    }
+
+    std::fprintf(stderr, " Resetting\n");
+    screens.clear();
+    org_x = 0x40000000;
+    org_y = 0x40000000;
+    xmin=xmax=org_x;
+    ymin=ymax=org_y;
+    first = true;
+}
+
+void TILE_Tracker::Cleanup()
+{
+    std::fprintf(stderr, "Compressing...\n");
+    for(ymaptype::iterator y=screens.begin(); y!=screens.end(); ++y)
+    {
+        xmaptype& xmap = y->second;
+        for(xmaptype::iterator x=xmap.begin(); x!=xmap.end(); ++x)
+        {
+            vectype& vec = x->second.pixels;
+            vec.Compress();
+        }
+    }
 }
 
 void TILE_Tracker::NextFrame()
