@@ -62,3 +62,17 @@ public:
         values.clear();
     }*/
 };
+
+class MostUsedPixelAndMostUsedPixel
+{
+public:
+    MostUsedPixel  pixel;
+public:
+    void set(uint32 p)
+    {
+        pixel.set(p);
+    }
+    uint32 get_pixel() const    { return pixel; }
+    uint32 get_mostused() const { return pixel; }
+    void Compress() { pixel.Compress(); }
+};

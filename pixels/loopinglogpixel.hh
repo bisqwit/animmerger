@@ -49,3 +49,17 @@ public:
         //    history[a].CompressButIgnore(most_used);
     }
 };
+
+class LoopingLogPixelAndMostUsedPixel
+{
+public:
+    LoopingLogPixel  pixel;
+public:
+    void set(uint32 p)
+    {
+        pixel.set(p);
+    }
+    uint32 get_pixel() const    { return pixel; }
+    uint32 get_mostused() const { return pixel.GetMostUsed(); }
+    void Compress() { pixel.Compress(); }
+};

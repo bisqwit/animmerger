@@ -67,7 +67,7 @@ namespace
 }
 
 void FindInterestingSpots(
-    VecType<InterestingSpot>& output,
+    std::vector<InterestingSpot>& output,
     const uint32* input,
     int xoffs, int yoffs,
     unsigned sx, unsigned sy,
@@ -198,8 +198,8 @@ void FindInterestingSpots(
 }
 
 AlignResult Align(
-    const VecType<InterestingSpot>& input_spots,
-    const VecType<InterestingSpot>& reference_spots,
+    const std::vector<InterestingSpot>& input_spots,
+    const std::vector<InterestingSpot>& reference_spots,
     int org_x,
     int org_y)
 {

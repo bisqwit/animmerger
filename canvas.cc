@@ -20,11 +20,11 @@ static inline bool veq
      const VecType<uint32>& b) // For ChangeLog
 {
     if(a.size() != b.size()) return false;
-    return std::memcmp(&a[0], &b[0], a.size()*sizeof(a[0])) == 0;
+    return std::memcmp(&a[0], &b[0], a.size() * sizeof(uint32)) == 0;
 }
 
 const VecType<uint32>
-TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
+TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const
 {
     // Create the result vector filled with default pixel value
     VecType<uint32> result(sy*sx, DefaultPixel);
@@ -53,40 +53,48 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
     unsigned this_cube_ystart = oy&255;
     for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
     {
-        xmaptype& xmap = screens[yscreen];
-
         unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
 
-        unsigned this_cube_xstart = ox&255;
-        for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
+        ymaptype::const_iterator yi = screens.find(yscreen);
+        if(yi != screens.end())
         {
-            unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
-/*
-            std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
-                this_cube_xstart,this_cube_xend,
-                this_cube_ystart,this_cube_yend);
-*/
-            const vectype& cube = xmap[xscreen].pixels;
-            /* If this screen is not yet initialized, we'll skip over
-             * it, since there's no real reason to initialize it at
-             * this point. */
-            if(!cube.empty())
+            const xmaptype& xmap = yi->second;
+
+            unsigned this_cube_xstart = ox&255;
+            for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
             {
-                /* Load this particular cube */
-                for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
+                unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
+    /*
+                std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
+                    this_cube_xstart,this_cube_xend,
+                    this_cube_ystart,this_cube_yend);
+    */
+                xmaptype::const_iterator xi = xmap.find(xscreen);
+                if(xi != xmap.end())
                 {
-                    unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
-                    unsigned destp =   sx*y + targetpos        - this_cube_xstart;
-                    for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                        result[destp + xp] = cube[srcp + xp];
+                    const vectype& cube = xi->second.pixels;
+                    /* If this screen is not yet initialized, we'll skip over
+                     * it, since there's no real reason to initialize it at
+                     * this point. */
+                    if(!cube.empty())
+                    {
+                        /* Load this particular cube */
+                        for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
+                        {
+                            unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
+                            unsigned destp =   sx*y + targetpos        - this_cube_xstart;
+                            for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
+                                result[destp + xp] = cube.GetPixel(srcp + xp);
+                        }
+                    }
                 }
+
+                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
+
+                targetpos+= this_cube_xsize;
+
+                this_cube_xstart=0;
             }
-
-            unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
-
-            targetpos+= this_cube_xsize;
-
-            this_cube_xstart=0;
         }
 
         unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
@@ -134,15 +142,15 @@ TILE_Tracker::PutScreen
         for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
         {
             unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
-
+            
             cubetype& cube = xmap[xscreen];
 
             /* If this screen is not yet initialized, we'll initialize it */
-            if(cube.pixels.empty()) cube.pixels.resize(256*256);
-            if(method != pm_MostUsedPixel
-            && method != pm_ChangeLogPixel
-            && method != pm_LoopingLogPixel)
-                if(cube.mostused.empty()) cube.mostused.resize(256*256);
+            if(cube.pixels.empty())
+            {
+                //cube.pixels.resize(256*256);
+                cube.pixels.init();
+            }
             cube.changed = true;
 
 /*
@@ -156,9 +164,7 @@ TILE_Tracker::PutScreen
                 {
                     uint32 pix = input[targetpos + x + y*sx];
                     if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
-                    cube.pixels  [xp + 256*yp].set(pix);
-                    if(!cube.mostused.empty())
-                        cube.mostused[xp + 256*yp].set(pix);
+                    cube.pixels.set( xp + 256*yp, pix );
                 }
 
             unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
@@ -284,13 +290,13 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
      * between those two sets of spots.
      */
 
-    VecType<InterestingSpot> input_spots;
-    VecType<InterestingSpot> reference_spots;
+    std::vector<InterestingSpot> input_spots;
+    std::vector<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
 
     /* Cache InterestingSpot lists for each cube */
     static std::map
-        <IntCoordinate, VecType<InterestingSpot>,
+        <IntCoordinate, std::vector<InterestingSpot>,
          std::less<IntCoordinate>,
          FSBAllocator<int> > cache;
 
@@ -317,30 +323,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             if(cube.changed)
             {
                 uint32 result[256*256];
-                switch(method)
-                {
-                    case pm_MostUsedPixel:
-                        for(unsigned p=0; p<256*256; ++p)
-                            result[p] = cube.pixels[p];
-                        break;
-                    case pm_ChangeLogPixel:
-                        for(unsigned p=0; p<256*256; ++p)
-                        {
-                            void* ptr = cube.pixels[p].GetPtr();
-                            result[p] = ((ChangeLogPixel*)ptr) ->GetMostUsed();
-                        }
-                        break;
-                    case pm_LoopingLogPixel:
-                        for(unsigned p=0; p<256*256; ++p)
-                        {
-                            void* ptr = cube.pixels[p].GetPtr();
-                            result[p] = ((LoopingLogPixel*)ptr) ->GetMostUsed();
-                        }
-                        break;
-                    default:
-                        for(unsigned p=0; p<256*256; ++p)
-                            result[p] = cube.mostused[p];
-                }
+                for(unsigned p=0; p<256*256; ++p)
+                    result[p] = cube.pixels.GetMostUsed(p);
 
                 size_t prev_size = reference_spots.size();
                 FindInterestingSpots(reference_spots, result,
@@ -354,7 +338,7 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             }
             else
             {
-                const VecType<InterestingSpot>& found = cache[cache_key];
+                const std::vector<InterestingSpot>& found = cache[cache_key];
                 reference_spots.insert(
                     reference_spots.end(),
                     found.begin(),
@@ -458,6 +442,37 @@ void TILE_Tracker::FitScreen
 #endif
 
     PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
+}
+
+void TILE_Tracker::Reset()
+{
+    if(UncertainPixel::is_animated())
+    {
+        SequenceBegin += CurrentTimer;
+        CurrentTimer = 0;
+    }
+
+    std::fprintf(stderr, " Resetting\n");
+    screens.clear();
+    org_x = 0x40000000;
+    org_y = 0x40000000;
+    xmin=xmax=org_x;
+    ymin=ymax=org_y;
+    first = true;
+}
+
+void TILE_Tracker::Cleanup()
+{
+    std::fprintf(stderr, "Compressing...\n");
+    for(ymaptype::iterator y=screens.begin(); y!=screens.end(); ++y)
+    {
+        xmaptype& xmap = y->second;
+        for(xmaptype::iterator x=xmap.begin(); x!=xmap.end(); ++x)
+        {
+            vectype& vec = x->second.pixels;
+            vec.Compress();
+        }
+    }
 }
 
 void TILE_Tracker::NextFrame()

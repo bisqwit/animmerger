@@ -23,3 +23,20 @@ public:
     {
     }
 };
+
+class AveragePixelAndMostUsedPixel
+{
+public:
+    AveragePixel  pixel;
+private:
+    MostUsedPixel most_used;
+public:
+    void set(uint32 p)
+    {
+        pixel.set(p);
+        most_used.set(p);
+    }
+    uint32 get_pixel() const { return pixel; }
+    uint32 get_mostused() const { return most_used; }
+    void Compress() { pixel.Compress(); most_used.Compress(); }
+};
