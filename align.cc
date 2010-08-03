@@ -65,7 +65,7 @@ namespace
 }
 
 void FindInterestingSpots(
-    std::vector<InterestingSpot>& output,
+    VecType<InterestingSpot>& output,
     const uint32* input,
     int xoffs, int yoffs,
     unsigned sx, unsigned sy,
@@ -94,8 +94,8 @@ void FindInterestingSpots(
      * Actually save only Y value (luma/brightness); ignore U and V (chroma).
      * Also determine which pixels are transparent.
      */
-    std::vector<char> Transparent(sx*sy, false);
-    std::vector<unsigned char> Y(sx*sy);
+    VecType<char> Transparent(sx*sy, false);
+    VecType<unsigned char> Y(sx*sy);
     for(unsigned p=0, y=0; y<sy; ++y)
         for(unsigned x=0; x<sx; ++x, ++p)
         {
@@ -126,7 +126,7 @@ void FindInterestingSpots(
 
     output.reserve(output.size() + x_shrunk * y_shrunk);
 
-    std::vector<SpotType> spots(sx*sy);
+    VecType<SpotType> spots(sx*sy);
     //unsigned randkey = 1;
     for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
         for(unsigned x=0; x+4<=sx; ++x, ++p)
@@ -162,11 +162,11 @@ void FindInterestingSpots(
     if(x_divide==1 && y_divide==1)
         return;
 
-    typedef std::map<SpotType, std::vector<unsigned>,
+    typedef std::map<SpotType, VecType<unsigned>,
         std::less<SpotType>,
         FSBAllocator<int> > RarityType;
 
-    std::vector<RarityType> Rarities( x_shrunk * y_shrunk );
+    VecType<RarityType> Rarities( x_shrunk * y_shrunk );
 
     for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
         for(unsigned x=0; x+4<=sx; ++x, ++p)
@@ -195,8 +195,8 @@ void FindInterestingSpots(
 }
 
 AlignResult Align(
-    const std::vector<InterestingSpot>& input_spots,
-    const std::vector<InterestingSpot>& reference_spots,
+    const VecType<InterestingSpot>& input_spots,
+    const VecType<InterestingSpot>& reference_spots,
     int org_x,
     int org_y)
 {

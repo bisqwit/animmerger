@@ -123,7 +123,7 @@ public:
         if(!is_loopinglog()) return 0;
         return LoopingLogLength;
     }
-    
+
     void* GetPtr() const { return data; }
 
 private:

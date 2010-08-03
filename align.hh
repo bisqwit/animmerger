@@ -42,7 +42,7 @@ struct InterestingSpot
  *        true = this is input picture, false = this is background picture
  */
 void FindInterestingSpots(
-    std::vector<InterestingSpot>& output,
+    VecType<InterestingSpot>& output,
     const uint32* input,
     int xoffs, int yoffs,
     unsigned sx, unsigned sy,
@@ -68,8 +68,8 @@ void FindInterestingSpots(
  *        that the images do not quite align right
  */
 struct AlignResult Align(
-    const std::vector<InterestingSpot>& input_spots,
-    const std::vector<InterestingSpot>& reference_spots,
+    const VecType<InterestingSpot>& input_spots,
+    const VecType<InterestingSpot>& reference_spots,
     int org_x,
     int org_y);
 struct AlignResult

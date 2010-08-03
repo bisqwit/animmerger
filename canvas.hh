@@ -2,6 +2,7 @@
 #define bqtTileTrackerCanvasHH
 
 #include "pixel.hh"
+#include "vectype.hh"
 #include "alloc/FSBAllocator.hh"
 
 #include <vector>
@@ -30,20 +31,20 @@ class TILE_Tracker
     int get_min_x() const { return xmin; }
     int get_max_x() const { return xmax; }
 
-    typedef std::vector<UncertainPixel> vectype;
+    typedef VecType<UncertainPixel> vectype;
 
     struct cubetype
     {
         bool changed;
-        vectype                    pixels;
-        std::vector<MostUsedPixel> mostused;
+        vectype                pixels;
+        VecType<MostUsedPixel> mostused;
     };
 
     typedef std::map<int,cubetype, std::less<int>, FSBAllocator<int> > xmaptype;
     typedef std::map<int,xmaptype, std::less<int>, FSBAllocator<int> > ymaptype;
     ymaptype screens;
 
-    const std::vector<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy);
+    const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy);
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
 
 public:
@@ -56,8 +57,8 @@ public:
     {
     }
 
-    std::vector<uint32> LastScreen;  // For ChangeLog
-    std::string LastFilename;        // For ChangeLog
+    VecType<uint32> LastScreen;  // For ChangeLog
+    std::string LastFilename;    // For ChangeLog
 
     void Cleanup()
     {

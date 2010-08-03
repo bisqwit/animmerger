@@ -1,15 +1,15 @@
 #ifndef bqtAnimMergerVecTypeHH
 #define bqtAnimMergerVecTypeHH
 
-#if 1
+#if 0
 
 #include <vector>
 #define VecType std::vector
 
 #else
 
-
 #include <algorithm>
+#include <iterator>
 
 template<typename T>
 class VecType
@@ -19,54 +19,342 @@ public:
     typedef const T* const_iterator;
     typedef T& reference;
     typedef const T& const_reference;
+    typedef unsigned size_type;
 
 public:
-    VecType() : data(0),len(0) { }
-    ~VecType() { if(len) delete[] data; }
+    VecType() : data(0),len(0),cap(0) { }
+    ~VecType() { clear(); if(cap) alloc.deallocate(data,cap); }
 
-    void reserve(unsigned) { } /* ignore */
-
-    VecType(const VecType& b) : len(b.len)
+    VecType(size_type length) : data(0),len(0),cap(0)
+    {
+        resize(length);
+    }
+    template<typename K>
+    VecType(size_type length, K value) : data(0),len(0),cap(0)
+    {
+        resize(length, value);
+    }
+    VecType(const VecType& b) : data(0), len(b.len), cap(b.len)
     {
         if(len)
         {
-            data = new T[len];
-            std::copy(b.begin(),b.end(), data);
+            data = alloc.allocate(len);
+            copy_construct(0, &b.data[0], len);
         }
     }
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    VecType(VecType&& b): data(b.data), len(b.len), cap(b.cap)
+    {
+        b.data = 0;
+        b.len  = 0;
+        b.cap  = 0;
+    }
+#endif
     VecType& operator= (const VecType& b)
     {
         if(&b == this) return *this;
-        if(len) { delete[] data; if(!b.len) { len=0; data=0; return *this; } }
+        if(len < b.len)
+        {
+            reserve(b.len);
+            copy_assign(&data[0], &b.data[0], len);
+            copy_construct(&data[len], &b.data[len], b.len-len);
+        }
+        else if(len > b.len)
+        {
+            destroy(&data[b.len], len-b.len);
+            copy_assign(&data[0], &b.data[0], b.len);
+        }
         len = b.len;
-        data = new T[len];
-        std::copy(b.begin(),b.end(), data);
         return *this;
     }
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    VecType& operator= (VecType&& b)
+    {
+        if(&b != this) swap(b);
+        return *this;
+    }
+#endif
+
+    template<typename It>
+    void assign(It first, It last)
+    {
+        size_type newlen = (size_type) std::distance(first, last);
+        if(cap < newlen)
+        {
+            destroy(&data[0], len);
+            alloc.deallocate(data, cap);
+            data = alloc.allocate(cap = newlen);
+            copy_construct(&data[0], first, newlen);
+        }
+        else if(len < newlen)
+            copy_construct(&data[len],
+                copy_assign(&data[0], first, len),
+                newlen-len);
+        else // len >= newlen
+        {
+            copy_assign(&data[0], first, newlen);
+            destroy(&data[newlen], len-newlen);
+        }
+        len = newlen;
+    }
+
 public:
-    reference operator[] (unsigned ind) { return data[ind]; }
+    reference operator[] (size_type ind) { return data[ind]; }
+    const_reference operator[] (size_type ind) const { return data[ind]; }
     iterator begin() { return data; }
     iterator end() { return data+len; }
     const_iterator begin() const { return data; }
     const_iterator end() const { return data+len; }
-    unsigned size() const { return len; }
-    iterator insert(iterator pos, T value)
-    {
-        if(!len) { data = new T[1]; *data = value; return data; }
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
+    reverse_iterator rbegin() { return reverse_iterator( end() ); }
+    reverse_iterator rend()   { return reverse_iterator( begin() ); }
+    const_reverse_iterator rbegin() const { return const_reverse_iterator( end() ); }
+    const_reverse_iterator rend()   const { return const_reverse_iterator( begin() ); }
+    reference front() { return *begin(); }
+    const_reference front() const { return *begin(); }
+    reference back() { return *rbegin(); }
+    const_reference back() const { return *rbegin(); }
 
-        T* newdata = new T[len+1];
-        unsigned diff = pos-data;
-        std::copy(data,pos, newdata);
-        newdata[diff] = value;
-        std::copy(pos, data+len, newdata+diff+1);
-        delete[] data;
-        data = newdata;
-        ++len;
-        return newdata + diff;
+    template<typename K>
+    void push_back(K value)
+    {
+        //insert(end(), value);
+        if(len >= cap) reserve(cap ? cap*2 : 1);
+        new(&data[len++]) T ( value );
     }
+
+    template<typename K>
+    iterator insert(iterator pos, K value)
+    {
+        size_type ins_pos = pos - begin();
+        if(len < cap)
+        {
+            if(ins_pos == len)
+                new(&data[ins_pos]) T( value );
+            else
+            {
+                move_construct(&data[len], &data[len-1], 1);
+                move_assign_backwards(&data[ins_pos+1], &data[ins_pos], len-ins_pos);
+                data[ins_pos] = value;
+            }
+            ++len;
+            return data+ins_pos;
+        }
+        size_type newcap = cap ? cap*2 : 1;
+        if(ins_pos == len)
+        {
+            reserve(newcap);
+            new(&data[ins_pos]) T( value );
+            ++len;
+            return data+ins_pos;
+        }
+        T* newdata = alloc.allocate(newcap);
+        move_construct(&newdata[0], &data[0], ins_pos);
+        new(&newdata[ins_pos]) T( value );
+        move_construct(&newdata[ins_pos+1], &data[ins_pos], len-ins_pos);
+        destroy(&data[0], len);
+        alloc.deallocate(data, cap);
+        ++len;
+        data = newdata;
+        cap  = newcap;
+        return data + ins_pos;
+    }
+
+    template<typename It>
+    void insert(iterator pos, It first, It last)
+    {
+        size_type ins_pos = pos - begin();
+        size_type count   = (size_type) std::distance(first, last);
+
+        if(len+count <= cap)
+        {
+            if(ins_pos == len)
+                copy_construct(&data[ins_pos], first, count);
+            else
+            {
+                move_construct(&data[len], &data[len-count], count);
+                move_assign_backwards(&data[ins_pos+count], &data[ins_pos], len-ins_pos);
+                copy_assign(&data[ins_pos], first, count);
+            }
+            len += count;
+            return;
+        }
+        size_type newcap = (cap+count)*2;
+        if(ins_pos == len)
+        {
+            reserve(newcap);
+            copy_construct(&data[ins_pos], first, count);
+            len += count;
+            return;
+        }
+        T* newdata = alloc.allocate(newcap);
+        move_construct(&newdata[0], &data[0], ins_pos);
+        copy_construct(&newdata[ins_pos], first, count);
+        move_construct(&newdata[ins_pos+count], &data[ins_pos], len-ins_pos);
+        destroy(&data[0], len);
+        alloc.deallocate(data, cap);
+        len += count;
+        data = newdata;
+        cap  = newcap;
+    }
+
+    void reserve(size_type newcap)
+    {
+        if(cap < newcap)
+        {
+            T* newdata = alloc.allocate(newcap);
+            move_construct(&newdata[0], &data[0], len);
+            destroy(&data[0], len);
+            alloc.deallocate(data, cap);
+            data = newdata;
+            cap  = newcap;
+        }
+    }
+
+    void resize(size_type newlen)
+    {
+        if(newlen < len)
+        {
+            destroy(&data[newlen], len-newlen);
+            len = newlen;
+        }
+        else if(newlen == len)
+            return;
+        else if(newlen <= cap) // newlen > len, too.
+        {
+            construct(&data[len], newlen-len);
+            len = newlen;
+        }
+        else // newlen > cap, and newlen > len.
+        {
+            // reallocation required
+            size_type newcap = newlen;
+            T* newdata = alloc.allocate(newcap);
+            move_construct(&newdata[0], &data[0], len);
+            destroy(&data[0], len);
+            alloc.deallocate(data, cap);
+            construct(&newdata[len], newlen-len);
+            data = newdata;
+            len  = newlen;
+            cap  = newcap;
+        }
+    }
+
+    template<typename K>
+    void resize(size_type newlen, K value)
+    {
+        if(newlen < len)
+        {
+            destroy(&data[newlen], len-newlen);
+            len = newlen;
+        }
+        else if(newlen == len)
+            return;
+        else if(newlen <= cap) // newlen > len, too.
+        {
+            construct(&data[len], newlen-len, value);
+            len = newlen;
+        }
+        else // newlen > cap, and newlen > len.
+        {
+            // reallocation required
+            size_type newcap = newlen;
+            T* newdata = alloc.allocate(newcap);
+            move_construct(&newdata[0], &data[0], len);
+            destroy(&data[0], len);
+            alloc.deallocate(data, cap);
+            construct(&newdata[len], newlen-len, value);
+            data = newdata;
+            len  = newlen;
+            cap  = newcap;
+        }
+    }
+
+    void swap(VecType<T>& b)
+    {
+        std::swap(data, b.data);
+        std::swap(len,  b.len);
+        std::swap(cap,  b.cap);
+    }
+
+    bool empty() const { return len==0; }
+    void clear() { resize(0); }
+    size_type size()     const { return len; }
+    size_type capacity() const { return cap; }
+
+private:
+    static inline void construct(T* target, size_type count)
+    {
+        for(size_type a=0; a<count; ++a)
+            new(&target[a]) T();
+    }
+    template<typename K>
+    static inline void construct(T* target, size_type count, K param)
+    {
+        for(size_type a=0; a<count; ++a)
+            new(&target[a]) T(param);
+    }
+    static inline void destroy(T* target, size_type count)
+    {
+        for(size_type a=count; a-- > 0; )
+            target[a].~T();
+    }
+    static inline void move_assign(T* target, T* source, size_type count)
+    {
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+        for(size_type a=0; a<count; ++a)
+            target[a] = std::move(source[a]);
+#else
+        copy_assign(target, source, count);
+#endif
+    }
+    static inline void move_assign_backwards(T* target, T* source, size_type count)
+    {
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+        for(size_type a=count; a-- > 0; )
+            target[a] = std::move(source[a]);
+#else
+        copy_assign_backwards(target, source, count);
+#endif
+    }
+    static inline void move_construct(T* target, T* source, size_type count)
+    {
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+        for(size_type a=0; a<count; ++a)
+            new(&target[a]) T( std::move(source[a]) );
+#else
+        copy_construct(target, source, count);
+#endif
+    }
+    template<typename It>
+    static inline It copy_assign(T* target, It source, size_type count)
+    {
+        for(size_type a=0; a<count; ++a)
+            target[a] = *source++;
+        return source;
+    }
+    template<typename It>
+    static inline It copy_assign_backwards(T* target, It source, size_type count)
+    {
+        for(size_type a=count; a-- > 0; )
+            target[a] = *source++;
+        return source;
+    }
+    template<typename It>
+    static inline It copy_construct(T* target, It source, size_type count)
+    {
+        for(size_type a=0; a<count; ++a)
+            new(&target[a]) T( *source++ );
+        return source;
+    }
+
 private:
     T* data;
-    unsigned len;
+    size_type len, cap;
+
+    //__gnu_cxx::__mt_alloc<T> alloc;
+    std::allocator<T> alloc;
 };
 #endif
 

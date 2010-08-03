@@ -12,22 +12,22 @@ namespace
     {
         unsigned org_x, org_y;
     };
-    std::vector<ScrollingPosition> scrolls; // For animated
+    VecType<ScrollingPosition> scrolls; // For animated
 }
 
 static inline bool veq
-    (const std::vector<uint32>& a,
-     const std::vector<uint32>& b) // For ChangeLog
+    (const VecType<uint32>& a,
+     const VecType<uint32>& b) // For ChangeLog
 {
     if(a.size() != b.size()) return false;
     return std::memcmp(&a[0], &b[0], a.size()*sizeof(a[0])) == 0;
 }
 
-const std::vector<uint32>
+const VecType<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy)
 {
     // Create the result vector filled with default pixel value
-    std::vector<uint32> result(sy*sx, DefaultPixel);
+    VecType<uint32> result(sy*sx, DefaultPixel);
 
     const int xbegin = ox;
     const int xend   = ox+sx-1;
@@ -234,7 +234,7 @@ void TILE_Tracker::Save()
     char Filename[512] = {0}; // explicit init keeps valgrind happy
     std::sprintf(Filename, "tile-%04u.png", count++);
 
-    std::vector<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
+    VecType<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
 
     if(UncertainPixel::is_changelog())
     {
@@ -279,7 +279,7 @@ namespace
     /* Cache InterestingSpot lists for each cube */
     /* NOTE: GLOBAL */
     std::map
-        <IntCoordinate, std::vector<InterestingSpot>,
+        <IntCoordinate, VecType<InterestingSpot>,
          std::less<IntCoordinate>,
          FSBAllocator<int> > cache;
 }
@@ -294,8 +294,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
      * between those two sets of spots.
      */
 
-    std::vector<InterestingSpot> input_spots;
-    std::vector<InterestingSpot> reference_spots;
+    VecType<InterestingSpot> input_spots;
+    VecType<InterestingSpot> reference_spots;
     FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
 
     /* For speed reasons, we don't use LoadScreen(), but
@@ -358,7 +358,7 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             }
             else
             {
-                const std::vector<InterestingSpot>& found = cache[cache_key];
+                const VecType<InterestingSpot>& found = cache[cache_key];
                 reference_spots.insert(
                     reference_spots.end(),
                     found.begin(),
@@ -411,7 +411,7 @@ void TILE_Tracker::FitScreen
 #if 0
         goto AlwaysReset;
 #endif
-        std::vector<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y);
+        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y);
         unsigned diff = 0;
         for(unsigned a=0; a<oldbuf.size(); ++a)
         {

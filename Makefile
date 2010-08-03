@@ -33,6 +33,8 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
+CXXFLAGS += -std=c++0x
+
 all: $(PROGS)
 
 animmerger: $(OBJS)
