@@ -5,6 +5,8 @@
 #include <set>
 
 #include "settype.hh"
+#include "pixel.hh" // For pixelmethod
+#include "openmp.hh"
 
 unsigned x_divide_input = 1;
 unsigned y_divide_input = 1;
@@ -246,6 +248,9 @@ AlignResult Align(
         std::less<RelativeCoordinate>,
         FSBAllocator<int> > OffsetSuggestions;
     OffsetSuggestions offset_suggestions;
+    #ifdef _OPENMP
+    MutexType offset_suggestions_lock;
+    #endif
 
     for(int y=-4; y<=4; ++y)
         for(int x=-4; x<=4; ++x)
@@ -255,45 +260,85 @@ AlignResult Align(
     /* If a rarely occurring vista is found in the reference picture,
      * add the offset to the list of offsets to be tested
      */
+  #pragma omp parallel
+  {
+   #pragma omp single
+   {
+    typedef 
+    std::multimap<size_t, SpotLocSetType::const_iterator,
+                  std::less<size_t>/*, FSBAllocator<int>*/ > InputSpotCounts;
+    InputSpotCounts input_spot_counts;
     for(SpotLocSetType::const_iterator
         i = input_spot_locations.begin();
         i != input_spot_locations.end();
         ++i)
     {
-        const CoordSetType& coords = i->second;
-
-        if(coords.size() > 15) continue;
-
-        const SpotType& pixel = i->first;
-
-        SpotLocSetType::const_iterator r
-            = reference_spot_locations.find( pixel );
-        if(r == reference_spot_locations.end()) continue;
-
-        const CoordSetType& rcoords = r->second;
-        typedef CoordSetType::const_iterator it;
-
-        for(it c=coords.begin(); c!=coords.end(); ++c)
+        input_spot_counts.insert(
+            std::pair<size_t, SpotLocSetType::const_iterator>
+                ( i->second.size(), i ) );
+    }
+    size_t n_inputs = 0;
+    for(InputSpotCounts::const_iterator
+        itmp = input_spot_counts.begin();
+        itmp != input_spot_counts.end();
+        ++itmp)
+    {
+        SpotLocSetType::const_iterator i ( itmp->second );
+        if(n_inputs < 50 || itmp->first <= 4)
         {
-            size_t rmax = 0;
-            for(it d=rcoords.begin(); d!=rcoords.end(); ++d)
+            ++n_inputs;
+          #pragma omp task firstprivate(i)
+          {
+            const CoordSetType& coords = i->second;
+            const SpotType& pixel = i->first;
+
+            SpotLocSetType::const_iterator r
+                = reference_spot_locations.find( pixel );
+            if(r != reference_spot_locations.end())
             {
-                int rx = (d->x - org_x) - (c->x);
-                int ry = (d->y - org_y) - (c->y);
-                if(rx < mv_xmin || rx > mv_xmax
-                || ry < mv_ymin || ry > mv_ymax) continue;
-                offset_suggestions[RelativeCoordinate(rx,ry)] += 1;
-                if(++rmax >= 20) break;
+                const CoordSetType& rcoords = r->second;
+                typedef CoordSetType::const_iterator it;
+
+                for(it c=coords.begin(); c!=coords.end(); ++c)
+                {
+                    size_t rmax = 0;
+                    for(it d=rcoords.begin(); d!=rcoords.end(); ++d)
+                    {
+                        int rx = (d->x - org_x) - (c->x);
+                        int ry = (d->y - org_y) - (c->y);
+                        if(rx < mv_xmin || rx > mv_xmax
+                        || ry < mv_ymin || ry > mv_ymax
+                        /*
+                        || (rx&&ry)*/) continue;
+                      {
+                        #ifdef _OPENMP
+                        ScopedLock lck(offset_suggestions_lock);
+                        #endif
+                        offset_suggestions[RelativeCoordinate(rx,ry)] += 1;
+                      }
+                        if(++rmax >= 80) break;
+                    }
+                }
             }
+          } // omp task
         }
     }
+   } // omp single
+  } // omp parallel
 
     /* For each candidate offset that has sufficient confidence,
      * find out the one that has most overlap in spots to the reference
      */
     size_t             best_match = 0;
     RelativeCoordinate best_coord(0,0);
+    #ifdef _OPENMP
+    MutexType best_lock;
+    #endif
 
+  #pragma omp parallel
+  {
+   #pragma omp single
+   {
     for(OffsetSuggestions::const_iterator
         i = offset_suggestions.begin();
         i != offset_suggestions.end();
@@ -303,8 +348,11 @@ AlignResult Align(
         if(i->first.x < mv_xmin
         || i->first.x > mv_xmax
         || i->first.y < mv_ymin
-        || i->first.y > mv_ymax) continue; // Out of range
+        || i->first.y > mv_ymax/*
+        || (i->first.x && i->first.y)*/) continue; // Out of range
 
+      #pragma omp task firstprivate(i) shared(best_match,best_coord)
+      {
         const RelativeCoordinate& relcoord = i->first;
 
         size_t n_match = 0;
@@ -345,13 +393,18 @@ AlignResult Align(
         /*std::fprintf(stderr, "Suggestion %d,%d (%u): %u\n",
             i->first.x, i->first.y, i->second,
             (unsigned) n_match);*/
-
+        #ifdef _OPENMP
+        ScopedLock lck(best_lock);
+        #endif
         if(n_match > best_match)
         {
             best_match = n_match,
             best_coord = i->first;
         }
+      } // omp task
     }
+   } // omp single
+  } // omp parallel
 
     /*std::fprintf(stderr, "Choice: %d,%d: %u\n",
         best_coord.x, best_coord.y,
@@ -360,7 +413,7 @@ AlignResult Align(
     AlignResult result;
     result.suspect_reset = best_coord.length() > (16+16)
                  //      && (best_match < input_spots.size()/16)
-                       && ! UncertainPixel::is_loopinglog();
+                       && (pixelmethod != pm_LoopingLogPixel);
     result.offs_x        = best_coord.x;
     result.offs_y        = best_coord.y;
     return result;

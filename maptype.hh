@@ -141,6 +141,10 @@ public:
         if(!Multiple && (i == end() || !(val.first==i->first)))
             data.insert(i, val);
     }
+    void erase(iterator i)
+    {
+        data.erase(i);
+    }
 };
 
 template<typename K,typename V>

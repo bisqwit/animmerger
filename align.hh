@@ -2,7 +2,7 @@
 #define bqtTileTrackerAlignHH
 
 #include <vector>
-#include "pixel.hh" // For uint32 and uint64
+#include "types.hh"
 
 /* A two-dimensional coordinate */
 struct IntCoordinate

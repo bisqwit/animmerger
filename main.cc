@@ -25,12 +25,14 @@ int main(int argc, char** argv)
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
             {"method",     1,0,'p'},
+            {"bgmethod",   1,0,'b'},
             {"looplength", 1,0,'l'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
+            {"gif",        0,0,'g'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:p:l:r:a:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:r:a:g", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -49,6 +51,8 @@ int main(int argc, char** argv)
                     " --help, -h             This help\n"
                     " --mask, -m <defs>      Define a mask, see instructions below\n"
                     " --method, -p <mode>    Select pixel type, see below\n"
+                    " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
+                    "                        Tip: Use -bl for some memory usage reduction\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGLOG mode\n"
                     " --version, -V          Displays version information\n"
                     " --refscale, -r <x>,<y> Change the grid size that controls\n"
@@ -62,6 +66,7 @@ int main(int argc, char** argv)
                     "     Default: -9999,-9999,9999,9999\n"
                     "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
                     "     only scroll horizontally and by 4 pixels at most per frame.\n"
+                    " --gif, -g              Save GIF frames instead of PNG frames\n"
                     "\n"
                     "animmerger will always output PNG files into the current\n"
                     "working directory, with the filename pattern tile-####.png\n"
@@ -182,15 +187,15 @@ int main(int argc, char** argv)
             {
                 char* arg = optarg;
                 if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    method = pm_AveragePixel;
+                    pixelmethod = pm_AveragePixel;
                 else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    method = pm_LastPixel;
+                    pixelmethod = pm_LastPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    method = pm_MostUsedPixel;
+                    pixelmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
-                    method = pm_ChangeLogPixel;
+                    pixelmethod = pm_ChangeLogPixel;
                 else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
-                    method = pm_LoopingLogPixel;
+                    pixelmethod = pm_LoopingLogPixel;
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
@@ -198,6 +203,29 @@ int main(int argc, char** argv)
                 }
                 break;
             }
+            case 'b':
+            {
+                char* arg = optarg;
+                if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
+                    bgmethod = pm_AveragePixel;
+                else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
+                    bgmethod = pm_LastPixel;
+                else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
+                    bgmethod = pm_MostUsedPixel;
+                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
+                    bgmethod = pm_ChangeLogPixel;
+                else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
+                    bgmethod = pm_LoopingLogPixel;
+                else
+                {
+                    std::fprintf(stderr, "animmerger: Unrecognized bgmethod: %s\n", arg);
+                    return -1;
+                }
+                break;
+            }
+            case 'g':
+                SaveGif = true;
+                break;
         }
     }
 
@@ -266,6 +294,10 @@ int main(int argc, char** argv)
         }
 
         tracker.FitScreenAutomatic(&pixels[0], sx,sy);
+
+        //bgmethod = pixelmethod; NeedsBackgroundPixel = false;
+        //tracker.FitScreen(&pixels[0], sx,sy,   0,0, false);
+
         tracker.NextFrame();
     }
     tracker.SaveAndReset();

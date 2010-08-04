@@ -50,16 +50,12 @@ public:
     }
 };
 
-class LoopingLogPixelAndMostUsedPixel
+template<>
+class TwoPixels<LoopingLogPixel, MostUsedPixel>: private LoopingLogPixel
 {
 public:
-    LoopingLogPixel  pixel;
-public:
-    inline void set(uint32 p)
-    {
-        pixel.set(p);
-    }
-    inline uint32 get_pixel() const    { return pixel; }
-    inline uint32 get_mostused() const { return pixel.GetMostUsed(); }
-    inline void Compress() { pixel.Compress(); }
+    using LoopingLogPixel::set;
+    using LoopingLogPixel::Compress;
+    inline uint32 get_pixel1() const { return LoopingLogPixel::operator uint32(); }
+    inline uint32 get_pixel2() const { return GetMostUsed(); }
 };

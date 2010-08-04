@@ -13,6 +13,7 @@
 
 extern unsigned CurrentTimer;       // For animated
 extern unsigned SequenceBegin;      // For animated
+extern bool SaveGif;
 
 class TILE_Tracker
 {
@@ -21,8 +22,6 @@ class TILE_Tracker
     int xmin,ymin;
     int xmax,ymax;
     bool first;
-
-    unsigned count;
 
     typedef UncertainPixelVector256x256 vectype;
 
@@ -40,7 +39,7 @@ class TILE_Tracker
     std::string LastFilename;    // For ChangeLog
 
 public:
-    TILE_Tracker() : count(0), LastFilename()
+    TILE_Tracker() : LastFilename()
     {
         Reset();
     }
@@ -59,6 +58,7 @@ public:
     }
 
     void Save();
+    void SaveFrame(unsigned timer, unsigned imgcounter);
 
     void Reset();
 

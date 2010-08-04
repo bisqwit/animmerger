@@ -1,10 +1,11 @@
-VERSION=1.1.3
+VERSION=1.2.0
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
 ARCHFILES=\
 	canvas.cc canvas.hh \
 	align.cc align.hh \
+	types.hh \
 	maptype.hh \
 	vectype.hh \
 	pixel.cc pixel.hh \
@@ -33,7 +34,7 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++0x
+CXXFLAGS += -std=c++0x -fopenmp
 
 #OPTIM=-O2 -fno-inline
 

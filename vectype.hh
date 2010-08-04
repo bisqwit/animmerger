@@ -39,7 +39,7 @@ public:
         if(len)
         {
             data = alloc.allocate(len);
-            copy_construct(0, &b.data[0], len);
+            copy_construct(&data[0], &b.data[0], len);
         }
     }
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
@@ -197,6 +197,22 @@ public:
         len += count;
         data = newdata;
         cap  = newcap;
+    }
+
+    void erase(iterator pos)
+    {
+        size_type del_pos = pos - begin();
+        move_assign(&data[del_pos], &data[del_pos+1], len-del_pos-1);
+        destroy(&data[--len], 1);
+    }
+    void erase(iterator first, iterator last)
+    {
+        size_type del_pos = first - begin();
+        size_type count   = last - first;
+        if(!count) return;
+        move_assign(&data[del_pos], &data[del_pos+count], len-del_pos-count);
+        destroy(&data[len-count], count);
+        len -= count;
     }
 
     void reserve(size_type newcap)
