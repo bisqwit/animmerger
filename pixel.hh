@@ -91,51 +91,48 @@ public:
 
 class UncertainPixelVector256x256
 {
+    struct factoryBase
+    {
+        typedef Array256x256of_Base ObjT;
+        ObjT* (*Construct)();
+        ObjT* (*Copy)(const ObjT& b);
+        void  (*Assign)(ObjT& tgt, const ObjT& b);
+    };
+    template<typename T>
+    struct factory
+    {
+        typedef Array256x256of_Base ObjT;
+        typedef Array256x256of<T> ResT;
+        static ObjT* Construct()         { return new ResT; }
+        static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
+        static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b;    }
+    };
     class Get256x256pixelFactory
     {
-        struct factoryBase
-        {
-            typedef Array256x256of_Base ObjT;
-            virtual ObjT* Construct() const = 0;
-            virtual ObjT* CopyConstruct(const ObjT& b) const = 0;
-            virtual void CopyAssign(ObjT*& ptr, const ObjT& b) const = 0;
-        };
-        template<typename T>
-        static inline const factoryBase* factory()
-        {
-            static struct : public factoryBase
-            {
-                typedef Array256x256of_Base ObjT;
-                typedef Array256x256of<T> ResT;
-                virtual ObjT* Construct() const
-                    { return new ResT; }
-                virtual ObjT* CopyConstruct(const ObjT& b) const
-                    { return new ResT ( (const ResT&) b ) ; }
-                virtual void CopyAssign(ObjT*& ptr, const ObjT& b) const
-                    { if(ptr) *ptr = (const ResT&) b;
-                      else ptr = new ResT( (const ResT&) b ); }
-            } local;
-            return &local;
-        }
     public:
-        const factoryBase* operator-> () const
+        inline const factoryBase* operator-> () const
         {
-            static struct factories: public MapType<PixelMethod, const factoryBase*>
+            // Note: This must be in the same order as the Methods enum,
+            //       and with no gaps.
+            typedef factory<AveragePixelAndMostUsedPixel> t0;
+            typedef factory<LastPixelAndMostUsedPixel> t1;
+            typedef factory<MostUsedPixelAndMostUsedPixel> t2;
+            typedef factory<MostUsedWithinAndMostUsedPixel<16> > t3;
+            typedef factory<ChangeLogPixelAndMostUsedPixel> t4;
+            typedef factory<LoopingLogPixelAndMostUsedPixel> t5;
+            static const factoryBase methods[] =
             {
-                factories()
-                {
-                    insert(value_type(pm_AveragePixel,   factory<AveragePixelAndMostUsedPixel>()));
-                    insert(value_type(pm_LastPixel,      factory<LastPixelAndMostUsedPixel>()));
-                    insert(value_type(pm_MostUsedPixel,  factory<MostUsedPixelAndMostUsedPixel>()));
-                    insert(value_type(pm_MostUsed16Pixel,factory<MostUsedWithinAndMostUsedPixel<16> >()));
-                    insert(value_type(pm_ChangeLogPixel, factory<ChangeLogPixelAndMostUsedPixel>()));
-                    insert(value_type(pm_LoopingLogPixel,factory<LoopingLogPixelAndMostUsedPixel>()));
-                }
-            } Factories;
-            return Factories.find(method)->second;
+                { t0::Construct, t0::Copy, t0::Assign },
+                { t1::Construct, t1::Copy, t1::Assign },
+                { t2::Construct, t2::Copy, t2::Assign },
+                { t3::Construct, t3::Copy, t3::Assign },
+                { t4::Construct, t4::Copy, t4::Assign },
+                { t5::Construct, t5::Copy, t5::Assign },
+            };
+            return &methods[method];
         }
     };
-public: 
+public:
     // By default, the vector is uninitialized (empty)
     UncertainPixelVector256x256() : data(0)
     {
@@ -149,13 +146,14 @@ public:
     // Copy constructor
     UncertainPixelVector256x256(const UncertainPixelVector256x256& b) : data(0)
     {
-        if(b.data) data = Get256x256pixelFactory()->CopyConstruct(*b.data);
+        if(b.data) data = Get256x256pixelFactory()->Copy(*b.data);
     }
     // Assign operator (create copy of the other vector)
     UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b)
     {
         if(!b.data) { delete data; data=0; }
-        else Get256x256pixelFactory()->CopyAssign(data, *b.data);
+        else if(data) Get256x256pixelFactory()->Assign(*data, *b.data);
+        else data = Get256x256pixelFactory()->Copy(*b.data);
         return *this;
     }
     // Destructor: Deallocate vector of alloated
@@ -174,13 +172,13 @@ public:
     {
         if(data) func(*data);
     }
-    
+
     // Run Compress() method on each vector element
     inline void Compress()
     {
         if(data) data->Compress();
     }
-    
+
     // Test whether vector is empty (uninitialized)
     bool empty() const { return !data; }
 
