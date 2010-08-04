@@ -199,6 +199,22 @@ public:
         cap  = newcap;
     }
 
+    void erase(iterator pos)
+    {
+        size_type del_pos = pos - begin();
+        move_assign(&data[del_pos], &data[del_pos+1], len-del_pos-1);
+        destroy(&data[--len], 1);
+    }
+    void erase(iterator first, iterator last)
+    {
+        size_type del_pos = first - begin();
+        size_type count   = last - first;
+        if(!count) return;
+        move_assign(&data[del_pos], &data[del_pos+count], len-del_pos-count);
+        destroy(&data[len-count], count);
+        len -= count;
+    }
+
     void reserve(size_type newcap)
     {
         if(cap < newcap)
