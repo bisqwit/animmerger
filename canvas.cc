@@ -62,7 +62,7 @@ struct UpdateCubeHelper
           sx(e) { }
 
     template<typename Cube>
-    void operator() (Cube& cube) const 
+    void operator() (Cube& cube) const
     {
         /* Write this particular cube */
         for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)

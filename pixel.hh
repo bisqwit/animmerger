@@ -19,6 +19,7 @@ extern enum PixelMethod
     pm_ChangeLogPixel,
     pm_LoopingLogPixel
 } pixelmethod;
+extern bool NeedsMostUsedPixel;
 
 /* A vector of 256x256 pixels. */
 struct Array256x256of_Base

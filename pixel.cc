@@ -4,6 +4,8 @@ enum PixelMethod pixelmethod = pm_MostUsedPixel;
 
 unsigned LoopingLogLength = 16;
 
+bool NeedsMostUsedPixel = true;
+
 #include "pixels/mostusedpixel.hh"
 
 #include "pixels/averagepixel.hh"
@@ -43,6 +45,14 @@ public:
     }
 };
 
+template<typename T>
+class PixelButNotMostUsedPixel: public T
+{
+public:
+    inline uint32 get_pixel() const { return T::operator uint32(); }
+    inline uint32 get_mostused() const { return get_pixel(); }
+};
+
 namespace
 {
     struct FactoryType
@@ -74,16 +84,34 @@ namespace
             typedef FactoryMethods<MostUsedWithinAndMostUsedPixel<16> > t3;
             typedef FactoryMethods<ChangeLogPixelAndMostUsedPixel> t4;
             typedef FactoryMethods<LoopingLogPixelAndMostUsedPixel> t5;
+            // ChangeLog and LoopingLog contain a built-in MostUsedPixel,
+            // so adding a PixelButNotMostUsedPixel for those types
+            // wouldn't do any good.
+            typedef FactoryMethods<PixelButNotMostUsedPixel<AveragePixel> > q0;
+            typedef FactoryMethods<PixelButNotMostUsedPixel<LastPixel> > q1;
+            typedef FactoryMethods<MostUsedPixelAndMostUsedPixel> q2;
+            typedef FactoryMethods<PixelButNotMostUsedPixel<MostUsedWithinPixel<16> > > q3;
+            typedef FactoryMethods<ChangeLogPixelAndMostUsedPixel> q4;
+            typedef FactoryMethods<LoopingLogPixelAndMostUsedPixel> q5;
+            // Table
             static const FactoryType methods[] =
             {
+                // Just Pixel:
+                { q0::Construct, q0::Copy, q0::Assign },
+                { q1::Construct, q1::Copy, q1::Assign },
+                { q2::Construct, q2::Copy, q2::Assign },
+                { q3::Construct, q3::Copy, q3::Assign },
+                { q4::Construct, q4::Copy, q4::Assign },
+                { q5::Construct, q5::Copy, q5::Assign },
+                // Pixel and MostUsedPixel:
                 { t0::Construct, t0::Copy, t0::Assign },
                 { t1::Construct, t1::Copy, t1::Assign },
                 { t2::Construct, t2::Copy, t2::Assign },
                 { t3::Construct, t3::Copy, t3::Assign },
                 { t4::Construct, t4::Copy, t4::Assign },
-                { t5::Construct, t5::Copy, t5::Assign },
+                { t5::Construct, t5::Copy, t5::Assign }
             };
-            return &methods[pixelmethod];
+            return &methods[pixelmethod + 6*NeedsMostUsedPixel];
         }
         // This encapsulation allows us to change the static
         // array into a std::map or MapType if we'd like to.

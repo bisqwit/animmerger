@@ -1,6 +1,6 @@
 class LastPixel
 {
-    unsigned pix;
+    uint32 pix;
 public:
     LastPixel() : pix(DefaultPixel)
     {
@@ -13,7 +13,7 @@ public:
     {
         pix = p;
     }
-    operator uint32() const { return pix; }
+    inline operator uint32() const { return pix; }
     void Compress()
     {
     }

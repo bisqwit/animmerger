@@ -266,6 +266,10 @@ int main(int argc, char** argv)
         }
 
         tracker.FitScreenAutomatic(&pixels[0], sx,sy);
+
+        //NeedsMostUsedPixel = false;
+        //tracker.FitScreen(&pixels[0], sx,sy,   0,0, false);
+
         tracker.NextFrame();
     }
     tracker.SaveAndReset();

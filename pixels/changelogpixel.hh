@@ -4,16 +4,23 @@
 /* undef or define. */
 static const bool CHANGELOG_GUESS_OUTSIDES = true;
 
+#define CHANGELOG_USE_LASTTIMESTAMP 0
+
 #include <vector>
 
 class ChangeLogPixel
 {
     MapType<unsigned, uint32> history;
     MostUsedPixel most_used;
+#if CHANGELOG_USE_LASTTIMESTAMP
     unsigned last_time;
+#endif
 
 public:
-    ChangeLogPixel() : history(), most_used(), last_time(0)
+    ChangeLogPixel() : history(), most_used()
+#if CHANGELOG_USE_LASTTIMESTAMP
+                        , last_time(0)
+#endif
     {
     }
     void set(unsigned R,unsigned G,unsigned B)
@@ -29,7 +36,9 @@ public:
             return;
         }*/
         most_used.set(p);
+#if CHANGELOG_USE_LASTTIMESTAMP
         if(CurrentTimer > last_time) last_time = CurrentTimer;
+#endif
         // Store the value into the history.
         // However, do not store three consecutive identical values.
         // Only store the first timer value where it occurs,
@@ -70,15 +79,53 @@ public:
         */
         if(i != history.begin())
         {
-            MapType<unsigned, uint32>::iterator j(i);
-            --j;
-            if(j->second == p)
+            MapType<unsigned, uint32>::iterator prev1(i);
+            --prev1;
+#if CHANGELOG_USE_LASTTIMESTAMP
+            if(prev1->second == p)
             {
-                // Ignore repeating value
-                return;
+                // We've got a repeat.
+                return; // Ignore repeating value
             }
+#else
+            if(prev1->second == p)
+            {
+                // We've got a repeat.
+                if(prev1 != history.begin())
+                {
+                    MapType<unsigned, uint32>::iterator prev2(prev1);
+                    --prev2;
+                    if(prev1->second == prev2->second)
+                    {
+                        // Preceding two are duplicates. Here's a third.
+                        // Do not insert the third one. Instead, update
+                        // the second duplicate's timestamp to current's.
+                        prev1->first = CurrentTimer;
+                        return;
+                    }
+                }
+                // Previous two weren't duplicates.
+                // Only the previous one was. Add a second one, so
+                // that we know how long the duplicateness lasts.
+            }
+            else
+            {
+                if(prev1 != history.begin())
+                {
+                    MapType<unsigned, uint32>::iterator prev2(prev1);
+                    --prev2;
+                    if(prev1->second == prev2->second)
+                    {
+                        // Preceding two are duplicates; remove
+                        // the latter, for it is redundant.
+                        history.erase(prev1);
+                        i = prev2; ++i;
+                    }
+                }
+            }
+#endif
         }
-        
+
         history.insert(i,
             std::pair<unsigned, uint32> (CurrentTimer, p)
                       );
@@ -124,7 +171,11 @@ private:
 
         /* Anything else. Take the value. */
         --i;
-        if(i->first < time && last && time > last_time)
+        if(i->first < time && last
+#if CHANGELOG_USE_LASTTIMESTAMP
+                                   && time > last_time
+#endif
+          )
         {
             return CHANGELOG_GUESS_OUTSIDES
                 ? most_used

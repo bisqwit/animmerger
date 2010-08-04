@@ -2,9 +2,8 @@ class AveragePixel
 {
     unsigned r,g,b;
     unsigned n;
-    unsigned pix;
 public:
-    AveragePixel() : r(0),g(0),b(0),n(0), pix(DefaultPixel)
+    AveragePixel() : r(0),g(0),b(0),n(0)
     {
     }
     void set(uint32 p)
@@ -15,10 +14,13 @@ public:
     {
         r+=R; g+=G; b+=B;
         ++n;
-
-        pix = (((r/n) << 16) + ((g/n) << 8) + (b/n));
     }
-    operator uint32() const { return pix; }
+    operator uint32() const
+    {
+        return n
+            ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
+            : DefaultPixel;
+    }
     void Compress()
     {
     }
