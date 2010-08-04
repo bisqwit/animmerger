@@ -232,13 +232,16 @@ TILE_Tracker::PutScreen
 
 void TILE_Tracker::Save()
 {
-    if(UncertainPixel::is_animated())
+    const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_ChangeLogPixel;
+
+    if(animated)
         std::fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
     else
         std::fprintf(stderr, "Saving(%d)\n", first);
     if(first) return;
 
-    if(UncertainPixel::is_animated())
+    if(animated)
     {
         static bool Saving = false;
         if(!Saving)
@@ -246,10 +249,10 @@ void TILE_Tracker::Save()
             Saving = true;
             unsigned SavedTimer = CurrentTimer;
 
-            if(UncertainPixel::is_loopinglog())
+            if(pixelmethod == pm_LoopingLogPixel)
             {
-                const unsigned LoopLength = UncertainPixel::GetLoopLength();
-                if(SavedTimer >= LoopLength) SavedTimer = LoopLength;
+                if(SavedTimer >= LoopingLogLength)
+                    SavedTimer = LoopingLogLength;
             }
 
             for(CurrentTimer=0; CurrentTimer<SavedTimer; CurrentTimer += 1)
@@ -290,7 +293,7 @@ void TILE_Tracker::Save()
 
     VecType<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
 
-    if(UncertainPixel::is_changelog())
+    if(pixelmethod == pm_ChangeLogPixel)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
@@ -431,7 +434,10 @@ void TILE_Tracker::FitScreen
      int extra_offs_y
     )
 {
-    if(! UncertainPixel::is_animated())
+    const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_ChangeLogPixel;
+
+    if(!animated)
     {
 /*
     static unsigned framecounter=0;
@@ -509,7 +515,10 @@ void TILE_Tracker::FitScreen
 
 void TILE_Tracker::Reset()
 {
-    if(UncertainPixel::is_animated())
+    const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_ChangeLogPixel;
+
+    if(animated)
     {
         SequenceBegin += CurrentTimer;
         CurrentTimer = 0;
@@ -540,7 +549,10 @@ void TILE_Tracker::Cleanup()
 
 void TILE_Tracker::NextFrame()
 {
-    if(UncertainPixel::is_animated())
+    const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_ChangeLogPixel;
+
+    if(animated)
     {
         ScrollingPosition s;
         s.org_x = org_x;

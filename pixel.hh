@@ -29,29 +29,7 @@ extern enum PixelMethod
     pm_MostUsed16Pixel,
     pm_ChangeLogPixel,
     pm_LoopingLogPixel
-} method;
-
-struct UncertainPixel
-{
-public:
-    static bool is_changelog()
-    {
-        return method == pm_ChangeLogPixel;
-    }
-    static bool is_loopinglog()
-    {
-        return method == pm_LoopingLogPixel;
-    }
-    static bool is_animated()
-    {
-        return is_changelog() || is_loopinglog();
-    }
-    static unsigned GetLoopLength()
-    {
-        if(!is_loopinglog()) return 0;
-        return LoopingLogLength;
-    }
-};
+} pixelmethod;
 
 struct Array256x256of_Base
 {
@@ -91,7 +69,7 @@ public:
 
 class UncertainPixelVector256x256
 {
-    struct factoryBase
+    struct FactoryType
     {
         typedef Array256x256of_Base ObjT;
         ObjT* (*Construct)();
@@ -99,7 +77,7 @@ class UncertainPixelVector256x256
         void  (*Assign)(ObjT& tgt, const ObjT& b);
     };
     template<typename T>
-    struct factory
+    struct FactoryMethods
     {
         typedef Array256x256of_Base ObjT;
         typedef Array256x256of<T> ResT;
@@ -110,17 +88,17 @@ class UncertainPixelVector256x256
     class Get256x256pixelFactory
     {
     public:
-        inline const factoryBase* operator-> () const
+        inline const FactoryType* operator-> () const
         {
             // Note: This must be in the same order as the Methods enum,
             //       and with no gaps.
-            typedef factory<AveragePixelAndMostUsedPixel> t0;
-            typedef factory<LastPixelAndMostUsedPixel> t1;
-            typedef factory<MostUsedPixelAndMostUsedPixel> t2;
-            typedef factory<MostUsedWithinAndMostUsedPixel<16> > t3;
-            typedef factory<ChangeLogPixelAndMostUsedPixel> t4;
-            typedef factory<LoopingLogPixelAndMostUsedPixel> t5;
-            static const factoryBase methods[] =
+            typedef FactoryMethods<AveragePixelAndMostUsedPixel> t0;
+            typedef FactoryMethods<LastPixelAndMostUsedPixel> t1;
+            typedef FactoryMethods<MostUsedPixelAndMostUsedPixel> t2;
+            typedef FactoryMethods<MostUsedWithinAndMostUsedPixel<16> > t3;
+            typedef FactoryMethods<ChangeLogPixelAndMostUsedPixel> t4;
+            typedef FactoryMethods<LoopingLogPixelAndMostUsedPixel> t5;
+            static const FactoryType methods[] =
             {
                 { t0::Construct, t0::Copy, t0::Assign },
                 { t1::Construct, t1::Copy, t1::Assign },
@@ -129,7 +107,7 @@ class UncertainPixelVector256x256
                 { t4::Construct, t4::Copy, t4::Assign },
                 { t5::Construct, t5::Copy, t5::Assign },
             };
-            return &methods[method];
+            return &methods[pixelmethod];
         }
     };
 public:

@@ -1,6 +1,6 @@
 #include "pixel.hh"
 
-enum PixelMethod method = pm_MostUsedPixel;
+enum PixelMethod pixelmethod = pm_MostUsedPixel;
 
 unsigned LoopingLogLength = 16;
 

@@ -182,15 +182,15 @@ int main(int argc, char** argv)
             {
                 char* arg = optarg;
                 if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    method = pm_AveragePixel;
+                    pixelmethod = pm_AveragePixel;
                 else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    method = pm_LastPixel;
+                    pixelmethod = pm_LastPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    method = pm_MostUsedPixel;
+                    pixelmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
-                    method = pm_ChangeLogPixel;
+                    pixelmethod = pm_ChangeLogPixel;
                 else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
-                    method = pm_LoopingLogPixel;
+                    pixelmethod = pm_LoopingLogPixel;
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
