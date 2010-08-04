@@ -34,7 +34,7 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++0x
+CXXFLAGS += -std=c++0x -fopenmp
 
 #OPTIM=-O2 -fno-inline
 
