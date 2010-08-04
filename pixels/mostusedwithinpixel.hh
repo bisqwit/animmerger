@@ -3,7 +3,7 @@ class MostUsedWithinPixel
 {
     // Read the first BUFFER_SIZE amount of pixels into this buffer.
     // The last item is reused as a place for the current most common pixel.
-    unsigned pixels[BUFFER_SIZE];
+    uint32 pixels[BUFFER_SIZE];
 
     // Index to the current unused place in the buffer:
     unsigned pixelIndex;
@@ -12,7 +12,7 @@ class MostUsedWithinPixel
     MostUsedWithinPixel(): pixelIndex(0)
     {
         // By default the color of the current most common pixel is black:
-        pixels[BUFFER_SIZE-1] = 0;
+        pixels[BUFFER_SIZE-1] = DefaultPixel;
     }
 
     void set(unsigned r, unsigned g, unsigned b)
@@ -29,7 +29,7 @@ class MostUsedWithinPixel
         set_p(p);
     }
 
-    void set_p(const unsigned newPixel)
+    void set_p(const uint32 newPixel)
     {
         // Insert the new pixel into its sorted place:
         unsigned i = pixelIndex;
@@ -42,10 +42,12 @@ class MostUsedWithinPixel
         ++pixelIndex;
 
         // Count the most used pixel and put it to end of the buffer:
-        unsigned currentMaxCount = 0, mostUsedPixel = 0;
+        unsigned currentMaxCount = 0;
+        uint32 mostUsedPixel = 0;
         for(i = 0; i < pixelIndex;)
         {
-            unsigned currentPixel = pixels[i], count = 1;
+            uint32 currentPixel = pixels[i];
+            unsigned count = 1;
             while(++i < pixelIndex && pixels[i] == currentPixel)
                 ++count;
             if(count > currentMaxCount)
@@ -65,22 +67,4 @@ class MostUsedWithinPixel
     void Compress()
     {
     }
-};
-
-template<unsigned N>
-class MostUsedWithinAndMostUsedPixel
-{
-public:
-    MostUsedWithinPixel<N> pixel;
-private:
-    MostUsedPixel most_used;
-public:
-    inline void set(uint32 p)
-    {
-        pixel.set(p);
-        most_used.set(p);
-    }
-    inline uint32 get_pixel() const { return pixel; }
-    inline uint32 get_mostused() const { return most_used; }
-    inline void Compress() { pixel.Compress(); most_used.Compress(); }
 };

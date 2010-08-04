@@ -18,15 +18,14 @@ extern enum PixelMethod
     pm_MostUsed16Pixel,
     pm_ChangeLogPixel,
     pm_LoopingLogPixel
-} pixelmethod;
-extern bool NeedsMostUsedPixel;
+} pixelmethod, bgmethod;
 
 /* A vector of 256x256 pixels. */
 struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
-    virtual uint32 GetPixel(unsigned index) const = 0;
-    virtual uint32 GetMostUsed(unsigned index) const = 0;
+    virtual uint32 GetLive(unsigned index) const = 0;
+    virtual uint32 GetStatic(unsigned index) const = 0;
     virtual void Set(unsigned index, uint32 p) = 0;
     virtual void Compress() = 0;
 };

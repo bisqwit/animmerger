@@ -1,15 +1,46 @@
 #include "pixel.hh"
 
 enum PixelMethod pixelmethod = pm_MostUsedPixel;
+enum PixelMethod bgmethod    = pm_MostUsedPixel;
 
 unsigned LoopingLogLength = 16;
 
-bool NeedsMostUsedPixel = true;
+/* This class wraps two pixel classes in one,
+ * providing the functions of both. One is a "live"
+ * pixel, one is a "static" (background) pixel.
+ */
+template<typename Pixel1,typename Pixel2>
+class TwoPixels
+{
+    Pixel1 pixel1;
+    Pixel2 pixel2;
+public:
+    inline void set(uint32 p)
+    {
+        pixel1.set(p);
+        pixel2.set(p);
+    }
+    inline uint32 get_pixel1() const { return pixel1; }
+    inline uint32 get_pixel2() const { return pixel2; }
+    inline void Compress() { pixel1.Compress(); pixel2.Compress(); }
+};
 
-#include "pixels/mostusedpixel.hh"
+/* Specialize an optimized case for when the two pixel
+ * types are the same. Only store one set of data.
+ */
+template<typename Pix>
+class TwoPixels<Pix,Pix>: private Pix
+{
+public:
+    using Pix::set;
+    using Pix::Compress;
+    inline uint32 get_pixel1() const { return Pix::operator uint32(); }
+    inline uint32 get_pixel2() const { return Pix::operator uint32(); }
+};
 
-#include "pixels/averagepixel.hh"
 #include "pixels/lastpixel.hh"
+#include "pixels/mostusedpixel.hh"
+#include "pixels/averagepixel.hh"
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
@@ -23,14 +54,14 @@ public:
     Array256x256of() { }
     virtual ~Array256x256of() { }
 public:
-    virtual uint32 GetPixel(unsigned index) const
+    virtual uint32 GetLive(unsigned index) const
     {
-        return data[index].get_pixel();
+        return data[index].get_pixel1();
     }
 
-    virtual uint32 GetMostUsed(unsigned index) const
+    virtual uint32 GetStatic(unsigned index) const
     {
-        return data[index].get_mostused();
+        return data[index].get_pixel2();
     }
 
     virtual void Set(unsigned index, uint32 p)
@@ -43,14 +74,6 @@ public:
         for(unsigned a=0; a<256*256; ++a)
             data[a].Compress();
     }
-};
-
-template<typename T>
-class PixelButNotMostUsedPixel: public T
-{
-public:
-    inline uint32 get_pixel() const { return T::operator uint32(); }
-    inline uint32 get_mostused() const { return get_pixel(); }
 };
 
 namespace
@@ -71,50 +94,51 @@ namespace
         static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
         static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b;    }
     };
+
     class Get256x256pixelFactory
     {
+        // Note: This must be in the same order as the Methods enum,
+        //       and with no gaps.
+        typedef AveragePixel            t0;
+        typedef LastPixel               t1;
+        typedef MostUsedPixel           t2;
+        typedef MostUsedWithinPixel<16> t3;
+        typedef ChangeLogPixel          t4;
+        typedef LoopingLogPixel         t5;
+
+        template<typename Type1>
+        struct SubTables
+        {
+            template<typename Type2>
+            struct s : public FactoryMethods<TwoPixels<Type1,Type2> > { };
+            static const FactoryType methods[];
+        };
     public:
         inline const FactoryType* operator-> () const
         {
-            // Note: This must be in the same order as the Methods enum,
-            //       and with no gaps.
-            typedef FactoryMethods<AveragePixelAndMostUsedPixel> t0;
-            typedef FactoryMethods<LastPixelAndMostUsedPixel> t1;
-            typedef FactoryMethods<MostUsedPixelAndMostUsedPixel> t2;
-            typedef FactoryMethods<MostUsedWithinAndMostUsedPixel<16> > t3;
-            typedef FactoryMethods<ChangeLogPixelAndMostUsedPixel> t4;
-            typedef FactoryMethods<LoopingLogPixelAndMostUsedPixel> t5;
-            // ChangeLog and LoopingLog contain a built-in MostUsedPixel,
-            // so adding a PixelButNotMostUsedPixel for those types
-            // wouldn't do any good.
-            typedef FactoryMethods<PixelButNotMostUsedPixel<AveragePixel> > q0;
-            typedef FactoryMethods<PixelButNotMostUsedPixel<LastPixel> > q1;
-            typedef FactoryMethods<MostUsedPixelAndMostUsedPixel> q2;
-            typedef FactoryMethods<PixelButNotMostUsedPixel<MostUsedWithinPixel<16> > > q3;
-            typedef FactoryMethods<ChangeLogPixelAndMostUsedPixel> q4;
-            typedef FactoryMethods<LoopingLogPixelAndMostUsedPixel> q5;
-            // Table
-            static const FactoryType methods[] =
+            static const FactoryType*const tables[] =
             {
-                // Just Pixel:
-                { q0::Construct, q0::Copy, q0::Assign },
-                { q1::Construct, q1::Copy, q1::Assign },
-                { q2::Construct, q2::Copy, q2::Assign },
-                { q3::Construct, q3::Copy, q3::Assign },
-                { q4::Construct, q4::Copy, q4::Assign },
-                { q5::Construct, q5::Copy, q5::Assign },
-                // Pixel and MostUsedPixel:
-                { t0::Construct, t0::Copy, t0::Assign },
-                { t1::Construct, t1::Copy, t1::Assign },
-                { t2::Construct, t2::Copy, t2::Assign },
-                { t3::Construct, t3::Copy, t3::Assign },
-                { t4::Construct, t4::Copy, t4::Assign },
-                { t5::Construct, t5::Copy, t5::Assign }
+                /* Must match the number of enum items */
+                SubTables<t0>::methods,
+                SubTables<t1>::methods,
+                SubTables<t2>::methods,
+                SubTables<t3>::methods,
+                SubTables<t4>::methods,
+                SubTables<t5>::methods
             };
-            return &methods[pixelmethod + 6*NeedsMostUsedPixel];
+            return &tables[pixelmethod][bgmethod];
         }
-        // This encapsulation allows us to change the static
-        // array into a std::map or MapType if we'd like to.
+    };
+    template<typename Type1>
+    const FactoryType Get256x256pixelFactory::SubTables<Type1>::methods[] =
+    {
+        /* Must match the number of enum items */
+        { s<t0>::Construct, s<t0>::Copy, s<t0>::Assign },
+        { s<t1>::Construct, s<t1>::Copy, s<t1>::Assign },
+        { s<t2>::Construct, s<t2>::Copy, s<t2>::Assign },
+        { s<t3>::Construct, s<t3>::Copy, s<t3>::Assign },
+        { s<t4>::Construct, s<t4>::Copy, s<t4>::Assign },
+        { s<t5>::Construct, s<t5>::Copy, s<t5>::Assign }
     };
 }
 

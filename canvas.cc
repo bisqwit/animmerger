@@ -49,7 +49,7 @@ struct LoadCubeHelper
             unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
             unsigned destp =   sx*y + targetpos        - this_cube_xstart;
             for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                result[destp + xp] = cube.GetPixel(srcp + xp);
+                result[destp + xp] = cube.GetLive(srcp + xp);
         }
     }
 };
@@ -387,7 +387,7 @@ struct BackgroundLoader
     void operator() (Cube& cube) const
     {
         for(unsigned p=0; p<256*256; ++p)
-            result[p] = cube.GetMostUsed(p);
+            result[p] = cube.GetStatic(p);
     }
 };
 

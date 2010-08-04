@@ -136,6 +136,8 @@ public:
         return Find(CurrentTimer);
     }
     inline const MostUsedPixel& GetMostUsed() const { return most_used; }
+    inline uint32 GetLast() const
+        { return history.empty() ? DefaultPixel : history.rbegin()->second; }
 
     void Compress()
     {
@@ -185,16 +187,23 @@ private:
     }
 };
 
-class ChangeLogPixelAndMostUsedPixel
+template<>
+class TwoPixels<ChangeLogPixel, MostUsedPixel>: private ChangeLogPixel
 {
 public:
-    ChangeLogPixel  pixel;
+    using ChangeLogPixel::set;
+    using ChangeLogPixel::Compress;
+    inline uint32 get_pixel1() const { return ChangeLogPixel::operator uint32(); }
+    inline uint32 get_pixel2() const { return GetMostUsed(); }
+};
+
+template<>
+class TwoPixels<ChangeLogPixel, LastPixel>: private ChangeLogPixel
+{
+    ChangeLogPixel pixel1;
 public:
-    inline void set(uint32 p)
-    {
-        pixel.set(p);
-    }
-    inline uint32 get_pixel() const    { return pixel; }
-    inline uint32 get_mostused() const { return pixel.GetMostUsed(); }
-    inline void Compress() { pixel.Compress(); }
+    using ChangeLogPixel::set;
+    using ChangeLogPixel::Compress;
+    inline uint32 get_pixel1() const { return ChangeLogPixel::operator uint32(); }
+    inline uint32 get_pixel2() const { return GetLast(); }
 };
