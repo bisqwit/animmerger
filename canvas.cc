@@ -6,6 +6,8 @@
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
 
+bool SaveGif = false;
+
 namespace
 {
     struct ScrollingPosition            // For animated
@@ -255,6 +257,7 @@ void TILE_Tracker::Save()
                     SavedTimer = LoopingLogLength;
             }
 
+            #pragma omp parallel for schedule(dynamic)
             for(CurrentTimer=0; CurrentTimer<SavedTimer; CurrentTimer += 1)
             {
                 count = CurrentTimer + SequenceBegin;
@@ -289,10 +292,14 @@ void TILE_Tracker::Save()
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
-    std::sprintf(Filename, "tile-%04u.png", count++);
+    if(SaveGif)
+        std::sprintf(Filename, "tile-%04u.gif", count++);
+    else
+        std::sprintf(Filename, "tile-%04u.png", count++);
 
     VecType<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
 
+  #ifndef _OPENMP
     if(pixelmethod == pm_ChangeLogPixel)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
@@ -309,6 +316,7 @@ void TILE_Tracker::Save()
         LastScreen   = screen;
         LastFilename = Filename;
     }
+  #endif
 
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
 
@@ -326,7 +334,15 @@ void TILE_Tracker::Save()
         }
 
     FILE* fp = std::fopen(Filename, "wb");
-    gdImagePngEx(im, fp, 1);
+    if(SaveGif)
+    {
+        gdImageTrueColorToPalette(im, false, 256);
+        gdImageGif(im, fp);
+    }
+    else
+    {    
+        gdImagePngEx(im, fp, 1);
+    }
     std::fclose(fp);
     gdImageDestroy(im);
 }

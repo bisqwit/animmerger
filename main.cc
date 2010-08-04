@@ -28,9 +28,10 @@ int main(int argc, char** argv)
             {"looplength", 1,0,'l'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
+            {"gif",        0,0,'g'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:p:l:r:a:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:p:l:r:a:g", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -62,6 +63,7 @@ int main(int argc, char** argv)
                     "     Default: -9999,-9999,9999,9999\n"
                     "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
                     "     only scroll horizontally and by 4 pixels at most per frame.\n"
+                    " --gif, -g              Save GIF frames instead of PNG frames\n"
                     "\n"
                     "animmerger will always output PNG files into the current\n"
                     "working directory, with the filename pattern tile-####.png\n"
@@ -198,6 +200,9 @@ int main(int argc, char** argv)
                 }
                 break;
             }
+            case 'g':
+                SaveGif = true;
+                break;
         }
     }
 

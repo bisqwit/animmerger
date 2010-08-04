@@ -13,6 +13,7 @@
 
 extern unsigned CurrentTimer;       // For animated
 extern unsigned SequenceBegin;      // For animated
+extern bool SaveGif;
 
 class TILE_Tracker
 {
