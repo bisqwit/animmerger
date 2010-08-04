@@ -21,10 +21,6 @@ extern unsigned CurrentTimer;
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
 
-#include "alloc/FSBAllocator.hh"
-
-#include <cstdio>
-
 extern enum PixelMethod
 {
     pm_AveragePixel,
@@ -59,14 +55,12 @@ public:
 
 struct Array256x256of_Base
 {
-public:
     virtual ~Array256x256of_Base() { }
     virtual uint32 GetPixel(unsigned index) const = 0;
     virtual uint32 GetMostUsed(unsigned index) const = 0;
     virtual void set(unsigned index, uint32 p) = 0;
     virtual void Compress() = 0;
 };
-
 template<typename T>
 struct Array256x256of: public Array256x256of_Base
 {
@@ -76,29 +70,13 @@ public:
     Array256x256of() { }
     virtual ~Array256x256of() { }
 public:
-    void Construct()
-    {
-        for(unsigned a=0; a<256*256; ++a)
-            new ((void*)&data[a]) T();
-    }
-    void Construct(const Array256x256of<T>& b)
-    {
-        for(unsigned a=0; a<256*256; ++a)
-            new ((void*)&data[a]) T( b.data[a] );
-    }
-    void Destruct()
-    {
-        for(unsigned a=0; a<256*256; ++a)
-            data[a].~T();
-    }
-public:
     virtual uint32 GetPixel(unsigned index) const
     {
         return data[index].get_pixel();
     }
     virtual uint32 GetMostUsed(unsigned index) const
     {
-        return data[index].get_pixel();
+        return data[index].get_mostused();
     }
     virtual void set(unsigned index, uint32 p)
     {
@@ -113,79 +91,100 @@ public:
 
 class UncertainPixelVector256x256
 {
-    /* Precompiler polymorphism. */
-    #define DoCode(code,t) typedef Array256x256of<t> type2; code(t,type2)
-    #define DoCases(code) \
-        switch(method) \
-        { \
-            case pm_AveragePixel: \
-                { DoCode(code,AveragePixelAndMostUsedPixel ); break; } \
-            case pm_LastPixel: \
-                { DoCode(code,LastPixelAndMostUsedPixel );    break; } \
-            case pm_MostUsedPixel: \
-                { DoCode(code,MostUsedPixelAndMostUsedPixel ); break; } \
-            case pm_MostUsed16Pixel: \
-                { DoCode(code,MostUsedWithinAndMostUsedPixel<16> ); break; } \
-            case pm_ChangeLogPixel: \
-                { DoCode(code,ChangeLogPixelAndMostUsedPixel ); break; } \
-            case pm_LoopingLogPixel: \
-                { DoCode(code,LoopingLogPixelAndMostUsedPixel ); break; } \
+    class Get256x256pixelFactory
+    {
+        struct factoryBase
+        {
+            typedef Array256x256of_Base ObjT;
+            virtual ObjT* Construct() const = 0;
+            virtual ObjT* CopyConstruct(const ObjT& b) const = 0;
+            virtual void CopyAssign(ObjT*& ptr, const ObjT& b) const = 0;
+        };
+        template<typename T>
+        static inline const factoryBase* factory()
+        {
+            static struct : public factoryBase
+            {
+                typedef Array256x256of_Base ObjT;
+                typedef Array256x256of<T> ResT;
+                virtual ObjT* Construct() const
+                    { return new ResT; }
+                virtual ObjT* CopyConstruct(const ObjT& b) const
+                    { return new ResT ( (const ResT&) b ) ; }
+                virtual void CopyAssign(ObjT*& ptr, const ObjT& b) const
+                    { if(ptr) *ptr = (const ResT&) b;
+                      else ptr = new ResT( (const ResT&) b ); }
+            } local;
+            return &local;
         }
-public:
+    public:
+        const factoryBase* operator-> () const
+        {
+            static struct factories: public MapType<PixelMethod, const factoryBase*>
+            {
+                factories()
+                {
+                    insert(value_type(pm_AveragePixel,   factory<AveragePixelAndMostUsedPixel>()));
+                    insert(value_type(pm_LastPixel,      factory<LastPixelAndMostUsedPixel>()));
+                    insert(value_type(pm_MostUsedPixel,  factory<MostUsedPixelAndMostUsedPixel>()));
+                    insert(value_type(pm_MostUsed16Pixel,factory<MostUsedWithinAndMostUsedPixel<16> >()));
+                    insert(value_type(pm_ChangeLogPixel, factory<ChangeLogPixelAndMostUsedPixel>()));
+                    insert(value_type(pm_LoopingLogPixel,factory<LoopingLogPixelAndMostUsedPixel>()));
+                }
+            } Factories;
+            return Factories.find(method)->second;
+        }
+    };
+public: 
+    // By default, the vector is uninitialized (empty)
     UncertainPixelVector256x256() : data(0)
     {
     }
+    // Init: Resize the vector to 256x256 elements
     void init()
     {
-        if(data) return;
-        #define init(type,type2) data = new type2
-        DoCases(init);
-        #undef init
+        /* Construct the type of object determined by the global enum "method" */
+        if(!data) data = Get256x256pixelFactory()->Construct();
     }
+    // Copy constructor
     UncertainPixelVector256x256(const UncertainPixelVector256x256& b) : data(0)
     {
-        if(!b.data) return;
-        #define copy(type,type2) data = new type2( *(const type2*) b.data )
-        DoCases(copy);
-        #undef copy
+        if(b.data) data = Get256x256pixelFactory()->CopyConstruct(*b.data);
     }
+    // Assign operator (create copy of the other vector)
     UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b)
     {
-        if(!b.data) { delete data; data=0; return *this; }
-        #define assign(type,type2) \
-            if(data) *data = *(const type2*) b.data; \
-            else     data = new type2( *(const type2*) b.data )
-        DoCases(assign);
-        #undef assign
+        if(!b.data) { delete data; data=0; }
+        else Get256x256pixelFactory()->CopyAssign(data, *b.data);
         return *this;
     }
+    // Destructor: Deallocate vector of alloated
     ~UncertainPixelVector256x256()
     {
         delete data;
     }
-
+    // Visit: Run user-given functor, give reference to the actual vector data as param
     template<typename F>
     inline void Visit(F func)
     {
         if(data) func(*data);
     }
-
     template<typename F>
     inline void Visit(F func) const
     {
         if(data) func(*data);
     }
-
+    
+    // Run Compress() method on each vector element
     inline void Compress()
     {
         if(data) data->Compress();
     }
-
+    
+    // Test whether vector is empty (uninitialized)
     bool empty() const { return !data; }
 
 private:
-    #undef DoCases
-    #undef DoCode
     Array256x256of_Base* data;
 };
 
