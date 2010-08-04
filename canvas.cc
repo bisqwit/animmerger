@@ -3,6 +3,8 @@
 #include <gd.h>
 #include <cstdio>
 
+#include "openmp.hh"
+
 unsigned CurrentTimer = 0;       // For animated
 unsigned SequenceBegin = 0;      // For animated
 
@@ -41,8 +43,9 @@ struct LoadCubeHelper
     void operator() (const Cube& cube) const
     {
         /* Load this particular cube */
-        for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
+        for(unsigned yp=this_cube_ystart; yp<=this_cube_yend; ++yp)
         {
+            unsigned y = (yp-this_cube_ystart);
             unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
             unsigned destp =   sx*y + targetpos        - this_cube_xstart;
             for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
@@ -257,30 +260,32 @@ void TILE_Tracker::Save()
                     SavedTimer = LoopingLogLength;
             }
 
-            #pragma omp parallel for schedule(dynamic)
-            for(CurrentTimer=0; CurrentTimer<SavedTimer; CurrentTimer += 1)
+            #pragma omp parallel for
+            for(unsigned frame=0; frame<SavedTimer; frame+=1)
             {
-                count = CurrentTimer + SequenceBegin;
                 std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
-                    count-SequenceBegin,SavedTimer, SequenceBegin);
-                Save();
+                    frame, SavedTimer, SequenceBegin);
+                SaveFrame(frame, SequenceBegin + frame);
             }
+
             CurrentTimer  = SavedTimer;
             scrolls.clear();
             Saving = false;
         }
         else
         {
-            printf("/*%u*/ %d,%d, %d,%d,\n",
-                count,
-                scrolls[CurrentTimer].org_x - xmin,
-                scrolls[CurrentTimer].org_y - ymin,
-                0,0
-                );
             fflush(stdout);
         }
     }
+    else
+    {
+        static unsigned count = 0;
+        SaveFrame(0, count++);
+    }
+}
 
+void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
+{
     int ymi = ymin, yma = ymax;
     int xmi = xmin, xma = xmax;
 
@@ -289,15 +294,27 @@ void TILE_Tracker::Save()
 
     if(wid <= 1 || hei <= 1) return;
 
+    std::printf("/*%u*/ %d,%d, %d,%d\n",
+        frameno,
+        scrolls[CurrentTimer].org_x - xmin,
+        scrolls[CurrentTimer].org_y - ymin,
+        0,0
+        );
+    std::fflush(stdout);
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
+    std::fflush(stderr);
 
-    char Filename[512] = {0}; // explicit init keeps valgrind happy
-    if(SaveGif)
-        std::sprintf(Filename, "tile-%04u.gif", count++);
-    else
-        std::sprintf(Filename, "tile-%04u.png", count++);
+    VecType<uint32> screen;
 
-    VecType<uint32> screen = LoadScreen(xmi,ymi, wid,hei);
+  {
+  #ifdef _OPENMP
+    static MutexType timer_mutex;
+    ScopedLock lck(timer_mutex);
+  #endif
+    CurrentTimer = frameno;
+    #pragma omp flush(CurrentTimer)
+    screen = LoadScreen(xmi,ymi, wid,hei);
+  }
 
   #ifndef _OPENMP
     if(pixelmethod == pm_ChangeLogPixel)
@@ -318,6 +335,12 @@ void TILE_Tracker::Save()
     }
   #endif
 
+    char Filename[512] = {0}; // explicit init keeps valgrind happy
+    if(SaveGif)
+        std::sprintf(Filename, "tile-%04u.gif", img_counter);
+    else
+        std::sprintf(Filename, "tile-%04u.png", img_counter);
+
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
 
     for(unsigned p=0, y=0; y<hei; ++y)
@@ -332,7 +355,6 @@ void TILE_Tracker::Save()
             )*/;
             gdImageSetPixel(im, x,y, pix);
         }
-
     FILE* fp = std::fopen(Filename, "wb");
     if(SaveGif)
     {
@@ -465,7 +487,8 @@ void TILE_Tracker::FitScreen
 
     //if(offs_x != 0 || offs_y != 0)
     {
-        std::fprintf(stderr, " Motion(%d,%d), Origo(%d,%d)\n", offs_x,offs_y, org_x,org_y);
+        std::fprintf(stderr, "[frame%5u] Motion(%d,%d), Origo(%d,%d)\n",
+            CurrentTimer, offs_x,offs_y, org_x,org_y);
     }
 
     org_x += offs_x; org_y += offs_y;

@@ -23,8 +23,6 @@ class TILE_Tracker
     int xmax,ymax;
     bool first;
 
-    unsigned count;
-
     typedef UncertainPixelVector256x256 vectype;
 
     struct cubetype
@@ -41,7 +39,7 @@ class TILE_Tracker
     std::string LastFilename;    // For ChangeLog
 
 public:
-    TILE_Tracker() : count(0), LastFilename()
+    TILE_Tracker() : LastFilename()
     {
         Reset();
     }
@@ -60,6 +58,7 @@ public:
     }
 
     void Save();
+    void SaveFrame(unsigned timer, unsigned imgcounter);
 
     void Reset();
 

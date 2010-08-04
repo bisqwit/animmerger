@@ -264,16 +264,32 @@ AlignResult Align(
   {
    #pragma omp single
    {
+    typedef 
+    std::multimap<size_t, SpotLocSetType::const_iterator,
+                  std::less<size_t>, FSBAllocator<int> > InputSpotCounts;
+    InputSpotCounts input_spot_counts;
     for(SpotLocSetType::const_iterator
         i = input_spot_locations.begin();
         i != input_spot_locations.end();
         ++i)
     {
-      #pragma omp task firstprivate(i)
-      {
-        const CoordSetType& coords = i->second;
-        if(coords.size() <= 15)
+        input_spot_counts.insert(
+            std::pair<size_t, SpotLocSetType::const_iterator>
+                ( i->second.size(), i ) );
+    }
+    size_t n_inputs = 0;
+    for(InputSpotCounts::const_iterator
+        itmp = input_spot_counts.begin();
+        itmp != input_spot_counts.end();
+        ++itmp)
+    {
+        SpotLocSetType::const_iterator i ( itmp->second );
+        if(n_inputs < 50 || itmp->first <= 4)
         {
+            ++n_inputs;
+          #pragma omp task firstprivate(i)
+          {
+            const CoordSetType& coords = i->second;
             const SpotType& pixel = i->first;
 
             SpotLocSetType::const_iterator r
@@ -300,12 +316,12 @@ AlignResult Align(
                         #endif
                         offset_suggestions[RelativeCoordinate(rx,ry)] += 1;
                       }
-                        if(++rmax >= 20) break;
+                        if(++rmax >= 80) break;
                     }
                 }
             }
+          } // omp task
         }
-      } // omp task
     }
    } // omp single
   } // omp parallel
