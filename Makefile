@@ -5,6 +5,7 @@ ARCHDIR=archives/
 ARCHFILES=\
 	canvas.cc canvas.hh \
 	align.cc align.hh \
+	types.hh \
 	maptype.hh \
 	vectype.hh \
 	pixel.cc pixel.hh \

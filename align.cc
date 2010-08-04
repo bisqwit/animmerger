@@ -5,6 +5,7 @@
 #include <set>
 
 #include "settype.hh"
+#include "pixel.hh" // For pixelmethod
 
 unsigned x_divide_input = 1;
 unsigned y_divide_input = 1;

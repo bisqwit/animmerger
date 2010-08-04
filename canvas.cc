@@ -36,7 +36,7 @@ struct LoadCubeHelper
           sx(e), targetpos(f) { }
 
     template<typename Cube>
-    void operator() (const Cube& cube)
+    void operator() (const Cube& cube) const
     {
         /* Load this particular cube */
         for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
@@ -62,7 +62,7 @@ struct UpdateCubeHelper
           sx(e) { }
 
     template<typename Cube>
-    void operator() (Cube& cube)
+    void operator() (Cube& cube) const 
     {
         /* Write this particular cube */
         for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
@@ -70,7 +70,7 @@ struct UpdateCubeHelper
             {
                 uint32 pix = input[/*targetpos +*/ x + y*sx];
                 if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
-                cube.set( xp + 256*yp, pix );
+                cube.Set( xp + 256*yp, pix );
             }
     }
 };
@@ -339,7 +339,7 @@ struct BackgroundLoader
     }
 
     template<typename Cube>
-    void operator() (Cube& cube)
+    void operator() (Cube& cube) const
     {
         for(unsigned p=0; p<256*256; ++p)
             result[p] = cube.GetMostUsed(p);
