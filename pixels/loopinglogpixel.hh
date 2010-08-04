@@ -40,6 +40,7 @@ public:
         if(result == DefaultPixel) return most_used;
         return result;
     }
+    inline const MostUsedPixel& GetMostUsed() const { return most_used; }
 
     void Compress()
     {
@@ -47,4 +48,18 @@ public:
         //for(unsigned a=0; a<LoopingLogLength; ++a)
         //    history[a].CompressButIgnore(most_used);
     }
+};
+
+class LoopingLogPixelAndMostUsedPixel
+{
+public:
+    LoopingLogPixel  pixel;
+public:
+    inline void set(uint32 p)
+    {
+        pixel.set(p);
+    }
+    inline uint32 get_pixel() const    { return pixel; }
+    inline uint32 get_mostused() const { return pixel.GetMostUsed(); }
+    inline void Compress() { pixel.Compress(); }
 };

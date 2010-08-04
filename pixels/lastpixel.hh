@@ -19,3 +19,20 @@ public:
     }
 };
 
+
+class LastPixelAndMostUsedPixel
+{
+public:
+    LastPixel  pixel;
+private:
+    MostUsedPixel most_used;
+public:
+    inline void set(uint32 p)
+    {
+        pixel.set(p);
+        most_used.set(p);
+    }
+    inline uint32 get_pixel() const { return pixel; }
+    inline uint32 get_mostused() const { return most_used; }
+    inline void Compress() { pixel.Compress(); most_used.Compress(); }
+};

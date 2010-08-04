@@ -4,13 +4,13 @@
 #include <utility>
 #include "vectype.hh"
 
-template<typename K,typename V>
-class MapType
+template<typename K,typename V, bool Multiple>
+class MapBaseType
 {
 public:
     typedef K key_type;
     typedef V mapped_type;
-    typedef std::pair<K,V> value_type;
+    typedef std::pair<K, V> value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
     typedef value_type& reference;
@@ -20,7 +20,7 @@ private:
     rep data;
 
 public:
-    MapType() { }
+    MapBaseType() { }
 
     typedef typename rep::iterator iterator;
     typedef typename rep::const_iterator const_iterator;
@@ -38,20 +38,16 @@ public:
 
     void clear()
     {
-        data.~rep();          // std::_Destroy(&data);
-        new(&data) rep();     // std::_Construct(&data);
+        data.~rep();
+        new(&data) rep();
     }
     bool empty() const
     {
         return data.empty();
     }
 
-    void insert(iterator i, const value_type& val)
-    {
-        data.insert(i, val);
-    }
-
-    iterator lower_bound(K key)
+    template<typename Kt>
+    iterator lower_bound(Kt key)
     {
         iterator first = begin(), last = end();
         size_t limit;
@@ -70,7 +66,8 @@ public:
         return first;
     }
 
-    const_iterator lower_bound(K key) const
+    template<typename Kt>
+    const_iterator lower_bound(Kt key) const
     {
         const_iterator first = begin(), last = end();
         size_t limit;
@@ -89,7 +86,8 @@ public:
         return first;
     }
 
-    const_iterator upper_bound(K key) const
+    template<typename Kt>
+    const_iterator upper_bound(Kt key) const
     {
         const_iterator first = begin(), last = end();
         size_t limit;
@@ -108,15 +106,50 @@ public:
         return first;
     }
 
-    V& operator[] (K key)
+    template<typename Kt>
+    iterator find(Kt key)
     {
         iterator i = lower_bound(key);
-        if(i == end() || i->first > key)
+        return i == end() || !(key==i->first) ? end() : i;
+    }
+
+    template<typename Kt>
+    const_iterator find(Kt key) const
+    {
+        iterator i = lower_bound(key);
+        return i == end() || !(key==i->first) ? end() : i;
+    }
+
+    template<typename Kt>
+    V& operator[] (Kt key)
+    {
+        iterator i = lower_bound(key);
+        if(i == end() || !(key==i->first))
         {
             i = data.insert(i, value_type(key, V()));
         }
         return i->second;
     }
+
+    void insert(iterator i, const value_type& val)
+    {
+        data.insert(i, val);
+    }
+    void insert(const value_type& val)
+    {
+        iterator i = lower_bound(val.first);
+        if(!Multiple && (i == end() || !(val.first==i->first)))
+            data.insert(i, val);
+    }
+};
+
+template<typename K,typename V>
+class MapType: public MapBaseType<K,V,false>
+{
+};
+template<typename K,typename V>
+class MultiMapType: public MapBaseType<K,V,true>
+{
 };
 
 #endif

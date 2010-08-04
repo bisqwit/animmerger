@@ -1,4 +1,4 @@
-VERSION=1.1.2
+VERSION=1.1.3
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -32,6 +32,10 @@ PROGS=\
 
 CPPFLAGS += -I.
 LDLIBS += -lgd
+
+CXXFLAGS += -std=c++0x
+
+#OPTIM=-O2 -fno-inline
 
 all: $(PROGS)
 

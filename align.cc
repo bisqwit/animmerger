@@ -4,6 +4,8 @@
 #include <map>
 #include <set>
 
+#include "settype.hh"
+
 unsigned x_divide_input = 1;
 unsigned y_divide_input = 1;
 
@@ -86,14 +88,16 @@ void FindInterestingSpots(
      * to avoid just choosing all onscreen actors.
      *
      * What is actually done here is a mixture of these two plans.
+     * For each cell in the cube (i.e. 8x8 for a 256x256 screen),
+     * we save the one spot that occurs most rarely.
      */
 
     /* Convert the input image into a YUV image.
      * Actually save only Y value (luma/brightness); ignore U and V (chroma).
      * Also determine which pixels are transparent.
      */
-    std::vector<char> Transparent(sx*sy, false);
-    std::vector<unsigned char> Y(sx*sy);
+    VecType<char> Transparent(sx*sy, false);
+    VecType<unsigned char> Y(sx*sy);
     for(unsigned p=0, y=0; y<sy; ++y)
         for(unsigned x=0; x<sx; ++x, ++p)
         {
@@ -103,6 +107,9 @@ void FindInterestingSpots(
                       +  ((input[p] >> 8)  & 0xFF) * GY
                       +  ((input[p]     )  & 0xFF) * BY
                         ) >> RGB2YUV_SHIFT) + Y_ADD;
+                // U and V could be calculated similarly,
+                // by using RU,GU,BY,U_ADD for U
+                // and by using RV,GV,BV,V_ADD for V.
             }
             else
             {
@@ -119,8 +126,12 @@ void FindInterestingSpots(
 
     const unsigned x_divide = force_all_pixels ? x_divide_input : x_divide_reference;
     const unsigned y_divide = force_all_pixels ? y_divide_input : y_divide_reference;
+    const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
+    const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
 
-    std::vector<SpotType> spots(sx*sy);
+    output.reserve(output.size() + x_shrunk * y_shrunk);
+
+    VecType<SpotType> spots(sx*sy);
     //unsigned randkey = 1;
     for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
         for(unsigned x=0; x+4<=sx; ++x, ++p)
@@ -129,7 +140,10 @@ void FindInterestingSpots(
             /* A sufficiently unique code describing this pixel
              * should be made by comparing the brightness of this
              * pixel to its immediate surroundings, scaled by the
-             * average
+             * average.
+             * That was the plan. The implementation here is simpler,
+             * and simply takes a 4x4 pixel block of Y (brightness) values
+             * and stores them verbatim into 16 bytes (two 8-byte integers).
              */
             uint32 pix[4] = { *(uint32*)&Y[p     ],
                               *(uint32*)&Y[p+sx  ],
@@ -156,14 +170,11 @@ void FindInterestingSpots(
     if(x_divide==1 && y_divide==1)
         return;
 
-    const unsigned x_shrunk = (sx + x_divide-1) / x_divide;
-    const unsigned y_shrunk = (sy + y_divide-1) / y_divide;
-
-    typedef std::map<SpotType, std::vector<unsigned>,
+    typedef std::map<SpotType, VecType<unsigned>,
         std::less<SpotType>,
         FSBAllocator<int> > RarityType;
 
-    std::vector<RarityType> Rarities( x_shrunk * y_shrunk );
+    VecType<RarityType> Rarities( x_shrunk * y_shrunk );
 
     for(unsigned p=0, y=0; y+4<=sy; ++y, p+=3)
         for(unsigned x=0; x+4<=sx; ++x, ++p)
