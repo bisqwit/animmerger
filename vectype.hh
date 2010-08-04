@@ -39,7 +39,7 @@ public:
         if(len)
         {
             data = alloc.allocate(len);
-            copy_construct(0, &b.data[0], len);
+            copy_construct(&data[0], &b.data[0], len);
         }
     }
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
