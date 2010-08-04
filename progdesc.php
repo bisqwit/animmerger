@@ -189,7 +189,7 @@ Produced with commandline:<br>
 
 ", '1. Copying' => "
 
-nesmock has been written by Joel Yliluoma, a.k.a.
+animmerger has been written by Joel Yliluoma, a.k.a.
 <a href=\"http://iki.fi/bisqwit/\">Bisqwit</a>,<br>
 and is distributed under the terms of the
 <a href=\"http://www.gnu.org/licenses/licenses.html#GPL\">General Public License</a> (GPL).
