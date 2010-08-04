@@ -35,6 +35,7 @@ CPPFLAGS += -I.
 LDLIBS += -lgd
 
 CXXFLAGS += -std=c++0x -fopenmp
+CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 
 #OPTIM=-O2 -fno-inline
 

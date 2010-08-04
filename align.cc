@@ -266,7 +266,7 @@ AlignResult Align(
    {
     typedef 
     std::multimap<size_t, SpotLocSetType::const_iterator,
-                  std::less<size_t>/*, FSBAllocator<int>*/ > InputSpotCounts;
+                  std::less<size_t>, FSBAllocator<int> > InputSpotCounts;
     InputSpotCounts input_spot_counts;
     for(SpotLocSetType::const_iterator
         i = input_spot_locations.begin();
