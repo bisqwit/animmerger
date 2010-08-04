@@ -260,7 +260,7 @@ void TILE_Tracker::Save()
                     SavedTimer = LoopingLogLength;
             }
 
-            #pragma omp parallel for
+            #pragma omp parallel for schedule(dynamic) ordered
             for(unsigned frame=0; frame<SavedTimer; frame+=1)
             {
                 std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
@@ -294,13 +294,16 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
 
     if(wid <= 1 || hei <= 1) return;
 
-    std::printf("/*%u*/ %d,%d, %d,%d\n",
-        frameno,
-        scrolls[CurrentTimer].org_x - xmin,
-        scrolls[CurrentTimer].org_y - ymin,
-        0,0
-        );
-    std::fflush(stdout);
+    if(!scrolls.empty())
+    {
+        std::printf("/*%u*/ %d,%d, %d,%d\n",
+            frameno,
+            scrolls[CurrentTimer].org_x - xmin,
+            scrolls[CurrentTimer].org_y - ymin,
+            0,0
+            );
+        std::fflush(stdout);
+    }
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
     std::fflush(stderr);
 
@@ -316,7 +319,16 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
     screen = LoadScreen(xmi,ymi, wid,hei);
   }
 
-  #ifndef _OPENMP
+    char Filename[512] = {0}; // explicit init keeps valgrind happy
+    if(SaveGif)
+        std::sprintf(Filename, "tile-%04u.gif", img_counter);
+    else
+        std::sprintf(Filename, "tile-%04u.png", img_counter);
+    
+    bool was_identical = false;
+
+  #pragma omp ordered
+  {
     if(pixelmethod == pm_ChangeLogPixel)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
@@ -328,18 +340,13 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
             system(cmd.c_str());
             LastScreen   = screen;
             LastFilename = Filename;
-            return;
+            was_identical = true;
         }
-        LastScreen   = screen;
-        LastFilename = Filename;
     }
-  #endif
+  }
 
-    char Filename[512] = {0}; // explicit init keeps valgrind happy
-    if(SaveGif)
-        std::sprintf(Filename, "tile-%04u.gif", img_counter);
-    else
-        std::sprintf(Filename, "tile-%04u.png", img_counter);
+    #pragma omp flush(was_identical)
+    if(was_identical) return;
 
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
 
