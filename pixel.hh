@@ -35,7 +35,7 @@ extern enum PixelMethod
     pm_LoopingLogPixel
 } method;
 
-class UncertainPixel
+struct UncertainPixel
 {
 public:
     static bool is_changelog()
@@ -57,18 +57,25 @@ public:
     }
 };
 
+struct Array256x256of_Base
+{
+public:
+    virtual ~Array256x256of_Base() { }
+    virtual uint32 GetPixel(unsigned index) const = 0;
+    virtual uint32 GetMostUsed(unsigned index) const = 0;
+    virtual void set(unsigned index, uint32 p) = 0;
+    virtual void Compress() = 0;
+};
+
 template<typename T>
-struct Array256x256of
+struct Array256x256of: public Array256x256of_Base
 {
 public:
     T data[256*256];
-private:
-    Array256x256of();
-    Array256x256of(const Array256x256of&);
-    void operator=(const Array256x256of&);
-    ~Array256x256of();
-protected:
-    friend class UncertainPixelVector256x256;
+public:
+    Array256x256of() { }
+    virtual ~Array256x256of() { }
+public:
     void Construct()
     {
         for(unsigned a=0; a<256*256; ++a)
@@ -85,12 +92,23 @@ protected:
             data[a].~T();
     }
 public:
-    inline uint32 GetPixel(unsigned index) const
-        { return data[index].get_pixel(); }
-    inline uint32 GetMostUsed(unsigned index) const
-        { return data[index].get_mostused(); }
-    inline void set(unsigned index, uint32 p)
-        { data[index].set(p); }
+    virtual uint32 GetPixel(unsigned index) const
+    {
+        return data[index].get_pixel();
+    }
+    virtual uint32 GetMostUsed(unsigned index) const
+    {
+        return data[index].get_pixel();
+    }
+    virtual void set(unsigned index, uint32 p)
+    {
+        data[index].set(p);
+    }
+    virtual void Compress()
+    {
+        for(unsigned a=0; a<256*256; ++a)
+            data[a].Compress();
+    }
 };
 
 class UncertainPixelVector256x256
@@ -120,103 +138,47 @@ public:
     void init()
     {
         if(data) return;
-        #define init(type,type2) \
-            std::allocator<type2> a; \
-            /**/std::fprintf(stderr, "Allocating %lu bytes for %s\n", (unsigned long) sizeof(type2), #type2);/**/ \
-            type2* aptr = a.allocate(1); \
-            aptr->Construct(); \
-            data = (void*) aptr
+        #define init(type,type2) data = new type2
         DoCases(init);
         #undef init
     }
     UncertainPixelVector256x256(const UncertainPixelVector256x256& b) : data(0)
     {
         if(!b.data) return;
-        #define copy(type,type2) \
-            std::allocator<type2> a; \
-            type2* aptr = a.allocate(1); \
-            aptr->Construct( *(const type2*) b.data ); \
-            data = (void*) aptr
+        #define copy(type,type2) data = new type2( *(const type2*) b.data )
         DoCases(copy);
         #undef copy
     }
-    UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b);/*
+    UncertainPixelVector256x256& operator= (const UncertainPixelVector256x256& b)
     {
+        if(!b.data) { delete data; data=0; return *this; }
         #define assign(type,type2) \
-            std::allocator<type2> a; \
-            if(!data) \
-            { \
-                if(b.data) \
-                { \
-                    type2* aptr = a.allocate(1); \
-                    aptr->Construct( *(const type2*) b.data ); \
-                    data = (void*) aptr; \
-                } \
-            } \
-            else \
-            { \
-                type2* aptr = (type2*)data; \
-                if(!b.data) \
-                { \
-                    aptr->Destruct(); \
-                    a.deallocate(aptr, 1); \
-                    aptr = 0; \
-                } \
-                else \
-                { \
-                    const type2* bptr = (const type2*) b.data; \
-                    for(unsigned a=0; a<256*256; ++a) aptr->data[a] = bptr->data[a]; \
-                } \
-            }
+            if(data) *data = *(const type2*) b.data; \
+            else     data = new type2( *(const type2*) b.data )
         DoCases(assign);
         #undef assign
         return *this;
-    }*/
+    }
     ~UncertainPixelVector256x256()
     {
-        if(!data) return;
-        #define done(type,type2) \
-            type2* aptr = (type2*) data; \
-            std::allocator<type2> a; \
-            aptr->Destruct(); \
-            a.deallocate(aptr, 1)
-        DoCases(done);
-        #undef done
-    }
-
-    /* Visit allows one to use freely the pixel methods
-     * for an entire group of 256x256 pixels without
-     * having to do the method selection on each pixel.
-     * Because virtual functions cannot be template
-     * functions, this must be done with templates and
-     * preprocessor rather than with the virtual keyword.
-     */
-    template<typename F>
-    void Visit(F func)
-    {
-        if(!data) return;
-        #define act(type,type2) func(* (type2*) data)
-        DoCases(act);
-        #undef act
+        delete data;
     }
 
     template<typename F>
-    void Visit(F func) const
+    inline void Visit(F func)
     {
-        if(!data) return;
-        #define act(type,type2) func(* (const type2*) data)
-        DoCases(act);
-        #undef act
+        if(data) func(*data);
     }
 
-    void Compress()
+    template<typename F>
+    inline void Visit(F func) const
     {
-        if(!data) return;
-        #define act(type,type2) \
-            type2* aptr = (type2*)data; \
-            for(unsigned a=0; a<256*256; ++a) aptr->data[a].Compress()
-        DoCases(act);
-        #undef act
+        if(data) func(*data);
+    }
+
+    inline void Compress()
+    {
+        if(data) data->Compress();
     }
 
     bool empty() const { return !data; }
@@ -224,7 +186,7 @@ public:
 private:
     #undef DoCases
     #undef DoCode
-    void* data;
+    Array256x256of_Base* data;
 };
 
 #endif
