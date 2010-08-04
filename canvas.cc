@@ -369,20 +369,20 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
     /* For speed reasons, we don't use LoadScreen(), but
      * instead, work on cube-by-cube basis.
      */
-    for(ymaptype::const_iterator
+    for(ymaptype::iterator
         yi = screens.begin();
         yi != screens.end();
         ++yi)
     {
         const int y_screen_offset = yi->first * 256;
 
-        for(xmaptype::const_iterator
+        for(xmaptype::iterator
             xi = yi->second.begin();
             xi != yi->second.end();
             ++xi)
         {
             const int x_screen_offset = xi->first  * 256;
-            const cubetype& cube      = xi->second;
+            cubetype& cube            = xi->second;
 
             IntCoordinate cache_key = {x_screen_offset,y_screen_offset};
 
@@ -401,6 +401,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
                 cache[cache_key].assign(
                     reference_spots.begin() + prev_size,
                     reference_spots.end() );
+
+                cube.changed = false;
             }
             else
             {
