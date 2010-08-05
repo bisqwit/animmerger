@@ -55,8 +55,8 @@ public:
 };
 
 #include "pixels/lastpixel.hh"
-#include "pixels/mostusedpixel.hh"
 #include "pixels/averagepixel.hh"
+#include "pixels/mostusedpixel.hh"
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
@@ -132,10 +132,14 @@ namespace
         typedef LoopingLogPixel         t5;
 
         template<typename Type1>
-        struct SubTables
+        class SubTables
         {
             template<typename Type2>
             struct s : public FactoryMethods<TwoPixels<Type1,Type2> > { };
+            // s is akin to a templated typedef.
+            // It simplifies the syntax in the definition of methods[].
+            // It is a short name, but its visibility is private to Subtables.
+        public:
             static const FactoryType methods[];
         };
     public:
@@ -169,7 +173,7 @@ namespace
 
 void UncertainPixelVector256x256::init()
 {
-    /* Construct the type of object determined by the global enum "method" */
+    /* Construct the type of object determined by the globals "pixelmethod" and "bgmethod" */
     if(!data) data = Get256x256pixelFactory()->Construct();
 }
 

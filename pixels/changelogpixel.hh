@@ -134,9 +134,20 @@ public:
     {
         return Find(timer);
     }
-    inline uint32 GetMostUsed() const FasterPixelMethod { return most_used.get(); }
+    inline uint32 GetMostUsed() const FasterPixelMethod
+    {
+        return most_used.get();
+    }
+
     inline uint32 GetLast() const FastPixelMethod
-        { return history.empty() ? DefaultPixel : history.rbegin()->second; }
+    {
+        return history.empty() ? DefaultPixel : history.rbegin()->second;
+    }
+
+    inline uint32 GetAverage() const FasterPixelMethod
+    {
+        return most_used.GetAverage();
+    }
 
     void Compress()
     {
@@ -197,12 +208,6 @@ public:
 };
 
 template<>
-class TwoPixels<MostUsedPixel, ChangeLogPixel>
-    : public SwapTwoPixels<ChangeLogPixel,MostUsedPixel>
-{
-};
-
-template<>
 class TwoPixels<ChangeLogPixel, LastPixel>: private ChangeLogPixel
 {
 public:
@@ -213,7 +218,29 @@ public:
 };
 
 template<>
+class TwoPixels<ChangeLogPixel, AveragePixel>: private ChangeLogPixel
+{
+public:
+    using ChangeLogPixel::set;
+    using ChangeLogPixel::Compress;
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
+};
+
+template<>
+class TwoPixels<MostUsedPixel, ChangeLogPixel>
+    : public SwapTwoPixels<ChangeLogPixel, MostUsedPixel>
+{
+};
+
+template<>
 class TwoPixels<LastPixel, ChangeLogPixel>
-    : public SwapTwoPixels<ChangeLogPixel,LastPixel>
+    : public SwapTwoPixels<ChangeLogPixel, LastPixel>
+{
+};
+
+template<>
+class TwoPixels<AveragePixel, ChangeLogPixel>
+    : public SwapTwoPixels<ChangeLogPixel, AveragePixel>
 {
 };

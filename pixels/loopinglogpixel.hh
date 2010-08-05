@@ -37,7 +37,15 @@ public:
         if(result == DefaultPixel) return most_used.get();
         return result;
     }
-    inline uint32 GetMostUsed() const FasterPixelMethod { return most_used.get(); }
+    inline uint32 GetMostUsed() const FasterPixelMethod
+    {
+        return most_used.get();
+    }
+
+    inline uint32 GetAverage() const FasterPixelMethod
+    {
+        return most_used.GetAverage();
+    }
 
     void Compress()
     {
@@ -57,10 +65,25 @@ public:
     inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetMostUsed(); }
 };
 
+template<>
+class TwoPixels<LoopingLogPixel, AveragePixel>: private LoopingLogPixel
+{
+public:
+    using LoopingLogPixel::set;
+    using LoopingLogPixel::Compress;
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
+};
+
 
 template<>
 class TwoPixels<MostUsedPixel, LoopingLogPixel>
-    : public SwapTwoPixels<LoopingLogPixel,MostUsedPixel>
+    : public SwapTwoPixels<LoopingLogPixel, MostUsedPixel>
 {
 };
 
+template<>
+class TwoPixels<AveragePixel, LoopingLogPixel>
+    : public SwapTwoPixels<LoopingLogPixel, AveragePixel>
+{
+};

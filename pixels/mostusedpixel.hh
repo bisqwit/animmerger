@@ -52,6 +52,26 @@ public:
         return result.first;
         //return pix;
     }
+
+    uint32 GetAverage() const FastPixelMethod
+    {
+        if(values.empty())
+            return DefaultPixel;
+
+        unsigned r=0, g=0, b=0, n=0;
+        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
+        {
+            unsigned count = i->second;
+            unsigned pix = i->first;
+            unsigned R = (pix>>16)&0xFF, G=(pix>>8)&0xFF, B=(pix&0xFF);
+            r += R*count;
+            g += G*count;
+            b += B*count;
+            n += count;
+        }
+        return ((r/n) << 16) + ((g/n) << 8) + (b/n);
+    }
+
     void Compress()
     {
         std::pair<uint32,unsigned short> result(DefaultPixel,0);
@@ -66,4 +86,20 @@ public:
         pix = value_ignore(ignore);
         values.clear();
     }*/
+};
+
+template<>
+class TwoPixels<MostUsedPixel, AveragePixel>: private MostUsedPixel
+{
+public:
+    using MostUsedPixel::set;
+    using MostUsedPixel::Compress;
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
+};
+
+template<>
+class TwoPixels<AveragePixel, MostUsedPixel>
+    : public SwapTwoPixels<MostUsedPixel, AveragePixel>
+{
 };
