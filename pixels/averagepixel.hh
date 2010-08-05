@@ -2,7 +2,6 @@ class AveragePixel
 {
     unsigned r,g,b;
     unsigned n;
-    friend class ChangeLogPixel;
 public:
     AveragePixel() : r(0),g(0),b(0),n(0)
     {
@@ -25,12 +24,14 @@ public:
         r+=R*count; g+=G*count; b+=B*count;
         n += count;
     }
+
     uint32 get(unsigned=0) const FastPixelMethod
     {
         return n
             ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
             : DefaultPixel;
     }
+
     void Compress()
     {
     }

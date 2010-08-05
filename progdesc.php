@@ -181,20 +181,41 @@ is the \"lemmings\" effect.
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
-10 frames (73850 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol10.gif\"
-     alt=\"Loop, 10 frames\">
-<p>
-4 frames (49890 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol4.gif\"
-     alt=\"Loop, 4 frames\">
-<p>
 Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
 # &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
+
+", 'loopinglast:1.1.1. LOOPINGLAST' => "
+
+The \"loopinglast\" method is a slightly higher quality
+version of \"loopinglog\". It uses the same amount of memory
+as \"changelog\" method.<br>
+In the example below, a difference can be observed in
+the face of the flying cloud when compared to the 30 frame
+animation in \"loopinglog\" section.
+<p>
+30 frames (94895 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
+     alt=\"Loop, 30 frames\">
+<p>
+10 frames (66738 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
+     alt=\"Loop, 10 frames\">
+<p>
+4 frames (40372 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
+     alt=\"Loop, 4 frames\">
+<p>
+Produced with commandline:<br>
+<code>
+# for l in 4 10 30; do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger --gif -l\$l -ps snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -o demo/method-sl\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
 
 ", 'loopingavg:1.1.1. LOOPINGAVG' => "
@@ -220,7 +241,7 @@ and requires as much RAM as \"changelog\" requires to generate it.
 <p>
 Produced with commandline:<br>
 <code>
-# for l in 10 30 80; do <br>
+# for l in 4 10 30 80; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
 # &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>

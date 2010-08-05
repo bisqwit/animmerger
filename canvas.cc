@@ -229,6 +229,7 @@ TILE_Tracker::PutScreen
 void TILE_Tracker::Save()
 {
     const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_LoopingLastPixel
                        || pixelmethod == pm_ChangeLogPixel
                        || pixelmethod == pm_LoopingAvgPixel;
 
@@ -247,6 +248,7 @@ void TILE_Tracker::Save()
             unsigned SavedTimer = CurrentTimer;
 
             if(pixelmethod == pm_LoopingLogPixel
+            || pixelmethod == pm_LoopingLastPixel
             || pixelmethod == pm_LoopingAvgPixel)
             {
                 if(SavedTimer >= LoopingLogLength)

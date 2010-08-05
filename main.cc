@@ -79,9 +79,6 @@ int main(int argc, char** argv)
                     "  AVERAGE, long option: --method=average , short option: -pa\n"
                     "     Produces a single image. Each pixel\n"
                     "     is the average of all frames addressing that pixel.\n"
-                    "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
-                    "     Similar to average, except that blurring of actors\n"
-                    "     over the background is avoided.\n"
                     "  LAST, long option: --method=long , short option: -pl\n"
                     "     Produces a single image. Each pixel\n"
                     "     records the latest color addressing that pixel.\n"
@@ -89,12 +86,17 @@ int main(int argc, char** argv)
                     "     Produces a single image. Each pixel\n"
                     "     records the color that most often occured in that location.\n"
                     "     Use this option for making maps!\n"
+                    "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
+                    "     Similar to average, except that blurring of actors\n"
+                    "     over the background is avoided.\n"
                     "  CHANGELOG, long option: --method=changelog, short option: -pc\n"
                     "     Produces an animation.\n"
                     "  LOOPINGLOG, long option: --methods=loopinglog, short option: -po\n"
                     "     Produces a time-restricted animation.\n"
                     "     Also called, \"lemmings mode\".\n"
                     "     Use the -l option to set loop length in frames.\n"
+                    "  LOOPINGLAST, long option: --methods=loopinglast, short option: -ps\n"
+                    "     Higher quality version of loopinglog.\n"
                     "  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n"
                     "     A combination of loopinglog and actionavg.\n"
                     "\n"
@@ -116,10 +118,6 @@ int main(int argc, char** argv)
                     "       black (#000000) or dark slate blue (#483D8B)\n"
                     "\n"
                     "TIPS\n"
-                    "\n"
-                    "Converting tile-*.png into a GIF animation:\n"
-                    "   mogrify -format gif tile-????.png\n"
-                    "   gifsicle -O2 -o animation.gif -l0 -d3 tile-????.gif\n"
                     "\n"
                     "Converting a GIF animation into individual frame files:\n"
                     "   gifsicle -U -E animation.gif\n"
@@ -209,6 +207,8 @@ int main(int argc, char** argv)
                     pixelmethod = pm_ChangeLogPixel;
                 else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
                     pixelmethod = pm_LoopingLogPixel;
+                else if(strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0)
+                    pixelmethod = pm_LoopingLastPixel;
                 else if(strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
                     pixelmethod = pm_LoopingAvgPixel;
                 else
@@ -231,6 +231,7 @@ int main(int argc, char** argv)
                     bgmethod = pm_ActionAvgPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0
                      || strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0
+                     || strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0
                      || strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
                 {
                     std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);

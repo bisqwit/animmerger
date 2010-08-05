@@ -4,17 +4,13 @@ class MostUsedPixel
 {
     typedef MapType<uint32, unsigned short> vmap;
     vmap values;
-    //uint32   pix;       // current result
-    //unsigned short max; // maximum occurrence count
-    //bool final;
 public:
-    MostUsedPixel() : values()/*,pix(DefaultPixel),max(0)*/ //, final(false)
+    MostUsedPixel() : values()
     {
     }
 
     void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
     {
-        //if(final) return;
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
         set(p);
     }
@@ -25,35 +21,31 @@ public:
             values.insert(i, vmap::value_type(p,1));
         else
             i->second += 1;
-        /*unsigned short v = ++values[p];*/
-        //if(v > max) { max = v; pix = p; }
     }
-    /*uint32 value_ignore(uint32 ignore) const
+    void set_n(uint32 p, unsigned count) FastPixelMethod
     {
-        if(pix != ignore) return pix;
-        unsigned max2 = 0;
-        uint32 result = DefaultPixel;
-        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
-        {
-            if(i->first != ignore)
-            {
-                unsigned v = i->second;
-                if(v > max2) { max2 = v; result = i->first; }
-            }
-        }
-        return result;
-    }*/
-    uint32 get(unsigned=0) const FastPixelMethod
+        vmap::iterator i = values.lower_bound(p);
+        if(i == values.end() || i->first != p)
+            values.insert(i, vmap::value_type(p, count));
+        else
+            i->second += count;
+    }
+    
+    inline uint32 get(unsigned=0) const FasterPixelMethod
+    {
+        return GetMostUsed();
+    }
+
+    uint32 GetMostUsed(unsigned=0) const FastPixelMethod
     {
         std::pair<uint32,unsigned short> result(DefaultPixel,0);
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
             if(i->second > result.second)
                 result = *i;
         return result.first;
-        //return pix;
     }
 
-    uint32 GetAverage() const FastPixelMethod
+    uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
         AveragePixel result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
@@ -70,25 +62,13 @@ public:
         values.clear();
         values.insert(values.end(), result);
     }
-    /*void CompressButIgnore(uint32 ignore)
-    {
-        pix = value_ignore(ignore);
-        values.clear();
-    }*/
 };
 
-template<>
-class TwoPixels<MostUsedPixel, AveragePixel>: private MostUsedPixel
-{
-public:
-    using MostUsedPixel::set;
-    using MostUsedPixel::Compress;
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
-    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
-};
+/*
+MostUsed defines these:
 
-template<>
-class TwoPixels<AveragePixel, MostUsedPixel>
-    : public SwapTwoPixels<MostUsedPixel, AveragePixel>
-{
-};
+    GetMostUsed
+    GetAverage     (EMULATED, NOT UNIQUE)
+*/
+
+DefineBasePair(MostUsedPixel, MostUsed,Average)

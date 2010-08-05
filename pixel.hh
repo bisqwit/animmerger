@@ -14,7 +14,8 @@ extern enum PixelMethod
     pm_ActionAvgPixel,
     pm_ChangeLogPixel,
     pm_LoopingLogPixel,
-    pm_LoopingAvgPixel
+    pm_LoopingAvgPixel,
+    pm_LoopingLastPixel
 } pixelmethod, bgmethod;
 
 /* A vector of 256x256 pixels. */
