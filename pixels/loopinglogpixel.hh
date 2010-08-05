@@ -1,9 +1,6 @@
 //#include "pixels/mostusedpixel.hh"
 //#include "pixels/lastpixel.hh"
 
-#include <vector>
-#include <algorithm>
-
 #include "vectype.hh"
 
 class LoopingLogPixel
@@ -15,32 +12,32 @@ public:
     LoopingLogPixel(): history(LoopingLogLength)
     {
     }
-    void set(unsigned R,unsigned G,unsigned B)
+    void set(unsigned R,unsigned G,unsigned B, unsigned timer) FasterPixelMethod
     {
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p);
+        set(p, timer);
     }
-    void set(uint32 p)
+    void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        /*if(CurrentTimer == 0)
+        /*if(timer == 0)
         {
             // Ignore first frame. It's gray.
             return;
         }*/
         most_used.set(p);
 
-        unsigned offs = CurrentTimer % LoopingLogLength;
-        if(history[offs] == DefaultPixel || p != most_used)
+        unsigned offs = timer % LoopingLogLength;
+        if(history[offs].get() == DefaultPixel || p != most_used.get())
             history[offs].set(p);
     }
-    operator uint32() const
+    uint32 get(unsigned timer) const FastPixelMethod
     {
-        unsigned offs = CurrentTimer % LoopingLogLength;
-        uint32 result = history[offs];//.value_ignore(most_used);
-        if(result == DefaultPixel) return most_used;
+        unsigned offs = timer % LoopingLogLength;
+        uint32 result = history[offs].get();//.value_ignore(most_used);
+        if(result == DefaultPixel) return most_used.get();
         return result;
     }
-    inline const MostUsedPixel& GetMostUsed() const { return most_used; }
+    inline uint32 GetMostUsed() const FasterPixelMethod { return most_used.get(); }
 
     void Compress()
     {
@@ -56,6 +53,14 @@ class TwoPixels<LoopingLogPixel, MostUsedPixel>: private LoopingLogPixel
 public:
     using LoopingLogPixel::set;
     using LoopingLogPixel::Compress;
-    inline uint32 get_pixel1() const { return LoopingLogPixel::operator uint32(); }
-    inline uint32 get_pixel2() const { return GetMostUsed(); }
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetMostUsed(); }
 };
+
+
+template<>
+class TwoPixels<MostUsedPixel, LoopingLogPixel>
+    : public SwapTwoPixels<LoopingLogPixel,MostUsedPixel>
+{
+};
+

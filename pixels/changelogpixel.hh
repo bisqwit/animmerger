@@ -1,12 +1,11 @@
 //#include "pixels/mostusedpixel.hh"
+//#include "pixels/lastpixel.hh"
 #include "maptype.hh"
 
 /* undef or define. */
 static const bool CHANGELOG_GUESS_OUTSIDES = true;
 
 #define CHANGELOG_USE_LASTTIMESTAMP 0
-
-#include <vector>
 
 class ChangeLogPixel
 {
@@ -23,31 +22,31 @@ public:
 #endif
     {
     }
-    void set(unsigned R,unsigned G,unsigned B)
+    void set(unsigned R,unsigned G,unsigned B, unsigned timer) FastPixelMethod
     {
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p);
+        set(p, timer);
     }
-    void set(uint32 p)
+    void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        /*if(CurrentTimer == 0)
+        /*if(timer == 0)
         {
             // Ignore first frame. It's gray.
             return;
         }*/
         most_used.set(p);
 #if CHANGELOG_USE_LASTTIMESTAMP
-        if(CurrentTimer > last_time) last_time = CurrentTimer;
+        if(timer > last_time) last_time = timer;
 #endif
         // Store the value into the history.
         // However, do not store three consecutive identical values.
         // Only store the first timer value where it occurs,
         // and the last timer value where it occurs.
         MapType<unsigned, uint32>::iterator
-            i = history.lower_bound(CurrentTimer);
-        if(i != history.end() && i->first == CurrentTimer)
+            i = history.lower_bound(timer);
+        if(i != history.end() && i->first == timer)
         {
-            // Redefining what happened at [CurrentTimer]
+            // Redefining what happened at [timer]
             i->second = p;
             return;
         }
@@ -100,7 +99,7 @@ public:
                         // Preceding two are duplicates. Here's a third.
                         // Do not insert the third one. Instead, update
                         // the second duplicate's timestamp to current's.
-                        prev1->first = CurrentTimer;
+                        prev1->first = timer;
                         return;
                     }
                 }
@@ -127,16 +126,16 @@ public:
         }
 
         history.insert(i,
-            std::pair<unsigned, uint32> (CurrentTimer, p)
+            std::pair<unsigned, uint32> (timer, p)
                       );
     }
 
-    operator uint32() const
+    inline uint32 get(unsigned timer) const FasterPixelMethod
     {
-        return Find(CurrentTimer);
+        return Find(timer);
     }
-    inline const MostUsedPixel& GetMostUsed() const { return most_used; }
-    inline uint32 GetLast() const
+    inline uint32 GetMostUsed() const FasterPixelMethod { return most_used.get(); }
+    inline uint32 GetLast() const FastPixelMethod
         { return history.empty() ? DefaultPixel : history.rbegin()->second; }
 
     void Compress()
@@ -145,7 +144,7 @@ public:
     }
 
 private:
-    uint32 Find(unsigned time) const
+    uint32 Find(unsigned time) const FastPixelMethod
     {
         // Find the pixel value that was present at the given time.
         /*
@@ -164,7 +163,7 @@ private:
         if(i == history.begin())
         {
             return CHANGELOG_GUESS_OUTSIDES
-                ? most_used
+                ? most_used.get()
                 : DefaultPixel;
         }
 
@@ -180,7 +179,7 @@ private:
           )
         {
             return CHANGELOG_GUESS_OUTSIDES
-                ? most_used
+                ? most_used.get()
                 : DefaultPixel;
         }
         return i->second;
@@ -193,17 +192,28 @@ class TwoPixels<ChangeLogPixel, MostUsedPixel>: private ChangeLogPixel
 public:
     using ChangeLogPixel::set;
     using ChangeLogPixel::Compress;
-    inline uint32 get_pixel1() const { return ChangeLogPixel::operator uint32(); }
-    inline uint32 get_pixel2() const { return GetMostUsed(); }
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetMostUsed(); }
+};
+
+template<>
+class TwoPixels<MostUsedPixel, ChangeLogPixel>
+    : public SwapTwoPixels<ChangeLogPixel,MostUsedPixel>
+{
 };
 
 template<>
 class TwoPixels<ChangeLogPixel, LastPixel>: private ChangeLogPixel
 {
-    ChangeLogPixel pixel1;
 public:
     using ChangeLogPixel::set;
     using ChangeLogPixel::Compress;
-    inline uint32 get_pixel1() const { return ChangeLogPixel::operator uint32(); }
-    inline uint32 get_pixel2() const { return GetLast(); }
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetLast(); }
+};
+
+template<>
+class TwoPixels<LastPixel, ChangeLogPixel>
+    : public SwapTwoPixels<ChangeLogPixel,LastPixel>
+{
 };

@@ -5,19 +5,7 @@
 
 #include "openmp.hh"
 
-unsigned CurrentTimer = 0;       // For animated
-unsigned SequenceBegin = 0;      // For animated
-
 bool SaveGif = false;
-
-namespace
-{
-    struct ScrollingPosition            // For animated
-    {
-        unsigned org_x, org_y;
-    };
-    VecType<ScrollingPosition> scrolls; // For animated
-}
 
 static inline bool veq
     (const VecType<uint32>& a,
@@ -32,12 +20,12 @@ struct LoadCubeHelper
     VecType<uint32>& result;
     unsigned this_cube_ystart, this_cube_yend;
     unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx, targetpos;
+    unsigned sx, targetpos, timer;
 
-    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f)
+    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g)
         : result(r), this_cube_ystart(a), this_cube_yend(b),
           this_cube_xstart(c), this_cube_xend(d),
-          sx(e), targetpos(f) { }
+          sx(e), targetpos(f), timer(g) { }
 
     template<typename Cube>
     void operator() (const Cube& cube) const
@@ -49,7 +37,7 @@ struct LoadCubeHelper
             unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
             unsigned destp =   sx*y + targetpos        - this_cube_xstart;
             for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                result[destp + xp] = cube.GetLive(srcp + xp);
+                result[destp + xp] = cube.GetLive(srcp + xp, timer);
         }
     }
 };
@@ -59,12 +47,12 @@ struct UpdateCubeHelper
     const uint32* input;
     unsigned this_cube_ystart, this_cube_yend;
     unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx;
+    unsigned sx, timer;
 
-    UpdateCubeHelper( const uint32* i, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e)
+    UpdateCubeHelper( const uint32* i, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f)
         : input(i), this_cube_ystart(a), this_cube_yend(b),
           this_cube_xstart(c), this_cube_xend(d),
-          sx(e) { }
+          sx(e), timer(f) { }
 
     template<typename Cube>
     void operator() (Cube& cube) const
@@ -75,13 +63,14 @@ struct UpdateCubeHelper
             {
                 uint32 pix = input[/*targetpos +*/ x + y*sx];
                 if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
-                cube.Set( xp + 256*yp, pix );
+                cube.Set( xp + 256*yp, pix, timer );
             }
     }
 };
 
 const VecType<uint32>
-TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const
+TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
+                         unsigned timer) const
 {
     // Create the result vector filled with default pixel value
     VecType<uint32> result(sy*sx, DefaultPixel);
@@ -140,7 +129,8 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const
                             this_cube_yend,
                             this_cube_xstart,
                             this_cube_xend,
-                            sx, targetpos) );
+                            sx, targetpos,
+                            timer) );
                 }
 
                 unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
@@ -163,7 +153,8 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const
 
 void
 TILE_Tracker::PutScreen
-    (const uint32*const input, int ox,int oy, unsigned sx,unsigned sy)
+    (const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
+     unsigned timer)
 {
     /* Nearly the same as LoadScreen. */
 
@@ -218,7 +209,7 @@ TILE_Tracker::PutScreen
                     this_cube_yend,
                     this_cube_xstart,
                     this_cube_xend,
-                    sx) );
+                    sx, timer) );
 
             unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
 
@@ -269,7 +260,6 @@ void TILE_Tracker::Save()
             }
 
             CurrentTimer  = SavedTimer;
-            scrolls.clear();
             Saving = false;
         }
         else
@@ -294,30 +284,10 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
 
     if(wid <= 1 || hei <= 1) return;
 
-    if(!scrolls.empty())
-    {
-        std::printf("/*%u*/ %d,%d, %d,%d\n",
-            frameno,
-            scrolls[CurrentTimer].org_x - xmin,
-            scrolls[CurrentTimer].org_y - ymin,
-            0,0
-            );
-        std::fflush(stdout);
-    }
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
     std::fflush(stderr);
 
-    VecType<uint32> screen;
-
-  {
-  #ifdef _OPENMP
-    static MutexType timer_mutex;
-    ScopedLock lck(timer_mutex);
-  #endif
-    CurrentTimer = frameno;
-    #pragma omp flush(CurrentTimer)
-    screen = LoadScreen(xmi,ymi, wid,hei);
-  }
+    VecType<uint32> screen ( LoadScreen(xmi,ymi, wid,hei, frameno) );
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
     if(SaveGif)
@@ -338,10 +308,10 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
                 (unsigned)LastScreen.size());
             std::string cmd = "ln "+LastFilename+" "+Filename;
             system(cmd.c_str());
-            LastScreen   = screen;
-            LastFilename = Filename;
             was_identical = true;
         }
+        LastScreen   = screen;
+        LastFilename = Filename;
     }
   }
 
@@ -508,7 +478,7 @@ void TILE_Tracker::FitScreen
 #if 0
         goto AlwaysReset;
 #endif
-        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y);
+        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y, CurrentTimer);
         unsigned diff = 0;
         for(unsigned a=0; a<oldbuf.size(); ++a)
         {
@@ -558,7 +528,7 @@ void TILE_Tracker::FitScreen
     }
 #endif
 
-    PutScreen(buf, this_org_x,this_org_y, max_x,max_y);
+    PutScreen(buf, this_org_x,this_org_y, max_x,max_y, CurrentTimer);
 }
 
 void TILE_Tracker::Reset()
@@ -599,14 +569,15 @@ void TILE_Tracker::NextFrame()
 {
     const bool animated = pixelmethod == pm_LoopingLogPixel
                        || pixelmethod == pm_ChangeLogPixel;
-
     if(animated)
     {
-        ScrollingPosition s;
-        s.org_x = org_x;
-        s.org_y = org_y;
-        scrolls.push_back(s);
-
+        std::printf("/*%u*/ %d,%d, %d,%d,\n",
+            CurrentTimer,
+            org_x - xmin,
+            org_y - ymin,
+            0,0
+            );
+        std::fflush(stdout);
         ++CurrentTimer;
     }
 }

@@ -15,7 +15,7 @@ class MostUsedWithinPixel
         pixels[BUFFER_SIZE-1] = DefaultPixel;
     }
 
-    void set(unsigned r, unsigned g, unsigned b)
+    void set(unsigned r, unsigned g, unsigned b, unsigned=0) FastPixelMethod
     {
         // If we have already read BUFFER_SIZE pixels, ignore the rest:
         if(pixelIndex == BUFFER_SIZE) return;
@@ -23,13 +23,13 @@ class MostUsedWithinPixel
         set_p(newPixel);
     }
 
-    void set(uint32 p)
+    void set(uint32 p, unsigned=0) FasterPixelMethod
     {
         if(pixelIndex == BUFFER_SIZE) return;
         set_p(p);
     }
 
-    void set_p(const uint32 newPixel)
+    void set_p(const uint32 newPixel) FastPixelMethod
     {
         // Insert the new pixel into its sorted place:
         unsigned i = pixelIndex;
@@ -58,8 +58,8 @@ class MostUsedWithinPixel
         }
         pixels[BUFFER_SIZE-1] = mostUsedPixel;
     }
-
-    operator uint32() const
+    
+    inline uint32 get(unsigned=0) const FasterPixelMethod
     {
         return pixels[BUFFER_SIZE-1];
     }

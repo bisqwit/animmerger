@@ -3,12 +3,7 @@
 
 #include "types.hh"
 
-static const uint32 DefaultPixel = 0xFF404041u;
-
 extern unsigned LoopingLogLength;
-
-extern unsigned CurrentTimer;
-/* Timer value for Set() and get methods in ChangeLog and LoopingLog methods */
 
 extern enum PixelMethod
 {
@@ -24,9 +19,9 @@ extern enum PixelMethod
 struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
-    virtual uint32 GetLive(unsigned index) const = 0;
-    virtual uint32 GetStatic(unsigned index) const = 0;
-    virtual void Set(unsigned index, uint32 p) = 0;
+    virtual uint32 GetLive(unsigned index, unsigned timer) const = 0;
+    virtual uint32 GetStatic(unsigned index)               const = 0;
+    virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
     virtual void Compress() = 0;
 };
 class UncertainPixelVector256x256

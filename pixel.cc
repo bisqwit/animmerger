@@ -1,9 +1,14 @@
-#include "pixel.hh"
-
-enum PixelMethod pixelmethod = pm_MostUsedPixel;
-enum PixelMethod bgmethod    = pm_MostUsedPixel;
+#include "types.hh"
 
 unsigned LoopingLogLength = 16;
+
+#ifdef __GNUC__
+# define FastPixelMethod __attribute__((regparm(6)))
+# define FasterPixelMethod __attribute__((regparm(6),always_inline))
+#else
+# define FastPixelMethod
+# define FasterPixelMethod
+#endif
 
 /* This class wraps two pixel classes in one,
  * providing the functions of both. One is a "live"
@@ -15,13 +20,13 @@ class TwoPixels
     Pixel1 pixel1;
     Pixel2 pixel2;
 public:
-    inline void set(uint32 p)
+    inline void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        pixel1.set(p);
-        pixel2.set(p);
+        pixel1.set(p, timer);
+        pixel2.set(p, timer);
     }
-    inline uint32 get_pixel1() const { return pixel1; }
-    inline uint32 get_pixel2() const { return pixel2; }
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return pixel1.get(timer); }
+    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return pixel2.get(timer); }
     inline void Compress() { pixel1.Compress(); pixel2.Compress(); }
 };
 
@@ -34,8 +39,19 @@ class TwoPixels<Pix,Pix>: private Pix
 public:
     using Pix::set;
     using Pix::Compress;
-    inline uint32 get_pixel1() const { return Pix::operator uint32(); }
-    inline uint32 get_pixel2() const { return Pix::operator uint32(); }
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
+    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
+};
+
+template<typename Pixel1,typename Pixel2>
+class SwapTwoPixels: private TwoPixels<Pixel1,Pixel2>
+{
+    typedef TwoPixels<Pixel1,Pixel2> TwoPix;
+public:
+    using TwoPix::set;
+    using TwoPix::Compress;
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel2(timer); }
+    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel1(timer); }
 };
 
 #include "pixels/lastpixel.hh"
@@ -44,6 +60,15 @@ public:
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
+
+/* Postponing pixel.hh inclusion here to ensure that
+ * the pixel implementations do not depend on any globals.
+ */
+#include "pixel.hh"
+
+enum PixelMethod pixelmethod = pm_MostUsedPixel;
+enum PixelMethod bgmethod    = pm_MostUsedPixel;
+
 
 template<typename T>
 struct Array256x256of: public Array256x256of_Base
@@ -54,19 +79,19 @@ public:
     Array256x256of() { }
     virtual ~Array256x256of() { }
 public:
-    virtual uint32 GetLive(unsigned index) const
+    virtual uint32 GetLive(unsigned index, unsigned timer) const
     {
-        return data[index].get_pixel1();
+        return data[index].get_pixel1(timer);
     }
 
     virtual uint32 GetStatic(unsigned index) const
     {
-        return data[index].get_pixel2();
+        return data[index].get_pixel2(0);
     }
 
-    virtual void Set(unsigned index, uint32 p)
+    virtual void Set(unsigned index, uint32 p, unsigned timer)
     {
-        data[index].set(p);
+        data[index].set(p, timer);
     }
 
     virtual void Compress()

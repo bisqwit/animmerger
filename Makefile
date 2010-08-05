@@ -1,4 +1,4 @@
-VERSION=1.2.0.1
+VERSION=1.2.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -9,6 +9,7 @@ ARCHFILES=\
 	settype.hh \
 	maptype.hh \
 	vectype.hh \
+	untreetype.hh \
 	pixel.cc pixel.hh \
 	pixels/averagepixel.hh \
 	pixels/changelogpixel.hh \
@@ -36,6 +37,7 @@ CPPFLAGS += -I.
 LDLIBS += -lgd
 
 CXXFLAGS += -std=c++0x -fopenmp
+CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 
 #OPTIM=-O2 -fno-inline
 
