@@ -2,13 +2,13 @@
 #define bqtAnimMergerUntreeTypeHH
 
 #include "vectype.hh"
-#include "untreetype.hh"
 
-template<typename value_type, bool Multiple,
+template<typename T, bool Multiple,
          typename key_method>
 class UntreeType
 {
 public:
+    typedef T value_type;
     typedef value_type* pointer;
     typedef const value_type* const_pointer;
     typedef value_type& reference;

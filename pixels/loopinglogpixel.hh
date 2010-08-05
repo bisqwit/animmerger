@@ -19,22 +19,17 @@ public:
     }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        /*if(timer == 0)
-        {
-            // Ignore first frame. It's gray.
-            return;
-        }*/
         most_used.set(p);
 
         unsigned offs = timer % LoopingLogLength;
-        if(history[offs].get() == DefaultPixel || p != most_used.get())
+        if(history[offs].get() == DefaultPixel || p != GetMostUsed())
             history[offs].set(p);
     }
     uint32 get(unsigned timer) const FastPixelMethod
     {
         unsigned offs = timer % LoopingLogLength;
         uint32 result = history[offs].get();//.value_ignore(most_used);
-        if(result == DefaultPixel) return most_used.get();
+        if(result == DefaultPixel) return GetMostUsed();
         return result;
     }
     inline uint32 GetMostUsed() const FasterPixelMethod
@@ -47,7 +42,7 @@ public:
         return most_used.GetAverage();
     }
 
-    void Compress()
+    inline void Compress()
     {
         most_used.Compress();
         //for(unsigned a=0; a<LoopingLogLength; ++a)

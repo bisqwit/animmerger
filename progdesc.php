@@ -115,6 +115,22 @@ Produced with commandline:<br>
 # mv tile-0000.png demo/method-l.png<br>
 # pngout-hard demo/method-l.png</code>
 
+", 'actionavg:1.1.1. ACTIONAVG' => "
+
+The \"actionavg\" method attempts to fix the blurring problem with
+\"average\" method by keeping track separately of the background
+(using the \"mostused\" method) and only taking the average of
+moving actors. It requires considerably more RAM to generate
+(it is based on the \"changelog\" algorithm).
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
+     alt=\"Action average\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-t.png<br>
+# pngout-hard demo/method-t.png</code>
+
 ", 'animated:1.1. Animated methods' => "
 
 ", 'changelog:1.1.1. CHANGELOG' => "
@@ -147,8 +163,7 @@ This is evident in the trails left by the HUD as it scrolls by at different spee
 Produced with commandline:<br>
 <code>
 # rm tile-*.png tile-*.gif<br>
-# animmerger -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# <a href=\"http://www.imagemagick.org/\">mogrify</a> -format gif tile-*.png<br>
+# animmerger --gif -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # <a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
@@ -178,9 +193,37 @@ Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# &nbsp; mogrify -format gif tile-*.png<br>
+# &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
+
+", 'loopingavg:1.1.1. LOOPINGAVG' => "
+
+The \"loopingavg\" method combines the \"loopinglog\" and \"actionavg\" methods.
+Use the <code>-l</code> option to set the loop length in frames.<br>
+The most important difference to \"loopinglog\" is that overlapping action
+is averaged rather than explicitly choosing one of the acting pixels.<br>
+It looks slightly better, but may require GIF palette reduction,
+and requires as much RAM as \"changelog\" requires to generate it.
+<p>
+30 frames (file size depends on selected palette size):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
+     alt=\"Loop, 30 frames\">
+<p>
+10 frames:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10.gif\"
+     alt=\"Loop, 10 frames\">
+<p>
+4 frames:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl4.gif\"
+     alt=\"Loop, 4 frames\">
+<p>
+Produced with commandline:<br>
+<code>
+# for l in 10 30 80; do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
 
 ", 'usage:1. Usage' => "

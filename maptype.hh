@@ -17,7 +17,6 @@ class MapBaseType: public
 public:
     typedef K key_type;
     typedef V mapped_type;
-    typedef std::pair<K,V> value_type;
 
     template<typename Kt>
     V& operator[] (Kt key)

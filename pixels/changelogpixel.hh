@@ -9,6 +9,7 @@ static const bool CHANGELOG_GUESS_OUTSIDES = true;
 
 class ChangeLogPixel
 {
+protected:
     MapType<unsigned, uint32> history;
 #if CHANGELOG_USE_LASTTIMESTAMP
     unsigned last_time;
@@ -169,6 +170,68 @@ public:
         return i->second;
     }
 
+    uint32 GetActionAvg(unsigned=0) const FastPixelMethod
+    {
+        const uint32 most = GetMostUsed();
+
+        AveragePixel result;
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            )
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+
+            if(j->second != most)
+                result.set_n(j->second, duration);
+        }
+        if(result.n == 0) return most;
+        return result.get();
+    }
+
+    uint32 GetLoopingAvg(unsigned timer) const FastPixelMethod
+    {
+        unsigned offs = timer % LoopingLogLength;
+        const uint32 most = GetMostUsed();
+
+        AveragePixel result;
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            )
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned begin    = j->first;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+
+            if(j->second != most)
+            {
+                unsigned n_hits = 0;
+                while(duration--)
+                    if(begin++ % LoopingLogLength == offs)
+                        ++n_hits;
+                result.set_n(j->second, n_hits);
+            }
+        }
+        if(result.n == 0) return most;
+        return result.get();
+    }
+
     uint32 GetMostUsed() const FastPixelMethod
     {
         uint32   result   = DefaultPixel;
@@ -203,9 +266,7 @@ public:
 
     uint32 GetAverage() const FastPixelMethod
     {
-        if(history.empty()) return DefaultPixel;
-
-        unsigned r=0, g=0, b=0, n=0;
+        AveragePixel result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -220,14 +281,23 @@ public:
                     1
 #endif
                     ;
-            unsigned pix = j->second;
-            unsigned R   = (pix>>16)&0xFF, G=(pix>>8)&0xFF, B=(pix&0xFF);
-            r += R*count;
-            g += G*count;
-            b += B*count;
-            n += count;
+            
+            result.set_n(j->second, count);
         }
-        return ((r/n) << 16) + ((g/n) << 8) + (b/n);
+        return result.get();
+    }
+
+    inline unsigned GetFirstTime() const
+    {
+        return history.empty() ? 0 : history.begin()->first;
+    }
+    inline unsigned GetLastTime() const
+    {
+#if CHANGELOG_USE_LASTTIMESTAMP
+        return last_time;
+#else
+        return history.empty() ? 0 : history.rbegin()->first;
+#endif
     }
 
     inline void Compress()

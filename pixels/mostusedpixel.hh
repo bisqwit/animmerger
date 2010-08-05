@@ -55,21 +55,10 @@ public:
 
     uint32 GetAverage() const FastPixelMethod
     {
-        if(values.empty())
-            return DefaultPixel;
-
-        unsigned r=0, g=0, b=0, n=0;
+        AveragePixel result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
-        {
-            unsigned count = i->second;
-            unsigned pix = i->first;
-            unsigned R = (pix>>16)&0xFF, G=(pix>>8)&0xFF, B=(pix&0xFF);
-            r += R*count;
-            g += G*count;
-            b += B*count;
-            n += count;
-        }
-        return ((r/n) << 16) + ((g/n) << 8) + (b/n);
+            result.set_n(i->first, i->second);
+        return result.get();
     }
 
     void Compress()
