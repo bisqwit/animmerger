@@ -8,6 +8,7 @@ ARCHFILES=\
 	types.hh \
 	maptype.hh \
 	vectype.hh \
+	untreetype.hh \
 	pixel.cc pixel.hh \
 	pixels/averagepixel.hh \
 	pixels/changelogpixel.hh \
