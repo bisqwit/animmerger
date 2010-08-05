@@ -1,4 +1,4 @@
-VERSION=1.2.0
+VERSION=1.2.0.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -6,6 +6,7 @@ ARCHFILES=\
 	canvas.cc canvas.hh \
 	align.cc align.hh \
 	types.hh \
+	settype.hh \
 	maptype.hh \
 	vectype.hh \
 	untreetype.hh \
