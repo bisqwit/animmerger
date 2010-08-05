@@ -5,15 +5,18 @@ public:
     LastPixel() : pix(DefaultPixel)
     {
     }
-    void set(unsigned R,unsigned G,unsigned B)
+    void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
     {
         set(((R) << 16) + ((G) << 8) + B);
     }
-    void set(uint32 p)
+    void set(uint32 p, unsigned=0) FasterPixelMethod
     {
         pix = p;
     }
-    inline operator uint32() const { return pix; }
+    inline uint32 get(unsigned=0) const FasterPixelMethod
+    {
+        return pix;
+    }
     inline void Compress()
     {
     }

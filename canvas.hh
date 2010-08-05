@@ -11,8 +11,8 @@
 #include <string>
 #include <cstdio>
 
-extern unsigned CurrentTimer;       // For animated
-extern unsigned SequenceBegin;      // For animated
+//extern unsigned CurrentTimer;       // For animated
+//extern unsigned SequenceBegin;      // For animated
 extern bool SaveGif;
 
 class TILE_Tracker
@@ -62,9 +62,11 @@ public:
 
     void Reset();
 
-    const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy) const;
+    const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
+                                     unsigned timer) const;
 
-    void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy);
+    void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
+                   unsigned timer);
 
     void FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy);
 

@@ -12,15 +12,20 @@ public:
     {
     }
 
-    void set(unsigned R,unsigned G,unsigned B)
+    void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
     {
         //if(final) return;
         uint32 p = (((R) << 16) + ((G) << 8) + (B));
         set(p);
     }
-    void set(uint32 p)
+    void set(uint32 p, unsigned=0) FastPixelMethod
     {
-        /*unsigned short v =*/ ++values[p];
+        vmap::iterator i = values.lower_bound(p);
+        if(i == values.end() || i->first != p)
+            values.insert(i, vmap::value_type(p,1));
+        else
+            i->second += 1;
+        /*unsigned short v = ++values[p];*/
         //if(v > max) { max = v; pix = p; }
     }
     /*uint32 value_ignore(uint32 ignore) const
@@ -38,7 +43,7 @@ public:
         }
         return result;
     }*/
-    operator uint32() const
+    uint32 get(unsigned=0) const FastPixelMethod
     {
         std::pair<uint32,unsigned short> result(DefaultPixel,0);
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
