@@ -58,7 +58,7 @@ class MostUsedWithinPixel
         }
         pixels[BUFFER_SIZE-1] = mostUsedPixel;
     }
-    
+
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
         return pixels[BUFFER_SIZE-1];

@@ -10,13 +10,12 @@ static const bool CHANGELOG_GUESS_OUTSIDES = true;
 class ChangeLogPixel
 {
     MapType<unsigned, uint32> history;
-    MostUsedPixel most_used;
 #if CHANGELOG_USE_LASTTIMESTAMP
     unsigned last_time;
 #endif
 
 public:
-    ChangeLogPixel() : history(), most_used()
+    ChangeLogPixel() : history()
 #if CHANGELOG_USE_LASTTIMESTAMP
                         , last_time(0)
 #endif
@@ -34,7 +33,6 @@ public:
             // Ignore first frame. It's gray.
             return;
         }*/
-        most_used.set(p);
 #if CHANGELOG_USE_LASTTIMESTAMP
         if(timer > last_time) last_time = timer;
 #endif
@@ -130,32 +128,7 @@ public:
                       );
     }
 
-    inline uint32 get(unsigned timer) const FasterPixelMethod
-    {
-        return Find(timer);
-    }
-    inline uint32 GetMostUsed() const FasterPixelMethod
-    {
-        return most_used.get();
-    }
-
-    inline uint32 GetLast() const FastPixelMethod
-    {
-        return history.empty() ? DefaultPixel : history.rbegin()->second;
-    }
-
-    inline uint32 GetAverage() const FasterPixelMethod
-    {
-        return most_used.GetAverage();
-    }
-
-    void Compress()
-    {
-        most_used.Compress();
-    }
-
-private:
-    uint32 Find(unsigned time) const FastPixelMethod
+    uint32 get(unsigned timer) const FastPixelMethod
     {
         // Find the pixel value that was present at the given time.
         /*
@@ -168,13 +141,13 @@ private:
             to the last element that is <= key.
          */
         MapType<unsigned, uint32>::const_iterator
-            i = history.upper_bound(time);
+            i = history.upper_bound(timer);
 
         /* Pre-begin value: reasonable default */
         if(i == history.begin())
         {
             return CHANGELOG_GUESS_OUTSIDES
-                ? most_used.get()
+                ? GetMostUsed()
                 : DefaultPixel;
         }
 
@@ -183,17 +156,82 @@ private:
 
         /* Anything else. Take the value. */
         --i;
-        if(i->first < time && last
+        if(i->first < timer && last
 #if CHANGELOG_USE_LASTTIMESTAMP
-                                   && time > last_time
+                                   && timer > last_time
 #endif
           )
         {
             return CHANGELOG_GUESS_OUTSIDES
-                ? most_used.get()
+                ? GetMostUsed()
                 : DefaultPixel;
         }
         return i->second;
+    }
+
+    uint32 GetMostUsed() const FastPixelMethod
+    {
+        uint32   result   = DefaultPixel;
+        unsigned longest  = 0;
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            )
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+            if(duration > longest)
+            {
+                longest = duration;
+                result  = j->second;
+            }
+        }
+        return result;
+    }
+
+    inline uint32 GetLast() const FastPixelMethod
+    {
+        return history.empty() ? DefaultPixel : history.rbegin()->second;
+    }
+
+    uint32 GetAverage() const FastPixelMethod
+    {
+        if(history.empty()) return DefaultPixel;
+
+        unsigned r=0, g=0, b=0, n=0;
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            )
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned count =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+            unsigned pix = j->second;
+            unsigned R   = (pix>>16)&0xFF, G=(pix>>8)&0xFF, B=(pix&0xFF);
+            r += R*count;
+            g += G*count;
+            b += B*count;
+            n += count;
+        }
+        return ((r/n) << 16) + ((g/n) << 8) + (b/n);
+    }
+
+    inline void Compress()
+    {
     }
 };
 

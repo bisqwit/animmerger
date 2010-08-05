@@ -294,7 +294,7 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
         std::sprintf(Filename, "tile-%04u.gif", img_counter);
     else
         std::sprintf(Filename, "tile-%04u.png", img_counter);
-    
+
     bool was_identical = false;
 
   #pragma omp ordered
@@ -339,7 +339,7 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
         gdImageGif(im, fp);
     }
     else
-    {    
+    {
         gdImagePngEx(im, fp, 1);
     }
     std::fclose(fp);
