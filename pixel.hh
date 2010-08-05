@@ -11,11 +11,17 @@ extern enum PixelMethod
     pm_LastPixel,
     pm_MostUsedPixel,
     pm_MostUsed16Pixel,
+    pm_ActionAvgPixel,
     pm_ChangeLogPixel,
-    pm_LoopingLogPixel
+    pm_LoopingLogPixel,
+    pm_LoopingAvgPixel
 } pixelmethod, bgmethod;
 
 /* A vector of 256x256 pixels. */
+/* Each pixel has two traits:
+ * the trait determined by pixelmethod (retrievable with GetLive()),
+ * and the trait determined by bgmethod (retrievable with GetStatic()).
+ */
 struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }

@@ -55,11 +55,13 @@ public:
 };
 
 #include "pixels/lastpixel.hh"
-#include "pixels/mostusedpixel.hh"
 #include "pixels/averagepixel.hh"
+#include "pixels/mostusedpixel.hh"
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
+#include "pixels/loopingavgpixel.hh"
+#include "pixels/actionavgpixel.hh"
 
 /* Postponing pixel.hh inclusion here to ensure that
  * the pixel implementations do not depend on any globals.
@@ -128,14 +130,20 @@ namespace
         typedef LastPixel               t1;
         typedef MostUsedPixel           t2;
         typedef MostUsedWithinPixel<16> t3;
-        typedef ChangeLogPixel          t4;
-        typedef LoopingLogPixel         t5;
+        typedef ActionAvgPixel          t4;
+        typedef ChangeLogPixel          t5;
+        typedef LoopingLogPixel         t6;
+        typedef LoopingAvgPixel         t7;
 
         template<typename Type1>
-        struct SubTables
+        class SubTables
         {
             template<typename Type2>
             struct s : public FactoryMethods<TwoPixels<Type1,Type2> > { };
+            // s is akin to a templated typedef.
+            // It simplifies the syntax in the definition of methods[].
+            // It is a short name, but its visibility is private to Subtables.
+        public:
             static const FactoryType methods[];
         };
     public:
@@ -149,7 +157,9 @@ namespace
                 SubTables<t2>::methods,
                 SubTables<t3>::methods,
                 SubTables<t4>::methods,
-                SubTables<t5>::methods
+                SubTables<t5>::methods,
+                SubTables<t6>::methods,
+                SubTables<t7>::methods
             };
             return &tables[pixelmethod][bgmethod];
         }
@@ -163,13 +173,15 @@ namespace
         { s<t2>::Construct, s<t2>::Copy, s<t2>::Assign },
         { s<t3>::Construct, s<t3>::Copy, s<t3>::Assign },
         { s<t4>::Construct, s<t4>::Copy, s<t4>::Assign },
-        { s<t5>::Construct, s<t5>::Copy, s<t5>::Assign }
+        { s<t5>::Construct, s<t5>::Copy, s<t5>::Assign },
+        { s<t6>::Construct, s<t6>::Copy, s<t6>::Assign },
+        { s<t7>::Construct, s<t7>::Copy, s<t7>::Assign }
     };
 }
 
 void UncertainPixelVector256x256::init()
 {
-    /* Construct the type of object determined by the global enum "method" */
+    /* Construct the type of object determined by the globals "pixelmethod" and "bgmethod" */
     if(!data) data = Get256x256pixelFactory()->Construct();
 }
 

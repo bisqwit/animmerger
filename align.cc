@@ -264,7 +264,7 @@ AlignResult Align(
   {
    #pragma omp single
    {
-    typedef 
+    typedef
     std::multimap<size_t, SpotLocSetType::const_iterator,
                   std::less<size_t>, FSBAllocator<int> > InputSpotCounts;
     InputSpotCounts input_spot_counts;

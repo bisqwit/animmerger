@@ -52,7 +52,8 @@ int main(int argc, char** argv)
                     " --mask, -m <defs>      Define a mask, see instructions below\n"
                     " --method, -p <mode>    Select pixel type, see below\n"
                     " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
-                    "                        Tip: Use -bl for some memory usage reduction\n"
+                    "                        Tip: Use -bl for some memory usage reduction,\n"
+                    "                        when you're using --method=average.\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGLOG mode\n"
                     " --version, -V          Displays version information\n"
                     " --refscale, -r <x>,<y>\n"
@@ -78,6 +79,9 @@ int main(int argc, char** argv)
                     "  AVERAGE, long option: --method=average , short option: -pa\n"
                     "     Produces a single image. Each pixel\n"
                     "     is the average of all frames addressing that pixel.\n"
+                    "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
+                    "     Similar to average, except that blurring of actors\n"
+                    "     over the background is avoided.\n"
                     "  LAST, long option: --method=long , short option: -pl\n"
                     "     Produces a single image. Each pixel\n"
                     "     records the latest color addressing that pixel.\n"
@@ -91,6 +95,8 @@ int main(int argc, char** argv)
                     "     Produces a time-restricted animation.\n"
                     "     Also called, \"lemmings mode\".\n"
                     "     Use the -l option to set loop length in frames.\n"
+                    "  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n"
+                    "     A combination of loopinglog and actionavg.\n"
                     "\n"
                     "DEFINING MASKS\n"
                     "\n"
@@ -155,6 +161,11 @@ int main(int argc, char** argv)
             {
                 char* arg = optarg;
                 LoopingLogLength = strtol(arg, 0, 10);
+                if(LoopingLogLength < 1)
+                {
+                    fprintf(stderr, "animmerger: Bad loop length: %d\n", LoopingLogLength);
+                    LoopingLogLength = 1;
+                }
                 break;
             }
             case 'r':
@@ -183,7 +194,6 @@ int main(int argc, char** argv)
                 }
                 break;
             }
-            case 'e':
             case 'p':
             {
                 char* arg = optarg;
@@ -193,10 +203,14 @@ int main(int argc, char** argv)
                     pixelmethod = pm_LastPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     pixelmethod = pm_MostUsedPixel;
+                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
+                    pixelmethod = pm_ActionAvgPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
                     pixelmethod = pm_ChangeLogPixel;
                 else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
                     pixelmethod = pm_LoopingLogPixel;
+                else if(strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
+                    pixelmethod = pm_LoopingAvgPixel;
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
@@ -213,10 +227,14 @@ int main(int argc, char** argv)
                     bgmethod = pm_LastPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     bgmethod = pm_MostUsedPixel;
-                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
-                    bgmethod = pm_ChangeLogPixel;
-                else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
-                    bgmethod = pm_LoopingLogPixel;
+                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
+                    bgmethod = pm_ActionAvgPixel;
+                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0
+                     || strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0
+                     || strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
+                {
+                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
+                }
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized bgmethod: %s\n", arg);

@@ -13,8 +13,6 @@ template<typename K, bool Multiple>
 class SetBaseType: public
     UntreeType<K, Multiple, SetKeyMethod>
 {
-public:
-    typedef K value_type;
 };
 
 template<typename K>

@@ -19,27 +19,30 @@ public:
     }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        /*if(timer == 0)
-        {
-            // Ignore first frame. It's gray.
-            return;
-        }*/
         most_used.set(p);
 
         unsigned offs = timer % LoopingLogLength;
-        if(history[offs].get() == DefaultPixel || p != most_used.get())
+        if(history[offs].get() == DefaultPixel || p != GetMostUsed())
             history[offs].set(p);
     }
     uint32 get(unsigned timer) const FastPixelMethod
     {
         unsigned offs = timer % LoopingLogLength;
         uint32 result = history[offs].get();//.value_ignore(most_used);
-        if(result == DefaultPixel) return most_used.get();
+        if(result == DefaultPixel) return GetMostUsed();
         return result;
     }
-    inline uint32 GetMostUsed() const FasterPixelMethod { return most_used.get(); }
+    inline uint32 GetMostUsed() const FasterPixelMethod
+    {
+        return most_used.get();
+    }
 
-    void Compress()
+    inline uint32 GetAverage() const FasterPixelMethod
+    {
+        return most_used.GetAverage();
+    }
+
+    inline void Compress()
     {
         most_used.Compress();
         //for(unsigned a=0; a<LoopingLogLength; ++a)
@@ -57,10 +60,25 @@ public:
     inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetMostUsed(); }
 };
 
+template<>
+class TwoPixels<LoopingLogPixel, AveragePixel>: private LoopingLogPixel
+{
+public:
+    using LoopingLogPixel::set;
+    using LoopingLogPixel::Compress;
+    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
+    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
+};
+
 
 template<>
 class TwoPixels<MostUsedPixel, LoopingLogPixel>
-    : public SwapTwoPixels<LoopingLogPixel,MostUsedPixel>
+    : public SwapTwoPixels<LoopingLogPixel, MostUsedPixel>
 {
 };
 
+template<>
+class TwoPixels<AveragePixel, LoopingLogPixel>
+    : public SwapTwoPixels<LoopingLogPixel, AveragePixel>
+{
+};

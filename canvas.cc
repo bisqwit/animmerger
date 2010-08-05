@@ -229,7 +229,8 @@ TILE_Tracker::PutScreen
 void TILE_Tracker::Save()
 {
     const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_ChangeLogPixel;
+                       || pixelmethod == pm_ChangeLogPixel
+                       || pixelmethod == pm_LoopingAvgPixel;
 
     if(animated)
         std::fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
@@ -245,7 +246,8 @@ void TILE_Tracker::Save()
             Saving = true;
             unsigned SavedTimer = CurrentTimer;
 
-            if(pixelmethod == pm_LoopingLogPixel)
+            if(pixelmethod == pm_LoopingLogPixel
+            || pixelmethod == pm_LoopingAvgPixel)
             {
                 if(SavedTimer >= LoopingLogLength)
                     SavedTimer = LoopingLogLength;
@@ -294,7 +296,7 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
         std::sprintf(Filename, "tile-%04u.gif", img_counter);
     else
         std::sprintf(Filename, "tile-%04u.png", img_counter);
-    
+
     bool was_identical = false;
 
   #pragma omp ordered
@@ -339,7 +341,7 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
         gdImageGif(im, fp);
     }
     else
-    {    
+    {
         gdImagePngEx(im, fp, 1);
     }
     std::fclose(fp);
@@ -451,17 +453,6 @@ void TILE_Tracker::FitScreen
      int extra_offs_y
     )
 {
-    const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_ChangeLogPixel;
-
-    if(!animated)
-    {
-/*
-    static unsigned framecounter=0;
-    if(++framecounter == 600) { Save(); framecounter=0; }
-*/
-    }
-
     //if(offs_x != 0 || offs_y != 0)
     {
         std::fprintf(stderr, "[frame%5u] Motion(%d,%d), Origo(%d,%d)\n",
@@ -533,14 +524,8 @@ void TILE_Tracker::FitScreen
 
 void TILE_Tracker::Reset()
 {
-    const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_ChangeLogPixel;
-
-    if(animated)
-    {
-        SequenceBegin += CurrentTimer;
-        CurrentTimer = 0;
-    }
+    SequenceBegin += CurrentTimer;
+    CurrentTimer = 0;
 
     std::fprintf(stderr, " Resetting\n");
     screens.clear();
@@ -567,17 +552,11 @@ void TILE_Tracker::Cleanup()
 
 void TILE_Tracker::NextFrame()
 {
-    const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_ChangeLogPixel;
-    if(animated)
-    {
-        std::printf("/*%u*/ %d,%d, %d,%d,\n",
-            CurrentTimer,
-            org_x - xmin,
-            org_y - ymin,
-            0,0
-            );
-        std::fflush(stdout);
-        ++CurrentTimer;
-    }
+    std::printf("/*%5u*/ %d,%d,\n",
+        CurrentTimer,
+        org_x - xmin,
+        org_y - ymin
+        );
+    std::fflush(stdout);
+    ++CurrentTimer;
 }
