@@ -37,9 +37,11 @@ class TILE_Tracker
 
     VecType<uint32> LastScreen;  // For ChangeLog
     std::string LastFilename;    // For ChangeLog
+    unsigned SequenceBegin;
+    unsigned CurrentTimer;
 
 public:
-    TILE_Tracker() : LastFilename()
+    TILE_Tracker() : LastFilename(), SequenceBegin(0), CurrentTimer(0)
     {
         Reset();
     }

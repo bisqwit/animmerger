@@ -5,19 +5,7 @@
 
 #include "openmp.hh"
 
-unsigned CurrentTimer = 0;       // For animated
-unsigned SequenceBegin = 0;      // For animated
-
 bool SaveGif = false;
-
-namespace
-{
-    struct ScrollingPosition            // For animated
-    {
-        unsigned org_x, org_y;
-    };
-    VecType<ScrollingPosition> scrolls; // For animated
-}
 
 static inline bool veq
     (const VecType<uint32>& a,
@@ -272,7 +260,6 @@ void TILE_Tracker::Save()
             }
 
             CurrentTimer  = SavedTimer;
-            scrolls.clear();
             Saving = false;
         }
         else
@@ -297,16 +284,6 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
 
     if(wid <= 1 || hei <= 1) return;
 
-    if(!scrolls.empty())
-    {
-        std::printf("/*%u*/ %d,%d, %d,%d\n",
-            frameno,
-            scrolls[CurrentTimer].org_x - xmin,
-            scrolls[CurrentTimer].org_y - ymin,
-            0,0
-            );
-        std::fflush(stdout);
-    }
     std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
     std::fflush(stderr);
 
@@ -331,10 +308,10 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
                 (unsigned)LastScreen.size());
             std::string cmd = "ln "+LastFilename+" "+Filename;
             system(cmd.c_str());
-            LastScreen   = screen;
-            LastFilename = Filename;
             was_identical = true;
         }
+        LastScreen   = screen;
+        LastFilename = Filename;
     }
   }
 
@@ -592,14 +569,15 @@ void TILE_Tracker::NextFrame()
 {
     const bool animated = pixelmethod == pm_LoopingLogPixel
                        || pixelmethod == pm_ChangeLogPixel;
-
     if(animated)
     {
-        ScrollingPosition s;
-        s.org_x = org_x;
-        s.org_y = org_y;
-        scrolls.push_back(s);
-
+        std::printf("/*%u*/ %d,%d, %d,%d,\n",
+            CurrentTimer,
+            org_x - xmin,
+            org_y - ymin,
+            0,0
+            );
+        std::fflush(stdout);
         ++CurrentTimer;
     }
 }
