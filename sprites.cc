@@ -165,10 +165,10 @@ namespace
         // cannot copy references; it can only copy pointers.
         DifferencesOnFrame* r = &result;
         const DiffVector* p = &pixeldiff;
-        #pragma omp task
+      #pragma omp task
         FindDifferencesRecursive(*r,*p,width,height,
             x1,y1, (part_x-x1), sect_height);
-        #pragma omp task
+      #pragma omp task
         FindDifferencesRecursive(*r,*p,width,height,
             part_x+1,y1, (sect_width-(part_x+1)), sect_height);
         return;
@@ -177,10 +177,10 @@ namespace
       {
         DifferencesOnFrame* r = &result;
         const DiffVector* p = &pixeldiff;
-        #pragma omp task
+      #pragma omp task
         FindDifferencesRecursive(*r,*p,width,height,
             x1,y1, sect_width, (part_y-y1));
-        #pragma omp task
+      #pragma omp task
         FindDifferencesRecursive(*r,*p,width,height,
             x1,part_y+1, sect_width, (sect_height-(part_y+1)));
         return;
@@ -228,4 +228,29 @@ DifferencesOnFrame FindDifferences
             width,height);
     }}
     return result;
+}
+
+/* In any average animation, sometimes actors collide.
+ * They shoot projectiles, in which case one actor splits into two.
+ * They pass each others, in which case two actors become one, or
+ * one becomes two, or both.
+ * The job of this function is to find out which DifferingSections
+ * refer to the same actor, and to ignore those DifferingSections
+ * that are ambiguous.
+ * Note: Sometimes actors move on the screen at such intervals
+ * that the bounding boxes in adjacent frames are disconnected.
+ *
+ * TODO: Later phase:
+ * There is also the possibility that an actor is partially visible
+ * (emerging from screen edges or from behind an object); one should
+ * reconstruct the actor in those cases.
+ *
+ * TODO: Later phase:
+ * An actor may also sometimes become partially transparent. This
+ * may happen if it shares background colors. One should attempt
+ * to merge the individual frames by checking if one pose
+ * can be overlayed over another pose without conflicts.
+ */
+void SpriteLore::FindDistinctActors()
+{
 }

@@ -1536,11 +1536,17 @@ void TILE_Tracker::FindSprites()
 
     const unsigned nframes = CurrentTimer;
 
+    SpriteLore info;
+    info.DifferencesEachFrame.resize(nframes);
+
     VecType<uint32> background = LoadBackground(xmi,ymi, wid,hei);
   #pragma omp parallel for
     for(unsigned frameno = 0; frameno < nframes; ++frameno)
     {
         VecType<uint32> screen( LoadScreen(xmi,ymi, wid,hei, frameno, pm_ChangeLogPixel) );
         DifferencesOnFrame t ( FindDifferences(background, screen, wid) );
+        info.DifferencesEachFrame[frameno].swap(t);
     }
+
+    info.FindDistinctActors();
 }
