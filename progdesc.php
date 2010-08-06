@@ -85,10 +85,10 @@ Produced with commandline:<br>
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
-The \"actionavg\" method attempts to fix the blurring problem with
+The \"actionavg\" method attempts to fix the faintness problem with
 \"average\" method by keeping track separately of the background
-(using the \"mostused\" method) and only taking the average of
-moving actors.
+(using the \"mostused\" method) and adding it only once to the
+average of moving actors.
 <p>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
      alt=\"Action average\">

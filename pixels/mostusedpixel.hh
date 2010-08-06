@@ -58,8 +58,7 @@ public:
         const uint32 most = GetMostUsed();
         AveragePixel result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
-            if(i->first != most)
-                result.set_n(i->first, i->second);
+            result.set_n(i->first, i->first!=most ? i->second : 1);
         uint32 res = result.get();
         if(res == DefaultPixel) return most;
         return res;

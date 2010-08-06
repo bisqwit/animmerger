@@ -186,6 +186,7 @@ public:
             if(j->second != most)
                 result.set_n(j->second, duration);
         }
+        if(most != DefaultPixel) result.set_n(most, 1);
         uint32 res = result.get();
         return (res != DefaultPixel) ? res : most;
     }
