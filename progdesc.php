@@ -21,8 +21,10 @@ an actor around (and the background scrolls to follow them), it
 creates a movie that has a fixed background, and the camera moves
 around in the scene.
 <p>
-It does this with a motion detection algorithm, and a set of
-different pixel methods.
+It does this with a motion detection algorithm, a set of
+different pixel methods, and a simulated infinite 2D canvas
+&mdash; a 2D canvas that extends infinitely to all four directions
+(well, as infinite as 32-bit integers can get&hellip;)
 
 ", 'methods:1. Pixel methods' => "
 
@@ -60,7 +62,7 @@ This removes the text (white) as well as the blinking coin.
 </td></tr></table><br>
 <small>
 The graphics material comes from Super Mario Bros.<br>
-Mario, Super Mario Bros, and The Nintendo Entertainment System (NES)
+Mario, Super Mario Bros., and The Nintendo Entertainment System (NES)
 are registered trademarks of Nintendo of America Inc.
 But you knew that, right?</small>
 

@@ -115,6 +115,22 @@ public:
 
 namespace
 {
+    template<typename T>
+    struct IsAnimatedType { enum { result = false }; };
+    template<>
+    struct IsAnimatedType<ChangeLogPixel> { enum { result = true }; };
+    template<>
+    struct IsAnimatedType<LoopingLogPixel> { enum { result = true }; };
+    template<>
+    struct IsAnimatedType<LoopingAvgPixel> { enum { result = true }; };
+    template<>
+    struct IsAnimatedType<LoopingLastPixel> { enum { result = true }; };
+
+    template<typename Type1,typename Type2,bool IsAnimatedSecondType>
+    struct Select2ndType { typedef Type2 result; };
+    template<typename Type1,typename Type2>
+    struct Select2ndType<Type1,Type2,true> { typedef Type1 result; };
+
     struct FactoryType
     {
         typedef Array256x256of_Base ObjT;
@@ -150,8 +166,16 @@ namespace
         template<typename Type1>
         class SubTables
         {
+            // s is supposed to be FactoryMethods<TwoPixels<Type1,Type2> >.
+            // However, we know that Type2 can never be an animated type.
+            // To avoid having the compiler synthesize those pairs that
+            // are never used, change Type2 into Type1 whenever it is an animated type.
+            // If Type1 is an animated type as well, oh-well; it does not matter.
             template<typename Type2>
-            struct s : public FactoryMethods<TwoPixels<Type1,Type2> > { };
+            struct s : public FactoryMethods<TwoPixels<Type1,
+                                    typename Select2ndType<Type1,Type2,
+                                       IsAnimatedType<Type2>::result
+                                                 >::result> > { };
             // s is akin to a templated typedef.
             // It simplifies the syntax in the definition of methods[].
             // It is a short name, but its visibility is private to Subtables.
