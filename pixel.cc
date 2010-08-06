@@ -1,6 +1,7 @@
 #include "types.hh"
 
 unsigned LoopingLogLength = 16;
+unsigned FirstLastLength  = 16;
 
 #ifdef __GNUC__
 # define FastPixelMethod __attribute__((regparm(6)))
@@ -70,7 +71,6 @@ public:
 #include "pixels/firstpixel.hh"
 #include "pixels/averagepixel.hh"
 #include "pixels/mostusedpixel.hh"
-#include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
 // ActionAvgPixel is defined in MostUsedPixel AND ChangeLogPixel
@@ -156,12 +156,13 @@ namespace
         typedef LastPixel               t1;
         typedef FirstPixel              t2;
         typedef MostUsedPixel           t3;
-        typedef MostUsedWithinPixel<16> t4;
-        typedef ActionAvgPixel          t5;
-        typedef ChangeLogPixel          t6;
-        typedef LoopingLogPixel         t7;
-        typedef LoopingAvgPixel         t8;
-        typedef LoopingLastPixel        t9;
+        typedef ActionAvgPixel          t4;
+        typedef ChangeLogPixel          t5;
+        typedef LoopingLogPixel         t6;
+        typedef LoopingAvgPixel         t7;
+        typedef LoopingLastPixel        t8;
+        typedef LastNMostPixel          t9;
+        typedef FirstNMostPixel         tA;
 
         template<typename Type1>
         class SubTables
@@ -197,7 +198,8 @@ namespace
                 SubTables<t6>::methods,
                 SubTables<t7>::methods,
                 SubTables<t8>::methods,
-                SubTables<t9>::methods
+                SubTables<t9>::methods,
+                SubTables<tA>::methods
             };
             return &tables[pixelmethod][bgmethod];
         }
@@ -215,7 +217,8 @@ namespace
         { s<t6>::Construct, s<t6>::Copy, s<t6>::Assign },
         { s<t7>::Construct, s<t7>::Copy, s<t7>::Assign },
         { s<t8>::Construct, s<t8>::Copy, s<t8>::Assign },
-        { s<t9>::Construct, s<t9>::Copy, s<t9>::Assign }
+        { s<t9>::Construct, s<t9>::Copy, s<t9>::Assign },
+        { s<tA>::Construct, s<tA>::Copy, s<tA>::Assign }
     };
 }
 

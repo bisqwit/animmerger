@@ -16,7 +16,6 @@ ARCHFILES=\
 	pixels/lastpixel.hh \
 	pixels/loopinglogpixel.hh \
 	pixels/mostusedpixel.hh \
-	pixels/mostusedwithinpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \

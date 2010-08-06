@@ -27,12 +27,13 @@ int main(int argc, char** argv)
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"looplength", 1,0,'l'},
+            {"firstlast",  1,0,'f'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
             {"gif",        0,0,'g'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:r:a:g", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:f:r:a:g", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -54,7 +55,8 @@ int main(int argc, char** argv)
                     " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
                     "                        Tip: Use -bl for some memory usage reduction,\n"
                     "                        when you're using --method=average.\n"
-                    " --looplength, -l <int> Set loop length for the LOOPINGLOG mode\n"
+                    " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
+                    " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
                     " --version, -V          Displays version information\n"
                     " --refscale, -r <x>,<y>\n"
                     "     Change the grid size that controls\n"
@@ -89,6 +91,14 @@ int main(int argc, char** argv)
                     "     Produces a single image. Each pixel\n"
                     "     records the color that most often occured in that location.\n"
                     "     Use this option for making maps!\n"
+                    "  LASTNMOST, long option: --method=lastnmost, short option: -pL\n"
+                    "     Combines \"mostused\" and \"last\". Set threshold using\n"
+                    "     the -f option. Example: -f16 -pL = most used of last 16 pixels.\n"
+                    "     If -f0, then selects the last not-common pixel value.\n"
+                    "  FIRSTNMOST, long option: --method=firstnmost, short option: -pF\n"
+                    "     Combines \"mostused\" and \"first\". Set threshold using\n"
+                    "     the -f option. Example: -f16 -pF = most used of first 16 pixels.\n"
+                    "     If -f0, then selects the first not-common pixel value.\n"
                     "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
                     "     Similar to average, except that blurring of actors\n"
                     "     over the background is avoided.\n"
@@ -158,13 +168,26 @@ int main(int argc, char** argv)
                 alpha_ranges.push_back(range);
                 break;
             }
+            case 'f':
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                FirstLastLength = tmp;
+                if(tmp < 0 || tmp != FirstLastLength)
+                {
+                    fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
+                    FirstLastLength = 1;
+                }
+                break;
+            }
             case 'l':
             {
                 char* arg = optarg;
-                LoopingLogLength = strtol(arg, 0, 10);
-                if(LoopingLogLength < 1)
+                long tmp = strtol(arg, 0, 10);
+                LoopingLogLength = tmp;
+                if(LoopingLogLength < 1 || tmp != LoopingLogLength)
                 {
-                    fprintf(stderr, "animmerger: Bad loop length: %d\n", LoopingLogLength);
+                    fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
                     LoopingLogLength = 1;
                 }
                 break;
@@ -204,6 +227,10 @@ int main(int argc, char** argv)
                     pixelmethod = pm_LastPixel;
                 else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
                     pixelmethod = pm_FirstPixel;
+                else if(strcmp(arg, "L") == 0 || strcmp(arg, "lastnmost") == 0)
+                    pixelmethod = pm_LastNMostPixel;
+                else if(strcmp(arg, "F") == 0 || strcmp(arg, "firstnmost") == 0)
+                    pixelmethod = pm_FirstNMostPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     pixelmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
@@ -232,6 +259,10 @@ int main(int argc, char** argv)
                     bgmethod = pm_LastPixel;
                 else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
                     bgmethod = pm_FirstPixel;
+                else if(strcmp(arg, "L") == 0 || strcmp(arg, "lastnmost") == 0)
+                    bgmethod = pm_LastNMostPixel;
+                else if(strcmp(arg, "F") == 0 || strcmp(arg, "firstnmost") == 0)
+                    bgmethod = pm_FirstNMostPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     bgmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)

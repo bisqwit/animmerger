@@ -311,6 +311,99 @@ public:
         }
         return result.get();
     }
+
+    uint32 GetFirstNMost(unsigned=0) const FastPixelMethod
+    {
+        if(FirstLastLength == 0) return GetFirstUncommon();
+
+        const unsigned first_time = history.empty() ? 0 : history.begin()->first;
+        const unsigned end_threshold = first_time + FirstLastLength;
+        MostUsedPixel result;
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            )
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned begin    = j->first;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+            if(begin >= end_threshold) break;
+            unsigned n_hits = 0;
+            while(duration--)
+                if(begin++ < end_threshold)
+                    ++n_hits;
+            result.set_n(j->second, n_hits);
+        }
+        return result.get();
+    }
+
+
+    uint32 GetLastNMost(unsigned=0) const FastPixelMethod
+    {
+        if(FirstLastLength == 0) return GetLastUncommon();
+#if !CHANGELOG_USE_LASTTIMESTAMP
+        const unsigned last_time = history.empty() ? 0 : (history.rbegin()->first + 1);
+#endif
+        const unsigned begin_threshold = FirstLastLength < last_time ? last_time-FirstLastLength : 0;
+        MostUsedPixel result;
+        MapType<unsigned, uint32>::const_iterator
+            i ( history.upper_bound(begin_threshold) );
+        if(i != history.begin()) --i;
+        while(i != history.end())
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned begin    = j->first;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+            unsigned n_hits = 0;
+            while(duration--)
+                if(begin++ >= begin_threshold)
+                    ++n_hits;
+            result.set_n(j->second, n_hits);
+        }
+        return result.get();
+    }
+
+    uint32 GetFirstUncommon(unsigned=0) const FastPixelMethod
+    {
+        // Invoked with GetFirstNMost when FirstLastLength=0
+        const uint32 most = GetMostUsed();
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            ++i)
+        {
+            if(i->second != most) return i->second;
+        }
+        return most;
+    }
+
+    uint32 GetLastUncommon(unsigned=0) const FastPixelMethod
+    {
+        // Invoked with GetLastNMost when FirstLastLength=0
+        const uint32 most = GetMostUsed();
+        for(MapType<unsigned, uint32>::const_reverse_iterator
+            i = history.rbegin();
+            i != history.rend();
+            ++i)
+        {
+            if(i->second != most) return i->second;
+        }
+        return most;
+    }
 };
 
 /*** CHANGELOG VARIANTS ***/
@@ -329,6 +422,20 @@ struct LoopingLastPixel: public ChangeLogPixel
         return GetLoopingLast(timer);
     }
 };
+struct FirstNMostPixel: public ChangeLogPixel
+{
+    inline uint32 get(unsigned timer) const FasterPixelMethod
+    {
+        return GetFirstNMost(timer);
+    }
+};
+struct LastNMostPixel: public ChangeLogPixel
+{
+    inline uint32 get(unsigned timer) const FasterPixelMethod
+    {
+        return GetLastNMost(timer);
+    }
+};
 
 /*
 ChangeLog defines these:
@@ -337,6 +444,8 @@ ChangeLog defines these:
     GetActionAvg   (UNIQUE, BUT ALSO IMPLEMENTED IN "MOSTUSED")
     GetLoopingAvg  (UNIQUE)
     GetLoopingLast (UNIQUE)
+    GetFirstNMost  (UNIQUE)
+    GetLastNMost   (UNIQUE)
     GetMostUsed    (EMULATED, NOT UNIQUE)
     GetLast        (EMULATED, NOT UNIQUE)
     GetFirst       (EMULATED, NOT UNIQUE)
@@ -346,6 +455,8 @@ ChangeLog defines these:
 DefineBasePair(ChangeLogPixel, ChangeLog, ActionAvg)
 DefineBasePair(ChangeLogPixel, ChangeLog, LoopingAvg)
 DefineBasePair(ChangeLogPixel, ChangeLog, LoopingLast)
+DefineBasePair(ChangeLogPixel, ChangeLog, FirstNMost)
+DefineBasePair(ChangeLogPixel, ChangeLog, LastNMost)
 DefineBasePair(ChangeLogPixel, ChangeLog, MostUsed)
 DefineBasePair(ChangeLogPixel, ChangeLog, Last)
 DefineBasePair(ChangeLogPixel, ChangeLog, First)
@@ -353,18 +464,35 @@ DefineBasePair(ChangeLogPixel, ChangeLog, Average)
 
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingAvg)
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingLast)
+DefineBasePair(ChangeLogPixel, ActionAvg, FirstNMost)
+DefineBasePair(ChangeLogPixel, ActionAvg, LastNMost)
 //DefineBasePair(ChangeLogPixel, ActionAvg, MostUsed) -- used MostUsedPixel version instead
 DefineBasePair(ChangeLogPixel, ActionAvg, Last)
 DefineBasePair(ChangeLogPixel, ActionAvg, First)
 //DefineBasePair(ChangeLogPixel, ActionAvg, Average) -- used MostUsedPixel version instead
 
 DefineBasePair(ChangeLogPixel, LoopingAvg, LoopingLast)
+DefineBasePair(ChangeLogPixel, LoopingAvg, FirstNMost)
+DefineBasePair(ChangeLogPixel, LoopingAvg, LastNMost)
 DefineBasePair(ChangeLogPixel, LoopingAvg, MostUsed)
 DefineBasePair(ChangeLogPixel, LoopingAvg, Last)
 DefineBasePair(ChangeLogPixel, LoopingAvg, First)
 DefineBasePair(ChangeLogPixel, LoopingAvg, Average)
 
+DefineBasePair(ChangeLogPixel, LoopingLast, FirstNMost)
+DefineBasePair(ChangeLogPixel, LoopingLast, LastNMost)
 DefineBasePair(ChangeLogPixel, LoopingLast, MostUsed)
 DefineBasePair(ChangeLogPixel, LoopingLast, Last)
 DefineBasePair(ChangeLogPixel, LoopingLast, First)
 DefineBasePair(ChangeLogPixel, LoopingLast, Average)
+
+DefineBasePair(ChangeLogPixel, FirstNMost, LastNMost)
+DefineBasePair(ChangeLogPixel, FirstNMost, MostUsed)
+DefineBasePair(ChangeLogPixel, FirstNMost, Last)
+DefineBasePair(ChangeLogPixel, FirstNMost, First)
+DefineBasePair(ChangeLogPixel, FirstNMost, Average)
+
+DefineBasePair(ChangeLogPixel, LastNMost, MostUsed)
+DefineBasePair(ChangeLogPixel, LastNMost, Last)
+DefineBasePair(ChangeLogPixel, LastNMost, First)
+DefineBasePair(ChangeLogPixel, LastNMost, Average)

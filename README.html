@@ -24,8 +24,8 @@ SMALL    {font-size:70%}
   <h2 class=level2> 0. Contents </h2>
   
   This is the documentation of animmerger-1.3.1.
-<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br></td>
-<td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopinglast">LOOPINGLAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.4. <a href="#loopingavg">LOOPINGAVG</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#download">Downloading</a><br></td>
+<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.6. <a href="#firstnmost">FIRSTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.7. <a href="#lastnmost">LASTNMOST</a><br></td>
+<td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopinglast">LOOPINGLAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.4. <a href="#loopingavg">LOOPINGAVG</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#h3">See also</a><br>&nbsp;&nbsp;&nbsp;7. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
 
 Animmerger converts a 2D animation from local-frame-of-reference
@@ -95,8 +95,7 @@ to spot.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-a.png<br>
-# <a href="http://advsys.net/ken/utils.htm">pngout</a>-hard demo/method-a.png</code>
+# mv tile-0000.png demo/method-a.png</code>
 
 </div><H4 id="actionavg" class="level4"><a name="actionavg"></a>2.1.2. ACTIONAVG</H4><div class="level4" id="divactionavg">
 
@@ -110,8 +109,7 @@ average of moving actors.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-t.png<br>
-# pngout-hard demo/method-t.png</code>
+# mv tile-0000.png demo/method-t.png</code>
 
 </div><H4 id="mostused" class="level4"><a name="mostused"></a>2.1.3. MOSTUSED</H4><div class="level4" id="divmostused">
 
@@ -129,8 +127,7 @@ anything that wanders around.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pm snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-m.png<br>
-# pngout-hard demo/method-m.png</code>
+# mv tile-0000.png demo/method-m.png</code>
 
 </div><H4 id="last" class="level4"><a name="last"></a>2.1.4. LAST</H4><div class="level4" id="divlast">
 
@@ -142,8 +139,7 @@ method, simply recording the last pixel value in any location.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-l.png<br>
-# pngout-hard demo/method-l.png</code>
+# mv tile-0000.png demo/method-l.png</code>
 
 </div><H4 id="last" class="level4"><a name="last"></a>2.1.5. FIRST</H4><div class="level4" id="divlast">
 
@@ -158,8 +154,56 @@ It is the same effect as if you move the paper in a desktop scanner during the s
 <p>
 Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-f.png<br>
-# pngout-hard demo/method-f.png</code>
+# mv tile-0000.png demo/method-f.png</code>
+
+</div><H4 id="firstnmost" class="level4"><a name="firstnmost"></a>2.1.6. FIRSTNMOST</H4><div class="level4" id="divfirstnmost">
+
+The "firstnmost" method is analogous to "first" and "mostused";
+it chooses the most common pixel of first N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets first uncommon pixel.<p>
+First 4:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png"
+     alt="First 4">
+<p>
+First 10:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png"
+     alt="First 10">
+<p>
+First 16:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png"
+     alt="First 16">
+<p>
+First uncommon:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png"
+     alt="First uncommon">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 16 0; do <br>
+# &nbsp; animmerger -pF -f$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Ff$f.png<br>
+# done</code>
+
+</div><H4 id="lastnmost" class="level4"><a name="lastnmost"></a>2.1.7. LASTNMOST</H4><div class="level4" id="divlastnmost">
+
+The "lastnmost" method is analogous to "last" and "mostused";
+it chooses the most common pixel of last N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets last uncommon pixel.
+<p>
+Last 10:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png"
+     alt="Last 10">
+<p>
+Last uncommon:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png"
+     alt="Last uncommon">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 16 0; do <br>
+# &nbsp; animmerger -pL -f$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Lf$f.png<br>
+# done</code>
 
 </div><H3 id="animated" class="level3"><a name="animated"></a>2.2. Animated methods</H3><div class="level3" id="divanimated">
 
@@ -291,7 +335,8 @@ Merges animation frames together with motion shifting.
  --bgmethod, -b &lt;mode&gt;  Select pixel type for alignment tests
                         Tip: Use -bl for some memory usage reduction,
                         when you're using --method=average.
- --looplength, -l &lt;int&gt; Set loop length for the LOOPINGLOG mode
+ --looplength, -l &lt;int&gt; Set loop length for the LOOPINGxx modes
+ --firstlast, -f &lt;int&gt;  Set threshold for xxNMOST modes
  --version, -V          Displays version information
  --refscale, -r &lt;x&gt;,&lt;y&gt;
      Change the grid size that controls
@@ -326,6 +371,14 @@ AVAILABLE PIXEL TYPES
      Produces a single image. Each pixel
      records the color that most often occured in that location.
      Use this option for making maps!
+  LASTNMOST, long option: --method=lastnmost, short option: -pL
+     Combines &quot;mostused&quot; and &quot;last&quot;. Set threshold using
+     the -f option. Example: -f16 -pL = most used of last 16 pixels.
+     If -f0, then selects the last not-common pixel value.
+  FIRSTNMOST, long option: --method=firstnmost, short option: -pF
+     Combines &quot;mostused&quot; and &quot;first&quot;. Set threshold using
+     the -f option. Example: -f16 -pF = most used of first 16 pixels.
+     If -f0, then selects the first not-common pixel value.
   ACTIONAVG, long option: --method=actionavg, short option: -pt
      Similar to average, except that blurring of actors
      over the background is avoided.
@@ -377,14 +430,23 @@ and is distributed under the terms of the
 GNU make and C++ compiler is required to recompile the source code.<br>
 libgd is also required.
 
-</div><H2 id="download" class="level2"><a name="download"></a>6. Downloading</H2><div class="level2" id="divdownload">
+</div><H2 id="h3" class="level2"><a name="h3"></a>6. See also</H2><div class="level2" id="divh3">
+
+<ul>
+<li><a href="http://advsys.net/ken/utils.htm">pngout</a> for making PNG files considerably smaller.
+</li>
+<li><a href="http://www.lcdf.org/gifsicle/">gifsicle</a> for creating and optimizing GIF animations
+</li>
+</ul>
+
+</div><H2 id="download" class="level2"><a name="download"></a>7. Downloading</H2><div class="level2" id="divdownload">
    The official home page of animmerger
    is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for animmerger can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/animmerger.git">git://bisqwit.iki.fi/animmerger.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Fri, 06 Aug 2010 10:56:56 +0300)<br>
+       <tt>progdesc.php</tt> (last updated: Fri, 06 Aug 2010 12:45:35 +0300)<br>
   with <tt>docmaker.php</tt> (last updated: Fri, 06 Aug 2010 10:47:57 +0300)<br>
-  at Fri, 06 Aug 2010 11:13:12 +0300</small>
+  at Fri, 06 Aug 2010 12:45:41 +0300</small>
  </p>
 </body>
 </html>

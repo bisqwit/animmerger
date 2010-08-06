@@ -82,8 +82,7 @@ to spot.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-a.png<br>
-# <a href=\"http://advsys.net/ken/utils.htm\">pngout</a>-hard demo/method-a.png</code>
+# mv tile-0000.png demo/method-a.png</code>
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
@@ -97,8 +96,7 @@ average of moving actors.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-t.png<br>
-# pngout-hard demo/method-t.png</code>
+# mv tile-0000.png demo/method-t.png</code>
 
 ", 'mostused:1.1.1. MOSTUSED' => "
 
@@ -116,8 +114,7 @@ anything that wanders around.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pm snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-m.png<br>
-# pngout-hard demo/method-m.png</code>
+# mv tile-0000.png demo/method-m.png</code>
 
 ", 'last:1.1.1. LAST'=> "
 
@@ -129,8 +126,7 @@ method, simply recording the last pixel value in any location.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-l.png<br>
-# pngout-hard demo/method-l.png</code>
+# mv tile-0000.png demo/method-l.png</code>
 
 ", 'last:1.1.1. FIRST'=> "
 
@@ -145,8 +141,56 @@ It is the same effect as if you move the paper in a desktop scanner during the s
 <p>
 Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-f.png<br>
-# pngout-hard demo/method-f.png</code>
+# mv tile-0000.png demo/method-f.png</code>
+
+", 'firstnmost:1.1.1. FIRSTNMOST'=> "
+
+The \"firstnmost\" method is analogous to \"first\" and \"mostused\";
+it chooses the most common pixel of first N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets first uncommon pixel.<p>
+First 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
+     alt=\"First 4\">
+<p>
+First 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
+     alt=\"First 10\">
+<p>
+First 16:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
+     alt=\"First 16\">
+<p>
+First uncommon:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
+     alt=\"First uncommon\">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 16 0; do <br>
+# &nbsp; animmerger -pF -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Ff\$f.png<br>
+# done</code>
+
+", 'lastnmost:1.1.1. LASTNMOST'=> "
+
+The \"lastnmost\" method is analogous to \"last\" and \"mostused\";
+it chooses the most common pixel of last N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets last uncommon pixel.
+<p>
+Last 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
+     alt=\"Last 10\">
+<p>
+Last uncommon:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
+     alt=\"Last uncommon\">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 16 0; do <br>
+# &nbsp; animmerger -pL -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Lf\$f.png<br>
+# done</code>
 
 ", 'animated:1.1. Animated methods' => "
 
@@ -279,6 +323,15 @@ and is distributed under the terms of the
 
 GNU make and C++ compiler is required to recompile the source code.<br>
 libgd is also required.
+
+", '1. See also' => "
+
+<ul>
+<li><a href=\"http://advsys.net/ken/utils.htm\">pngout</a> for making PNG files considerably smaller.
+</li>
+<li><a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> for creating and optimizing GIF animations
+</li>
+</ul>
 
 ");
 include '/WWW/progdesc.php';
