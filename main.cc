@@ -27,13 +27,14 @@ int main(int argc, char** argv)
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"looplength", 1,0,'l'},
+            {"motionblur", 1,0,'B'},
             {"firstlast",  1,0,'f'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
             {"gif",        0,0,'g'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:f:r:a:g", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -56,6 +57,7 @@ int main(int argc, char** argv)
                     "                        Tip: Use -bl for some memory usage reduction,\n"
                     "                        when you're using --method=average.\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
+                    " --motionblur, -B <int> Set motion blur length for CHANGELOG mode\n"
                     " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
                     " --version, -V          Displays version information\n"
                     " --refscale, -r <x>,<y>\n"
@@ -194,6 +196,18 @@ int main(int argc, char** argv)
                 {
                     fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
                     LoopingLogLength = 1;
+                }
+                break;
+            }
+            case 'B':
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                AnimationBlurLength = tmp;
+                if(tmp < 0 || tmp != AnimationBlurLength)
+                {
+                    fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
+                    AnimationBlurLength = 0;
                 }
                 break;
             }

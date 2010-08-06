@@ -253,6 +253,31 @@ Produced with commandline:<br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
 
+", 'motionblur:1.1.1.1. Motion blur' => "
+
+The changelog method also supports motion blur. Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
+<p>
+Blur length 1:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
+     alt=\"Changelog, blur 1\">
+<p>
+Blur length 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
+     alt=\"Changelog, blur 4\">
+<p>
+Blur length 20:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
+     alt=\"Changelog, blur 1\">
+<p>
+Produced with commandline:<br>
+<code>
+# for b in 1 4 20;do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger --gif -B\$b -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -o demo/method-cB\"\$b\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
+
 ", 'loopinglog:1.1.1. LOOPINGLOG' => "
 
 The \"loopinglog\" method records the entire animation,

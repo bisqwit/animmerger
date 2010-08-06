@@ -2,9 +2,6 @@
 //#include "pixels/lastpixel.hh"
 #include "maptype.hh"
 
-/* undef or define. */
-static const bool CHANGELOG_GUESS_OUTSIDES = true;
-
 #define CHANGELOG_USE_LASTTIMESTAMP 0
 
 class ChangeLogPixel
@@ -63,7 +60,7 @@ public:
             return;
         }
 
-        if(i != history.begin())
+        if(i != history.begin() && OptimizeChangeLog)
         {
             MapType<unsigned, uint32>::iterator prev1(i);
             --prev1;
@@ -122,45 +119,32 @@ public:
         return GetChangeLog(timer);
     }
 
+    uint32 GetChangeLogOnly(unsigned timer) const FastPixelMethod
+    {
+        return Find(timer, DefaultPixel);
+    }
+
     uint32 GetChangeLog(unsigned timer) const FastPixelMethod
     {
-        // Find the pixel value that was present at the given time.
-        /*
-          map::lower_bound:
-            Returns an iterator pointing to first element >= key, or end().
-          map::upper_bound:
-            Returns an iterator pointing to first element > key, or end().
+        if(AnimationBlurLength == 0) return Find(timer);
 
-          What we want is an iterator pointing
-            to the last element that is <= key.
-         */
-        MapType<unsigned, uint32>::const_iterator
-            i = history.upper_bound(timer);
+        const uint32 most = GetMostUsed();
+        uint32 pix = Find(timer, most);
 
-        /* Pre-begin value: reasonable default */
-        if(i == history.begin())
+        if(pix != most) return pix;
+
+        AveragePixel result;
+        unsigned remaining_blur = AnimationBlurLength;
+        result.set_n(pix, 1);
+
+        for(; timer-- > 0 && remaining_blur-- > 0; )
         {
-            return CHANGELOG_GUESS_OUTSIDES
-                ? GetMostUsed()
-                : DefaultPixel;
+            pix = Find(timer, most);
+            result.set_n(pix, 1);
+            if(pix != most) break;
         }
 
-        /* Post-end value: Special handling */
-        bool last = (i == history.end());
-
-        /* Anything else. Take the value. */
-        --i;
-        if(i->first < timer && last
-#if CHANGELOG_USE_LASTTIMESTAMP
-                                   && timer > last_time
-#endif
-          )
-        {
-            return CHANGELOG_GUESS_OUTSIDES
-                ? GetMostUsed()
-                : DefaultPixel;
-        }
-        return i->second;
+        return result.get();
     }
 
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
@@ -408,6 +392,94 @@ public:
             if(i->second != most) return i->second;
         }
         return most;
+    }
+private:
+    uint32 Find(unsigned timer) const FastPixelMethod
+    {
+        if(!OptimizeChangeLog)
+        {
+            MapType<unsigned, uint32>::const_iterator
+                i = history.find(timer);
+            if(i == history.end() || i->first != timer)
+                return GetMostUsed();
+            return i->second;
+        }
+        // Find the pixel value that was present at the given time.
+        /*
+          map::lower_bound:
+            Returns an iterator pointing to first element >= key, or end().
+          map::upper_bound:
+            Returns an iterator pointing to first element > key, or end().
+
+          What we want is an iterator pointing
+            to the last element that is <= key.
+         */
+        MapType<unsigned, uint32>::const_iterator
+            i = history.upper_bound(timer);
+
+        /* Pre-begin value: Use background */
+        if(i == history.begin())
+        {
+            return GetMostUsed();
+        }
+
+        bool last = (i == history.end());
+        --i;
+        if(i->first < timer && last
+#if CHANGELOG_USE_LASTTIMESTAMP
+                                   && timer > last_time
+#endif
+          )
+        {
+            /* Post-end value: Use background */
+            return GetMostUsed();
+        }
+        /* Anything else. Take the value. */
+        return i->second;
+    }
+
+    uint32 Find(unsigned timer, uint32 background) const FastPixelMethod
+    {
+        if(!OptimizeChangeLog)
+        {
+            MapType<unsigned, uint32>::const_iterator
+                i = history.find(timer);
+            if(i == history.end() || i->first != timer)
+                return background;
+            return i->second;
+        }
+        // Find the pixel value that was present at the given time.
+        /*
+          map::lower_bound:
+            Returns an iterator pointing to first element >= key, or end().
+          map::upper_bound:
+            Returns an iterator pointing to first element > key, or end().
+
+          What we want is an iterator pointing
+            to the last element that is <= key.
+         */
+        MapType<unsigned, uint32>::const_iterator
+            i = history.upper_bound(timer);
+
+        /* Pre-begin value: Use background */
+        if(i == history.begin())
+        {
+            return background;
+        }
+
+        bool last = (i == history.end());
+        --i;
+        if(i->first < timer && last
+#if CHANGELOG_USE_LASTTIMESTAMP
+                                   && timer > last_time
+#endif
+          )
+        {
+            /* Post-end value: Use background */
+            return background;
+        }
+        /* Anything else. Take the value. */
+        return i->second;
     }
 };
 

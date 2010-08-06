@@ -3,6 +3,8 @@
 
 #include "types.hh"
 
+extern bool OptimizeChangeLog;
+extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 

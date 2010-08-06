@@ -1,5 +1,7 @@
 #include "types.hh"
 
+bool     OptimizeChangeLog   = true;
+unsigned AnimationBlurLength = 4;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
 
