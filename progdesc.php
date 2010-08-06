@@ -115,6 +115,22 @@ Produced with commandline:<br>
 # mv tile-0000.png demo/method-l.png<br>
 # pngout-hard demo/method-l.png</code>
 
+", 'last:1.1.1. FIRST'=> "
+
+The \"first\" method is analogous to \"last\".
+It shows whatever first appeared in a particular pixel location.
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
+     alt=\"First\">
+<p>
+The turtles are distorted, because they moved while the screen scrolled.<br>
+It is the same effect as if you move the paper in a desktop scanner during the scanning.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-f.png<br>
+# pngout-hard demo/method-f.png</code>
+
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
 The \"actionavg\" method attempts to fix the blurring problem with

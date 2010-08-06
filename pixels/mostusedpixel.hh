@@ -30,7 +30,7 @@ public:
         else
             i->second += count;
     }
-    
+
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
         return GetMostUsed();

@@ -9,6 +9,7 @@ extern enum PixelMethod
 {
     pm_AveragePixel,
     pm_LastPixel,
+    pm_FirstPixel,
     pm_MostUsedPixel,
     pm_MostUsed16Pixel,
     pm_ActionAvgPixel,

@@ -79,9 +79,12 @@ int main(int argc, char** argv)
                     "  AVERAGE, long option: --method=average , short option: -pa\n"
                     "     Produces a single image. Each pixel\n"
                     "     is the average of all frames addressing that pixel.\n"
-                    "  LAST, long option: --method=long , short option: -pl\n"
+                    "  LAST, long option: --method=last , short option: -pl\n"
                     "     Produces a single image. Each pixel\n"
                     "     records the latest color addressing that pixel.\n"
+                    "  FIRST, long option: --method=first , short option: -pf\n"
+                    "     Produces a single image. Each pixel\n"
+                    "     records whatever first appeared in that spot.\n"
                     "  MOSTUSED, long option: --method=mostused, short option: -pm\n"
                     "     Produces a single image. Each pixel\n"
                     "     records the color that most often occured in that location.\n"
@@ -199,6 +202,8 @@ int main(int argc, char** argv)
                     pixelmethod = pm_AveragePixel;
                 else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
                     pixelmethod = pm_LastPixel;
+                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
+                    pixelmethod = pm_FirstPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     pixelmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
@@ -225,6 +230,8 @@ int main(int argc, char** argv)
                     bgmethod = pm_AveragePixel;
                 else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
                     bgmethod = pm_LastPixel;
+                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
+                    bgmethod = pm_FirstPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     bgmethod = pm_MostUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)

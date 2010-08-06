@@ -116,7 +116,7 @@ public:
             std::pair<unsigned, uint32> (timer, p)
                       );
     }
-    
+
     inline uint32 get(unsigned timer) const FasterPixelMethod
     {
         return GetChangeLog(timer);
@@ -283,6 +283,11 @@ public:
         return history.empty() ? DefaultPixel : history.rbegin()->second;
     }
 
+    inline uint32 GetFirst(unsigned=0) const FastPixelMethod
+    {
+        return history.empty() ? DefaultPixel : history.begin()->second;
+    }
+
     uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
         AveragePixel result;
@@ -300,7 +305,7 @@ public:
                     1
 #endif
                     ;
-            
+
             result.set_n(j->second, count);
         }
         return result.get();
@@ -344,6 +349,7 @@ ChangeLog defines these:
     GetLoopingLast
     GetMostUsed    (EMULATED, NOT UNIQUE)
     GetLast        (EMULATED, NOT UNIQUE)
+    GetFirst       (EMULATED, NOT UNIQUE)
     GetAverage     (EMULATED, NOT UNIQUE)
 */
 
@@ -352,19 +358,23 @@ DefineBasePair(ChangeLogPixel, ChangeLog, LoopingAvg)
 DefineBasePair(ChangeLogPixel, ChangeLog, LoopingLast)
 DefineBasePair(ChangeLogPixel, ChangeLog, MostUsed)
 DefineBasePair(ChangeLogPixel, ChangeLog, Last)
+DefineBasePair(ChangeLogPixel, ChangeLog, First)
 DefineBasePair(ChangeLogPixel, ChangeLog, Average)
 
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingAvg)
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingLast)
 DefineBasePair(ChangeLogPixel, ActionAvg, MostUsed)
 DefineBasePair(ChangeLogPixel, ActionAvg, Last)
+DefineBasePair(ChangeLogPixel, ActionAvg, First)
 DefineBasePair(ChangeLogPixel, ActionAvg, Average)
 
 DefineBasePair(ChangeLogPixel, LoopingAvg, LoopingLast)
 DefineBasePair(ChangeLogPixel, LoopingAvg, MostUsed)
 DefineBasePair(ChangeLogPixel, LoopingAvg, Last)
+DefineBasePair(ChangeLogPixel, LoopingAvg, First)
 DefineBasePair(ChangeLogPixel, LoopingAvg, Average)
 
 DefineBasePair(ChangeLogPixel, LoopingLast, MostUsed)
 DefineBasePair(ChangeLogPixel, LoopingLast, Last)
+DefineBasePair(ChangeLogPixel, LoopingLast, First)
 DefineBasePair(ChangeLogPixel, LoopingLast, Average)
