@@ -381,5 +381,5 @@ int main(int argc, char** argv)
 
         tracker.NextFrame();
     }
-    tracker.SaveAndReset();
+    tracker.Save();
 }
