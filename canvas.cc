@@ -3,6 +3,8 @@
 #include <cmath>
 #include <iostream>
 
+#include "canvas.hh"
+#include "align.hh"
 #include "openmp.hh"
 #include "canvas.hh"
 #include "align.hh"
@@ -10,6 +12,7 @@
 #include "dither.hh"
 #include "quantize.hh"
 #include "fparser.hh"
+#include "sprites.hh"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -1521,4 +1524,23 @@ void TILE_Tracker::NextFrame()
         );
     std::fflush(stdout);
     ++CurrentTimer;
+}
+
+void TILE_Tracker::FindSprites()
+{
+    const int ymi = ymin, yma = ymax;
+    const int xmi = xmin, xma = xmax;
+
+    unsigned wid = xma-xmi;
+    unsigned hei = yma-ymi;
+
+    const unsigned nframes = CurrentTimer;
+
+    VecType<uint32> background = LoadBackground(xmi,ymi, wid,hei);
+  #pragma omp parallel for
+    for(unsigned frameno = 0; frameno < nframes; ++frameno)
+    {
+        VecType<uint32> screen( LoadScreen(xmi,ymi, wid,hei, frameno, pm_ChangeLogPixel) );
+        DifferencesOnFrame t ( FindDifferences(background, screen, wid) );
+    }
 }

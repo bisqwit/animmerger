@@ -97,6 +97,8 @@ public:
     template<bool TransformColors>
     struct HistogramType CountColors(PixelMethod method, unsigned nframes);
 
+    void FindSprites();
+
     void Reset();
 
     const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
