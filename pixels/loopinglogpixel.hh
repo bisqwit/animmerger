@@ -25,60 +25,45 @@ public:
         if(history[offs].get() == DefaultPixel || p != GetMostUsed())
             history[offs].set(p);
     }
-    uint32 get(unsigned timer) const FastPixelMethod
+
+    inline uint32 get(unsigned timer) const FasterPixelMethod
+    {
+        return GetLoopingLog(timer);
+    }
+
+    uint32 GetLoopingLog(unsigned timer) const FastPixelMethod
     {
         unsigned offs = timer % LoopingLogLength;
         uint32 result = history[offs].get();//.value_ignore(most_used);
         if(result == DefaultPixel) return GetMostUsed();
         return result;
     }
-    inline uint32 GetMostUsed() const FasterPixelMethod
+
+    inline uint32 GetMostUsed(unsigned=0) const FasterPixelMethod
     {
         return most_used.get();
     }
 
-    inline uint32 GetAverage() const FasterPixelMethod
+    inline uint32 GetAverage(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetAverage();
     }
 
-    inline void Compress()
+    inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
     {
-        most_used.Compress();
-        //for(unsigned a=0; a<LoopingLogLength; ++a)
-        //    history[a].CompressButIgnore(most_used);
+        return most_used.GetActionAvg();
     }
 };
 
-template<>
-class TwoPixels<LoopingLogPixel, MostUsedPixel>: private LoopingLogPixel
-{
-public:
-    using LoopingLogPixel::set;
-    using LoopingLogPixel::Compress;
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
-    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetMostUsed(); }
-};
+/*
+LoopingLog defines these:
 
-template<>
-class TwoPixels<LoopingLogPixel, AveragePixel>: private LoopingLogPixel
-{
-public:
-    using LoopingLogPixel::set;
-    using LoopingLogPixel::Compress;
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return get(timer); }
-    inline uint32 get_pixel2(unsigned)       const FasterPixelMethod { return GetAverage(); }
-};
+    GetLoopingLog
+    GetMostUsed    (CHILD, NOT UNIQUE)
+    GetAverage     (CHILD EMULATED, NOT UNIQUE)
+    GetActionAvg   (CHILD EMULATED, NOT UNIQUE)
+*/
 
-
-template<>
-class TwoPixels<MostUsedPixel, LoopingLogPixel>
-    : public SwapTwoPixels<LoopingLogPixel, MostUsedPixel>
-{
-};
-
-template<>
-class TwoPixels<AveragePixel, LoopingLogPixel>
-    : public SwapTwoPixels<LoopingLogPixel, AveragePixel>
-{
-};
+DefineBasePair(LoopingLogPixel, LoopingLog,MostUsed)
+DefineBasePair(LoopingLogPixel, LoopingLog,Average)
+DefineBasePair(LoopingLogPixel, LoopingLog,ActionAvg)

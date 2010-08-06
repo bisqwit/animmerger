@@ -229,6 +229,7 @@ TILE_Tracker::PutScreen
 void TILE_Tracker::Save()
 {
     const bool animated = pixelmethod == pm_LoopingLogPixel
+                       || pixelmethod == pm_LoopingLastPixel
                        || pixelmethod == pm_ChangeLogPixel
                        || pixelmethod == pm_LoopingAvgPixel;
 
@@ -247,6 +248,7 @@ void TILE_Tracker::Save()
             unsigned SavedTimer = CurrentTimer;
 
             if(pixelmethod == pm_LoopingLogPixel
+            || pixelmethod == pm_LoopingLastPixel
             || pixelmethod == pm_LoopingAvgPixel)
             {
                 if(SavedTimer >= LoopingLogLength)
@@ -534,20 +536,6 @@ void TILE_Tracker::Reset()
     xmin=xmax=org_x;
     ymin=ymax=org_y;
     first = true;
-}
-
-void TILE_Tracker::Cleanup()
-{
-    std::fprintf(stderr, "Compressing...\n");
-    for(ymaptype::iterator y=screens.begin(); y!=screens.end(); ++y)
-    {
-        xmaptype& xmap = y->second;
-        for(xmaptype::iterator x=xmap.begin(); x!=xmap.end(); ++x)
-        {
-            vectype& vec = x->second.pixels;
-            vec.Compress();
-        }
-    }
 }
 
 void TILE_Tracker::NextFrame()

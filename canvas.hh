@@ -50,11 +50,8 @@ public:
     {
     }
 
-    void Cleanup();
-
     void SaveAndReset()
     {
-        Cleanup();
         Save();
         Reset();
     }

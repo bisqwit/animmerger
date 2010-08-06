@@ -27,7 +27,6 @@ public:
     }
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return pixel1.get(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return pixel2.get(timer); }
-    inline void Compress() { pixel1.Compress(); pixel2.Compress(); }
 };
 
 /* Specialize an optimized case for when the two pixel
@@ -38,7 +37,6 @@ class TwoPixels<Pix,Pix>: private Pix
 {
 public:
     using Pix::set;
-    using Pix::Compress;
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
 };
@@ -49,19 +47,37 @@ class SwapTwoPixels: private TwoPixels<Pixel1,Pixel2>
     typedef TwoPixels<Pixel1,Pixel2> TwoPix;
 public:
     using TwoPix::set;
-    using TwoPix::Compress;
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel2(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel1(timer); }
 };
 
+#define DefineBasePair(basetype, type1, type2) \
+    template<> \
+    class TwoPixels<type1##Pixel, type2##Pixel>: private basetype \
+    { \
+    public: \
+        using basetype::set; \
+        inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return basetype::Get##type1(timer); } \
+        inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return basetype::Get##type2(timer); } \
+    }; \
+    template<> \
+    class TwoPixels<type2##Pixel, type1##Pixel>: \
+        public SwapTwoPixels<type1##Pixel, type2##Pixel> \
+    { \
+    };
+
 #include "pixels/lastpixel.hh"
+#include "pixels/firstpixel.hh"
 #include "pixels/averagepixel.hh"
 #include "pixels/mostusedpixel.hh"
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
-#include "pixels/loopingavgpixel.hh"
-#include "pixels/actionavgpixel.hh"
+// ActionAvgPixel is defined in MostUsedPixel AND ChangeLogPixel
+// LoopingAvgPixel is defined in ChangeLogPixel
+// LoopingLastPixel is defined in ChangeLogPixel
+
+#undef DefineBasePair
 
 /* Postponing pixel.hh inclusion here to ensure that
  * the pixel implementations do not depend on any globals.
@@ -95,12 +111,6 @@ public:
     {
         data[index].set(p, timer);
     }
-
-    virtual void Compress()
-    {
-        for(unsigned a=0; a<256*256; ++a)
-            data[a].Compress();
-    }
 };
 
 namespace
@@ -128,12 +138,14 @@ namespace
         //       and with no gaps.
         typedef AveragePixel            t0;
         typedef LastPixel               t1;
-        typedef MostUsedPixel           t2;
-        typedef MostUsedWithinPixel<16> t3;
-        typedef ActionAvgPixel          t4;
-        typedef ChangeLogPixel          t5;
-        typedef LoopingLogPixel         t6;
-        typedef LoopingAvgPixel         t7;
+        typedef FirstPixel              t2;
+        typedef MostUsedPixel           t3;
+        typedef MostUsedWithinPixel<16> t4;
+        typedef ActionAvgPixel          t5;
+        typedef ChangeLogPixel          t6;
+        typedef LoopingLogPixel         t7;
+        typedef LoopingAvgPixel         t8;
+        typedef LoopingLastPixel        t9;
 
         template<typename Type1>
         class SubTables
@@ -159,7 +171,9 @@ namespace
                 SubTables<t4>::methods,
                 SubTables<t5>::methods,
                 SubTables<t6>::methods,
-                SubTables<t7>::methods
+                SubTables<t7>::methods,
+                SubTables<t8>::methods,
+                SubTables<t9>::methods
             };
             return &tables[pixelmethod][bgmethod];
         }
@@ -175,7 +189,9 @@ namespace
         { s<t4>::Construct, s<t4>::Copy, s<t4>::Assign },
         { s<t5>::Construct, s<t5>::Copy, s<t5>::Assign },
         { s<t6>::Construct, s<t6>::Copy, s<t6>::Assign },
-        { s<t7>::Construct, s<t7>::Copy, s<t7>::Assign }
+        { s<t7>::Construct, s<t7>::Copy, s<t7>::Assign },
+        { s<t8>::Construct, s<t8>::Copy, s<t8>::Assign },
+        { s<t9>::Construct, s<t9>::Copy, s<t9>::Assign }
     };
 }
 

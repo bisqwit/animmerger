@@ -83,6 +83,21 @@ Produced with commandline:<br>
 # mv tile-0000.png demo/method-a.png<br>
 # <a href=\"http://advsys.net/ken/utils.htm\">pngout</a>-hard demo/method-a.png</code>
 
+", 'actionavg:1.1.1. ACTIONAVG' => "
+
+The \"actionavg\" method attempts to fix the faintness problem with
+\"average\" method by keeping track separately of the background
+(using the \"mostused\" method) and adding it only once to the
+average of moving actors.
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
+     alt=\"Action average\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-t.png<br>
+# pngout-hard demo/method-t.png</code>
+
 ", 'mostused:1.1.1. MOSTUSED' => "
 
 The \"most used\" method produces what might be the background
@@ -115,21 +130,21 @@ Produced with commandline:<br>
 # mv tile-0000.png demo/method-l.png<br>
 # pngout-hard demo/method-l.png</code>
 
-", 'actionavg:1.1.1. ACTIONAVG' => "
+", 'last:1.1.1. FIRST'=> "
 
-The \"actionavg\" method attempts to fix the blurring problem with
-\"average\" method by keeping track separately of the background
-(using the \"mostused\" method) and only taking the average of
-moving actors. It requires considerably more RAM to generate
-(it is based on the \"changelog\" algorithm).
+The \"first\" method is analogous to \"last\".
+It shows whatever first appeared in a particular pixel location.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
-     alt=\"Action average\">
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
+     alt=\"First\">
+<p>
+The turtles are distorted, because they moved while the screen scrolled.<br>
+It is the same effect as if you move the paper in a desktop scanner during the scanning.
 <p>
 Produced with commandline:<br>
-<code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-t.png<br>
-# pngout-hard demo/method-t.png</code>
+<code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-f.png<br>
+# pngout-hard demo/method-f.png</code>
 
 ", 'animated:1.1. Animated methods' => "
 
@@ -181,20 +196,41 @@ is the \"lemmings\" effect.
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
-10 frames (73850 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol10.gif\"
-     alt=\"Loop, 10 frames\">
-<p>
-4 frames (49890 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol4.gif\"
-     alt=\"Loop, 4 frames\">
-<p>
 Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
 # &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
+
+", 'loopinglast:1.1.1. LOOPINGLAST' => "
+
+The \"loopinglast\" method is a slightly higher quality
+version of \"loopinglog\". It uses the same amount of memory
+as \"changelog\" method.<br>
+In the example below, a difference can be observed in
+the face of the flying cloud when compared to the 30 frame
+animation in \"loopinglog\" section.
+<p>
+30 frames (94895 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
+     alt=\"Loop, 30 frames\">
+<p>
+10 frames (66738 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
+     alt=\"Loop, 10 frames\">
+<p>
+4 frames (40372 bytes):<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
+     alt=\"Loop, 4 frames\">
+<p>
+Produced with commandline:<br>
+<code>
+# for l in 4 10 30; do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger --gif -l\$l -ps snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -o demo/method-sl\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
 
 ", 'loopingavg:1.1.1. LOOPINGAVG' => "
@@ -220,7 +256,7 @@ and requires as much RAM as \"changelog\" requires to generate it.
 <p>
 Produced with commandline:<br>
 <code>
-# for l in 10 30 80; do <br>
+# for l in 4 10 30 80; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
 # &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>
