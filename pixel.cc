@@ -402,6 +402,22 @@ void Array256x256of_Base::GetLiveSectionInto
     }
 }
 
+void Array256x256of_Base::GetStaticSectionInto
+    (uint32* target, unsigned target_stride,
+    unsigned x1, unsigned y1,
+    unsigned width, unsigned height) const
+{
+    unsigned index    = y1*256+x1;
+    unsigned endindex = index + height*256;
+    for(unsigned p=0; index<endindex;
+            index += 256,
+            p += target_stride-width)
+    {
+        for(unsigned x=0; x<width; ++x)
+            target[p++] = GetStatic(index+x);
+    }
+}
+
 void Array256x256of_Base::PutSectionInto
     (unsigned timer,
     const uint32* source, unsigned target_stride,
@@ -471,6 +487,40 @@ public:
                databegin += 256-width)
             for(unsigned x=width; x-->0; )
                 *target++ = databegin++->get(timer);
+    #endif
+    }
+
+    virtual void GetStaticSectionInto(
+        uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const FastPixelMethod
+    {
+        const T* databegin = data      + (y1*256+x1);
+        const T* dataend   = databegin + height*256;
+    #if DO_VERY_SPECIALIZED>0
+        #define MakeMethodCase(n,f,name) \
+            case pm_##name##Pixel: \
+                if(T::Traits & (1ul<<pm_##name##Pixel)) \
+                    for(; databegin<dataend; \
+                           target += target_stride-width, \
+                           databegin += 256-width) \
+                        for(unsigned x=width; x-->0; ) \
+                            *target++ = CallGet##name(*databegin++, 0); \
+                break;
+        switch(bgmethod)
+        {
+            DefinePixelMethods(MakeMethodCase);
+            default: break;
+        }
+        #undef MakeMethodCase
+    #else
+        // This implementation works when T only has one feature
+        method=method;
+        for(; databegin<dataend;
+               target += target_stride-width,
+               databegin += 256-width)
+            for(unsigned x=width; x-->0; )
+                *target++ = databegin++->get(0);
     #endif
     }
 

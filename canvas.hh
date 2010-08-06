@@ -57,6 +57,7 @@ public:
     const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                                      unsigned timer,
                                      PixelMethod method) const;
+    const VecType<uint32> LoadBackground(int ox,int oy, unsigned sx,unsigned sy) const;
 
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
                    unsigned timer);

@@ -95,6 +95,11 @@ struct Array256x256of_Base
         unsigned x1, unsigned y1,
         unsigned width, unsigned height) const FastPixelMethod;
 
+    virtual void GetStaticSectionInto
+        (uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const FastPixelMethod;
+
     virtual void PutSectionInto
         (unsigned timer,
         const uint32* source, unsigned target_stride,

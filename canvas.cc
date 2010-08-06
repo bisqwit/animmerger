@@ -97,6 +97,85 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
     return result;
 }
 
+const VecType<uint32>
+TILE_Tracker::LoadBackground(int ox,int oy, unsigned sx,unsigned sy) const
+{
+    // Create the result vector filled with default pixel value
+    VecType<uint32> result(sy*sx, DefaultPixel);
+
+    const int xbegin = ox;
+    const int xend   = ox+sx-1;
+
+    const int xscreen_begin = xbegin/256;
+    const int xscreen_end   = xend  /256;
+
+    const int ybegin = oy;
+    const int yend   = oy+sy-1;
+
+    const int yscreen_begin = ybegin/256;
+    const int yscreen_end   = yend  /256;
+
+/*
+    std::fprintf(stderr, "Loading screens x(%d..%d)y(%d..%d)\n",
+        xscreen_begin,xscreen_end,
+        yscreen_begin,yscreen_end);
+*/
+
+    // Load each cube that falls into the requested region
+
+    unsigned targetpos=0;
+    unsigned this_cube_ystart = oy&255;
+    for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
+    {
+        unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
+        unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
+
+        ymaptype::const_iterator yi = screens.find(yscreen);
+        if(yi != screens.end())
+        {
+            const xmaptype& xmap = yi->second;
+
+            unsigned this_cube_xstart = ox&255;
+            for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
+            {
+                unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
+                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
+    /*
+                std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
+                    this_cube_xstart,this_cube_xend,
+                    this_cube_ystart,this_cube_yend);
+    */
+                xmaptype::const_iterator xi = xmap.find(xscreen);
+                if(xi != xmap.end())
+                {
+                    const cubetype& cube = xi->second;
+                    /* If this screen is not yet initialized, we'll skip over
+                     * it, since there's no real reason to initialize it at
+                     * this point. */
+
+                    cube.pixels->GetStaticSectionInto(
+                        &result[targetpos], sx,
+                        this_cube_xstart,
+                        this_cube_ystart,
+                        this_cube_xsize,
+                        this_cube_ysize);
+                }
+
+                targetpos+= this_cube_xsize;
+
+                this_cube_xstart=0;
+            }
+            targetpos += sx * (this_cube_ysize-1);
+        }
+        else
+            targetpos += sx * this_cube_ysize;
+
+        this_cube_ystart=0;
+    }
+
+    return result;
+}
+
 void
 TILE_Tracker::PutScreen
     (const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
