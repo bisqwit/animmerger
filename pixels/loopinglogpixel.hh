@@ -48,6 +48,11 @@ public:
     {
         return most_used.GetAverage();
     }
+
+    inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
+    {
+        return most_used.GetActionAvg();
+    }
 };
 
 /*
@@ -56,7 +61,9 @@ LoopingLog defines these:
     GetLoopingLog
     GetMostUsed    (CHILD, NOT UNIQUE)
     GetAverage     (CHILD EMULATED, NOT UNIQUE)
+    GetActionAvg   (CHILD EMULATED, NOT UNIQUE)
 */
 
 DefineBasePair(LoopingLogPixel, LoopingLog,MostUsed)
 DefineBasePair(LoopingLogPixel, LoopingLog,Average)
+DefineBasePair(LoopingLogPixel, LoopingLog,ActionAvg)
