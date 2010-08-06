@@ -91,14 +91,19 @@ int main(int argc, char** argv)
                     "     Produces a single image. Each pixel\n"
                     "     records the color that most often occured in that location.\n"
                     "     Use this option for making maps!\n"
+                    "  LEASTUSED, long option: --method=leastused, short option: -pe\n"
+                    "     Produces a single image. Each pixel\n"
+                    "     records the color that least commonly occured in that location.\n"
                     "  LASTNMOST, long option: --method=lastnmost, short option: -pL\n"
                     "     Combines \"mostused\" and \"last\". Set threshold using\n"
                     "     the -f option. Example: -f16 -pL = most used of last 16 pixels.\n"
                     "     If -f0, then selects the last not-common pixel value.\n"
+                    "     If -f value is negative, uses leastused instead of mostused.\n"
                     "  FIRSTNMOST, long option: --method=firstnmost, short option: -pF\n"
                     "     Combines \"mostused\" and \"first\". Set threshold using\n"
                     "     the -f option. Example: -f16 -pF = most used of first 16 pixels.\n"
                     "     If -f0, then selects the first not-common pixel value.\n"
+                    "     If -f value is negative, uses leastused instead of mostused.\n"
                     "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
                     "     Similar to average, except that blurring of actors\n"
                     "     over the background is avoided.\n"
@@ -173,7 +178,7 @@ int main(int argc, char** argv)
                 char* arg = optarg;
                 long tmp = strtol(arg, 0, 10);
                 FirstLastLength = tmp;
-                if(tmp < 0 || tmp != FirstLastLength)
+                if(tmp != FirstLastLength)
                 {
                     fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
                     FirstLastLength = 1;
@@ -233,6 +238,8 @@ int main(int argc, char** argv)
                     pixelmethod = pm_FirstNMostPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     pixelmethod = pm_MostUsedPixel;
+                else if(strcmp(arg, "e") == 0 || strcmp(arg, "leastused") == 0)
+                    pixelmethod = pm_LeastUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
                     pixelmethod = pm_ActionAvgPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
@@ -265,6 +272,8 @@ int main(int argc, char** argv)
                     bgmethod = pm_FirstNMostPixel;
                 else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
                     bgmethod = pm_MostUsedPixel;
+                else if(strcmp(arg, "e") == 0 || strcmp(arg, "leastused") == 0)
+                    bgmethod = pm_LeastUsedPixel;
                 else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
                     bgmethod = pm_ActionAvgPixel;
                 else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0

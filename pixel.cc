@@ -1,7 +1,7 @@
 #include "types.hh"
 
-unsigned LoopingLogLength = 16;
-unsigned FirstLastLength  = 16;
+unsigned LoopingLogLength    = 16;
+int      FirstLastLength     = 16;
 
 #ifdef __GNUC__
 # define FastPixelMethod __attribute__((regparm(6)))
@@ -73,9 +73,13 @@ public:
 #include "pixels/mostusedpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
-// ActionAvgPixel is defined in MostUsedPixel AND ChangeLogPixel
+// LeastUsedPixel is defined in MostUsedPixel
+// ActionAvgPixel is defined in MostUsedPixel
 // LoopingAvgPixel is defined in ChangeLogPixel
 // LoopingLastPixel is defined in ChangeLogPixel
+// LastNPixel is defined in ChangeLogPixel
+// FirstNPixel is defined in ChangeLogPixel
+// In addition, ChangeLog can emulate all of these.
 
 #undef DefineBasePair
 
@@ -156,13 +160,14 @@ namespace
         typedef LastPixel               t1;
         typedef FirstPixel              t2;
         typedef MostUsedPixel           t3;
-        typedef ActionAvgPixel          t4;
-        typedef ChangeLogPixel          t5;
-        typedef LoopingLogPixel         t6;
-        typedef LoopingAvgPixel         t7;
-        typedef LoopingLastPixel        t8;
-        typedef LastNMostPixel          t9;
-        typedef FirstNMostPixel         tA;
+        typedef LeastUsedPixel          t4;
+        typedef ActionAvgPixel          t5;
+        typedef ChangeLogPixel          t6;
+        typedef LoopingLogPixel         t7;
+        typedef LoopingAvgPixel         t8;
+        typedef LoopingLastPixel        t9;
+        typedef LastNMostPixel          tA;
+        typedef FirstNMostPixel         tB;
 
         template<typename Type1>
         class SubTables
@@ -199,7 +204,8 @@ namespace
                 SubTables<t7>::methods,
                 SubTables<t8>::methods,
                 SubTables<t9>::methods,
-                SubTables<tA>::methods
+                SubTables<tA>::methods,
+                SubTables<tB>::methods
             };
             return &tables[pixelmethod][bgmethod];
         }
@@ -218,7 +224,8 @@ namespace
         { s<t7>::Construct, s<t7>::Copy, s<t7>::Assign },
         { s<t8>::Construct, s<t8>::Copy, s<t8>::Assign },
         { s<t9>::Construct, s<t9>::Copy, s<t9>::Assign },
-        { s<tA>::Construct, s<tA>::Copy, s<tA>::Assign }
+        { s<tA>::Construct, s<tA>::Copy, s<tA>::Assign },
+        { s<tB>::Construct, s<tB>::Copy, s<tB>::Assign }
     };
 }
 

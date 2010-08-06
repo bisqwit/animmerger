@@ -148,25 +148,31 @@ Produced with commandline:<br>
 The \"firstnmost\" method is analogous to \"first\" and \"mostused\";
 it chooses the most common pixel of first N pixel values.
 Set N with the --firstlast (-f) option.<br>
-If N is 0, instead gets first uncommon pixel.<p>
-First 4:<br>
+If N is 0, instead gets last uncommon pixel.<br>
+If N is negative, using least common values rather than most common.
+<p>
+Most common of first 4:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
-     alt=\"First 4\">
+     alt=\"Most common of first 4\">
 <p>
-First 10:<br>
+Most common of first 10:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
-     alt=\"First 10\">
+     alt=\"Most common of first 10\">
 <p>
-First 16:<br>
+Most common of first 16:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
-     alt=\"First 16\">
+     alt=\"Most common of first 16\">
 <p>
 First uncommon:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
      alt=\"First uncommon\">
 <p>
+Least common of first 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
+     alt=\"Least common of first 10\">
+<p>
 Produced with commandline:<br>
-<code># for f in 4 10 16 0; do <br>
+<code># for f in 4 10 -10 16 0; do <br>
 # &nbsp; animmerger -pF -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; mv tile-0000.png demo/method-Ff\$f.png<br>
 # done</code>
@@ -176,21 +182,39 @@ Produced with commandline:<br>
 The \"lastnmost\" method is analogous to \"last\" and \"mostused\";
 it chooses the most common pixel of last N pixel values.
 Set N with the --firstlast (-f) option.<br>
-If N is 0, instead gets last uncommon pixel.
+If N is 0, instead gets last uncommon pixel.<br>
+If N is negative, using least common values rather than most common.
 <p>
-Last 10:<br>
+Most common of last 10:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
-     alt=\"Last 10\">
+     alt=\"Most common of last 10\">
 <p>
 Last uncommon:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
      alt=\"Last uncommon\">
 <p>
+Least common of last 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
+     alt=\"Least common of last 10\">
+<p>
 Produced with commandline:<br>
-<code># for f in 4 10 16 0; do <br>
+<code># for f in 4 10 -10 16 0; do <br>
 # &nbsp; animmerger -pL -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; mv tile-0000.png demo/method-Lf\$f.png<br>
 # done</code>
+
+", 'leastused:1.1.1. LEASTUSED' => "
+
+The \"least used\" method is analogous to \"most used\".<br>
+It can be used to find graphical artifacts and teleporting actors,
+but for the most part, the output is not very useful.
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
+     alt=\"Least used\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pe snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-e.png</code>
 
 ", 'animated:1.1. Animated methods' => "
 

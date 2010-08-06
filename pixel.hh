@@ -4,7 +4,7 @@
 #include "types.hh"
 
 extern unsigned LoopingLogLength;
-extern unsigned FirstLastLength;
+extern int FirstLastLength;
 
 extern enum PixelMethod
 {
@@ -12,6 +12,7 @@ extern enum PixelMethod
     pm_LastPixel,
     pm_FirstPixel,
     pm_MostUsedPixel,
+    pm_LeastUsedPixel,
     pm_ActionAvgPixel,
     pm_ChangeLogPixel,
     pm_LoopingLogPixel,

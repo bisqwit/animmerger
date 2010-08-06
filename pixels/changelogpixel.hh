@@ -257,9 +257,10 @@ public:
         return result;
     }
 
-    uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetAggregate(unsigned=0) const
     {
-        MostUsedPixel result;
+        SlaveType result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -279,46 +280,33 @@ public:
         return result.get();
     }
 
+    inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<MostUsedPixel> ();
+    }
+    inline uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<LeastUsedPixel> ();
+    }
+    inline uint32 GetAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<AveragePixel> ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
     }
-
     inline uint32 GetFirst(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.begin()->second;
     }
 
-    uint32 GetAverage(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetFirstNAggregate(unsigned n) const
     {
-        AveragePixel result;
-        for(MapType<unsigned, uint32>::const_iterator
-            i = history.begin();
-            i != history.end();
-            )
-        {
-            MapType<unsigned, uint32>::const_iterator j(i); ++i;
-            unsigned count =
-                (i != history.end()) ? (i->first - j->first) :
-#if CHANGELOG_USE_LASTTIMESTAMP
-                    (last_time - j->first) + 1
-#else
-                    1
-#endif
-                    ;
-
-            result.set_n(j->second, count);
-        }
-        return result.get();
-    }
-
-    uint32 GetFirstNMost(unsigned=0) const FastPixelMethod
-    {
-        if(FirstLastLength == 0) return GetFirstUncommon();
-
         const unsigned first_time = history.empty() ? 0 : history.begin()->first;
-        const unsigned end_threshold = first_time + FirstLastLength;
-        MostUsedPixel result;
+        const unsigned end_threshold = first_time + n;
+        SlaveType result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -344,15 +332,14 @@ public:
         return result.get();
     }
 
-
-    uint32 GetLastNMost(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetLastNAggregate(unsigned n) const
     {
-        if(FirstLastLength == 0) return GetLastUncommon();
 #if !CHANGELOG_USE_LASTTIMESTAMP
         const unsigned last_time = history.empty() ? 0 : (history.rbegin()->first + 1);
 #endif
-        const unsigned begin_threshold = FirstLastLength < last_time ? last_time-FirstLastLength : 0;
-        MostUsedPixel result;
+        const unsigned begin_threshold = n < last_time ? last_time-n : 0;
+        SlaveType result;
         MapType<unsigned, uint32>::const_iterator
             i ( history.upper_bound(begin_threshold) );
         if(i != history.begin()) --i;
@@ -375,6 +362,24 @@ public:
             result.set_n(j->second, n_hits);
         }
         return result.get();
+    }
+
+    uint32 GetFirstNMost(unsigned=0) const FastPixelMethod
+    {
+        if(FirstLastLength == 0) return GetFirstUncommon();
+        if(FirstLastLength > 0)
+            return GetFirstNAggregate<MostUsedPixel>(FirstLastLength);
+        else
+            return GetFirstNAggregate<LeastUsedPixel>(-FirstLastLength);
+    }
+
+    uint32 GetLastNMost(unsigned=0) const FastPixelMethod
+    {
+        if(FirstLastLength == 0) return GetLastUncommon();
+        if(FirstLastLength > 0)
+            return GetLastNAggregate<MostUsedPixel>(FirstLastLength);
+        else
+            return GetLastNAggregate<LeastUsedPixel>(-FirstLastLength);
     }
 
     uint32 GetFirstUncommon(unsigned=0) const FastPixelMethod
@@ -424,16 +429,16 @@ struct LoopingLastPixel: public ChangeLogPixel
 };
 struct FirstNMostPixel: public ChangeLogPixel
 {
-    inline uint32 get(unsigned timer) const FasterPixelMethod
+    inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetFirstNMost(timer);
+        return GetFirstNMost();
     }
 };
 struct LastNMostPixel: public ChangeLogPixel
 {
-    inline uint32 get(unsigned timer) const FasterPixelMethod
+    inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetLastNMost(timer);
+        return GetLastNMost();
     }
 };
 
