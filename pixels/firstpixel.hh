@@ -17,7 +17,4 @@ public:
     {
         return pix;
     }
-    inline void Compress()
-    {
-    }
 };

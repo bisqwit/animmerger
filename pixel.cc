@@ -27,7 +27,6 @@ public:
     }
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return pixel1.get(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return pixel2.get(timer); }
-    inline void Compress() { pixel1.Compress(); pixel2.Compress(); }
 };
 
 /* Specialize an optimized case for when the two pixel
@@ -38,7 +37,6 @@ class TwoPixels<Pix,Pix>: private Pix
 {
 public:
     using Pix::set;
-    using Pix::Compress;
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
 };
@@ -49,7 +47,6 @@ class SwapTwoPixels: private TwoPixels<Pixel1,Pixel2>
     typedef TwoPixels<Pixel1,Pixel2> TwoPix;
 public:
     using TwoPix::set;
-    using TwoPix::Compress;
     inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel2(timer); }
     inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel1(timer); }
 };
@@ -60,7 +57,6 @@ public:
     { \
     public: \
         using basetype::set; \
-        using basetype::Compress; \
         inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return basetype::Get##type1(timer); } \
         inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return basetype::Get##type2(timer); } \
     }; \
@@ -114,12 +110,6 @@ public:
     virtual void Set(unsigned index, uint32 p, unsigned timer)
     {
         data[index].set(p, timer);
-    }
-
-    virtual void Compress()
-    {
-        for(unsigned a=0; a<256*256; ++a)
-            data[a].Compress();
     }
 };
 

@@ -64,18 +64,6 @@ public:
         if(res == DefaultPixel) return most;
         return res;
     }
-
-    void Compress()
-    {
-        /*
-        std::pair<uint32,unsigned short> result(DefaultPixel,0);
-        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
-            if(i->second > result.second)
-                result = *i;
-        values.clear();
-        values.insert(values.end(), result);
-        */
-    }
 };
 
 /*** MOSTUSED VARIANTS ***/

@@ -63,8 +63,4 @@ class MostUsedWithinPixel
     {
         return pixels[BUFFER_SIZE-1];
     }
-
-    void Compress()
-    {
-    }
 };

@@ -31,8 +31,4 @@ public:
             ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
             : DefaultPixel;
     }
-
-    void Compress()
-    {
-    }
 };

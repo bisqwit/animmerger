@@ -310,10 +310,6 @@ public:
         }
         return result.get();
     }
-
-    inline void Compress()
-    {
-    }
 };
 
 /*** CHANGELOG VARIANTS ***/

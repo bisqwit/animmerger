@@ -30,7 +30,6 @@ struct Array256x256of_Base
     virtual uint32 GetLive(unsigned index, unsigned timer) const = 0;
     virtual uint32 GetStatic(unsigned index)               const = 0;
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
-    virtual void Compress() = 0;
 };
 class UncertainPixelVector256x256
 {
@@ -66,12 +65,6 @@ public:
     inline void Visit(F func) const
     {
         if(data) func(*data);
-    }
-
-    // Run Compress() method on each vector element
-    inline void Compress()
-    {
-        if(data) data->Compress();
     }
 
     // Test whether vector is empty (uninitialized)

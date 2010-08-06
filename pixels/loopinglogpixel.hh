@@ -48,13 +48,6 @@ public:
     {
         return most_used.GetAverage();
     }
-
-    inline void Compress()
-    {
-        most_used.Compress();
-        //for(unsigned a=0; a<LoopingLogLength; ++a)
-        //    history[a].CompressButIgnore(most_used);
-    }
 };
 
 /*
