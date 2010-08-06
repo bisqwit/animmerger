@@ -53,14 +53,38 @@ public:
         return result.get();
     }
 
+    uint32 GetActionAvg(unsigned=0) const FastPixelMethod
+    {
+        const uint32 most = GetMostUsed();
+        AveragePixel result;
+        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
+            if(i->first != most)
+                result.set_n(i->first, i->second);
+        uint32 res = result.get();
+        if(res == DefaultPixel) return most;
+        return res;
+    }
+
     void Compress()
     {
+        /*
         std::pair<uint32,unsigned short> result(DefaultPixel,0);
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
             if(i->second > result.second)
                 result = *i;
         values.clear();
         values.insert(values.end(), result);
+        */
+    }
+};
+
+/*** MOSTUSED VARIANTS ***/
+
+struct ActionAvgPixel: public MostUsedPixel
+{
+    inline uint32 get(unsigned timer) const FasterPixelMethod
+    {
+        return GetActionAvg(timer);
     }
 };
 
@@ -68,7 +92,10 @@ public:
 MostUsed defines these:
 
     GetMostUsed
+    GetActionAvg   (NOT UNIQUE)
     GetAverage     (EMULATED, NOT UNIQUE)
 */
 
 DefineBasePair(MostUsedPixel, MostUsed,Average)
+DefineBasePair(MostUsedPixel, MostUsed,ActionAvg) // Also implemented in ChangeLogPixel
+DefineBasePair(MostUsedPixel, ActionAvg,Average) // Also implemented in ChangeLogPixel

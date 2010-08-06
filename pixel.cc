@@ -77,7 +77,7 @@ public:
 #include "pixels/mostusedwithinpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
-// ActionAvgPixel is defined in ChangeLogPixel
+// ActionAvgPixel is defined in MostUsedPixel AND ChangeLogPixel
 // LoopingAvgPixel is defined in ChangeLogPixel
 // LoopingLastPixel is defined in ChangeLogPixel
 

@@ -318,13 +318,6 @@ public:
 
 /*** CHANGELOG VARIANTS ***/
 
-struct ActionAvgPixel: public ChangeLogPixel
-{
-    inline uint32 get(unsigned timer) const FasterPixelMethod
-    {
-        return GetActionAvg(timer);
-    }
-};
 struct LoopingAvgPixel: public ChangeLogPixel
 {
     inline uint32 get(unsigned timer) const FasterPixelMethod
@@ -344,9 +337,9 @@ struct LoopingLastPixel: public ChangeLogPixel
 ChangeLog defines these:
 
     GetChangeLog
-    GetActionAvg
-    GetLoopingAvg
-    GetLoopingLast
+    GetActionAvg   (UNIQUE, BUT ALSO IMPLEMENTED IN "MOSTUSED")
+    GetLoopingAvg  (UNIQUE)
+    GetLoopingLast (UNIQUE)
     GetMostUsed    (EMULATED, NOT UNIQUE)
     GetLast        (EMULATED, NOT UNIQUE)
     GetFirst       (EMULATED, NOT UNIQUE)
@@ -363,10 +356,10 @@ DefineBasePair(ChangeLogPixel, ChangeLog, Average)
 
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingAvg)
 DefineBasePair(ChangeLogPixel, ActionAvg, LoopingLast)
-DefineBasePair(ChangeLogPixel, ActionAvg, MostUsed)
+//DefineBasePair(ChangeLogPixel, ActionAvg, MostUsed) -- used MostUsedPixel version instead
 DefineBasePair(ChangeLogPixel, ActionAvg, Last)
 DefineBasePair(ChangeLogPixel, ActionAvg, First)
-DefineBasePair(ChangeLogPixel, ActionAvg, Average)
+//DefineBasePair(ChangeLogPixel, ActionAvg, Average) -- used MostUsedPixel version instead
 
 DefineBasePair(ChangeLogPixel, LoopingAvg, LoopingLast)
 DefineBasePair(ChangeLogPixel, LoopingAvg, MostUsed)

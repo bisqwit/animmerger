@@ -83,6 +83,21 @@ Produced with commandline:<br>
 # mv tile-0000.png demo/method-a.png<br>
 # <a href=\"http://advsys.net/ken/utils.htm\">pngout</a>-hard demo/method-a.png</code>
 
+", 'actionavg:1.1.1. ACTIONAVG' => "
+
+The \"actionavg\" method attempts to fix the blurring problem with
+\"average\" method by keeping track separately of the background
+(using the \"mostused\" method) and only taking the average of
+moving actors.
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
+     alt=\"Action average\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-t.png<br>
+# pngout-hard demo/method-t.png</code>
+
 ", 'mostused:1.1.1. MOSTUSED' => "
 
 The \"most used\" method produces what might be the background
@@ -130,22 +145,6 @@ Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-f.png<br>
 # pngout-hard demo/method-f.png</code>
-
-", 'actionavg:1.1.1. ACTIONAVG' => "
-
-The \"actionavg\" method attempts to fix the blurring problem with
-\"average\" method by keeping track separately of the background
-(using the \"mostused\" method) and only taking the average of
-moving actors. It requires considerably more RAM to generate
-(it is based on the \"changelog\" algorithm).
-<p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
-     alt=\"Action average\">
-<p>
-Produced with commandline:<br>
-<code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-t.png<br>
-# pngout-hard demo/method-t.png</code>
 
 ", 'animated:1.1. Animated methods' => "
 
