@@ -29,9 +29,11 @@ BoundingBoxListType FindDifferences
  * They shoot projectiles, in which case one actor splits into two.
  * They pass each others, in which case two actors become one, or
  * one becomes two, or both.
- * The job of this function is to find out which BoundingBoxs
- * refer to the same actor, and to ignore those BoundingBoxs
+ * The job of this function is to find out which BoundingBoxes
+ * refer to the same actor, and to ignore those BoundingBoxes
  * that are ambiguous.
+ * Note: Sometimes actors move on the screen at such intervals
+ * that the bounding boxes in adjacent frames are disconnected.
  *
  * TODO: Later phase:
  * There is also the possibility that an actor is partially visible
@@ -50,12 +52,10 @@ struct SpriteLore
     VecType<BoundingBoxListType> DifferencesEachFrame;
 
     // Refined data:
-    struct ActorData
-    {
-        MapType<unsigned/*frame number*/, BoundingBox> locations;
-    };
+    typedef MapType<unsigned/*frame number*/, BoundingBox> ActorData;
     MapType<unsigned/*actorid*/, ActorData> Actors;
 
+    // Refinement method
     void FindDistinctActors();
 };
 
