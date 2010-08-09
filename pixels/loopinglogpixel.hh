@@ -53,17 +53,10 @@ public:
     {
         return most_used.GetActionAvg();
     }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_LoopingLogPixel)
+      | (1ul << pm_MostUsedPixel)
+      | (1ul << pm_AveragePixel)
+      | (1ul << pm_ActionAvgPixel);
 };
-
-/*
-LoopingLog defines these:
-
-    GetLoopingLog
-    GetMostUsed    (CHILD, NOT UNIQUE)
-    GetAverage     (CHILD EMULATED, NOT UNIQUE)
-    GetActionAvg   (CHILD EMULATED, NOT UNIQUE)
-*/
-
-DefineBasePair(LoopingLogPixel, LoopingLog,MostUsed)
-DefineBasePair(LoopingLogPixel, LoopingLog,Average)
-DefineBasePair(LoopingLogPixel, LoopingLog,ActionAvg)

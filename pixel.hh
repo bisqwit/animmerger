@@ -24,6 +24,13 @@ extern enum PixelMethod
     pm_FirstNMostPixel
 } pixelmethod, bgmethod;
 
+static const unsigned long AnimatedPixelMethodsMask =
+    (1ul << pm_ChangeLogPixel)
+  | (1ul << pm_LoopingLogPixel)
+  | (1ul << pm_LoopingAvgPixel)
+  | (1ul << pm_LoopingLastPixel);
+
+
 /* A vector of 256x256 pixels. */
 /* Each pixel has two traits:
  * the trait determined by pixelmethod (retrievable with GetLive()),

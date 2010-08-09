@@ -13,61 +13,7 @@ int      FirstLastLength     = 16;
 # define FasterPixelMethod
 #endif
 
-/* This class wraps two pixel classes in one,
- * providing the functions of both. One is a "live"
- * pixel, one is a "static" (background) pixel.
- */
-template<typename Pixel1,typename Pixel2>
-class TwoPixels
-{
-    Pixel1 pixel1;
-    Pixel2 pixel2;
-public:
-    inline void set(uint32 p, unsigned timer) FastPixelMethod
-    {
-        pixel1.set(p, timer);
-        pixel2.set(p, timer);
-    }
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return pixel1.get(timer); }
-    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return pixel2.get(timer); }
-};
-
-/* Specialize an optimized case for when the two pixel
- * types are the same. Only store one set of data.
- */
-template<typename Pix>
-class TwoPixels<Pix,Pix>: private Pix
-{
-public:
-    using Pix::set;
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
-    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return Pix::get(timer); }
-};
-
-template<typename Pixel1,typename Pixel2>
-class SwapTwoPixels: private TwoPixels<Pixel1,Pixel2>
-{
-    typedef TwoPixels<Pixel1,Pixel2> TwoPix;
-public:
-    using TwoPix::set;
-    inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel2(timer); }
-    inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return TwoPix::get_pixel1(timer); }
-};
-
-#define DefineBasePair(basetype, type1, type2) \
-    template<> \
-    class TwoPixels<type1##Pixel, type2##Pixel>: private basetype \
-    { \
-    public: \
-        using basetype::set; \
-        inline uint32 get_pixel1(unsigned timer) const FasterPixelMethod { return basetype::Get##type1(timer); } \
-        inline uint32 get_pixel2(unsigned timer) const FasterPixelMethod { return basetype::Get##type2(timer); } \
-    }; \
-    template<> \
-    class TwoPixels<type2##Pixel, type1##Pixel>: \
-        public SwapTwoPixels<type1##Pixel, type2##Pixel> \
-    { \
-    };
+#include "pixel.hh"
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
@@ -83,12 +29,46 @@ public:
 // FirstNPixel is defined in ChangeLogPixel
 // In addition, ChangeLog can emulate all of these.
 
+struct DummyBasePixel
+{
+    static inline uint32 GetAverage(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLast(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetFirst(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetMostUsed(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLeastUsed(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetActionAvg(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetChangeLog(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLoopingLog(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLoopingAvg(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLoopingLast(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetLastNMost(unsigned=0) FasterPixelMethod { return 0; }
+    static inline uint32 GetFirstNMost(unsigned=0) FasterPixelMethod { return 0; }
+};
+template<typename T1>
+struct MultiBasePixel1: public DummyBasePixel, public T1
+{
+    void set(uint32 p, unsigned timer) { T1::set(p,timer); }
+};
+template<typename T1, typename T2>
+struct MultiBasePixel2: public DummyBasePixel, public T1, public T2
+{
+    void set(uint32 p, unsigned timer) { T1::set(p,timer); T2::set(p,timer); }
+};
+template<typename T1, typename T2, typename T3>
+struct MultiBasePixel3: public DummyBasePixel, public T1, public T2, public T3
+{
+    void set(uint32 p, unsigned timer) { T1::set(p,timer); T2::set(p,timer); T3::set(p,timer); }
+};
+template<typename T1, typename T2, typename T3, typename T4>
+struct MultiBasePixel4: public DummyBasePixel, public T1, public T2, public T3, public T4
+{
+    void set(uint32 p, unsigned timer) { T1::set(p,timer); T2::set(p,timer); T3::set(p,timer); T4::set(p,timer); }
+};
+
+
+
 #undef DefineBasePair
 
-/* Postponing pixel.hh inclusion here to ensure that
- * the pixel implementations do not depend on any globals.
- */
-#include "pixel.hh"
 
 enum PixelMethod pixelmethod = pm_MostUsedPixel;
 enum PixelMethod bgmethod    = pm_MostUsedPixel;
