@@ -1544,7 +1544,7 @@ void TILE_Tracker::FindSprites()
     for(unsigned frameno = 0; frameno < nframes; ++frameno)
     {
         VecType<uint32> screen( LoadScreen(xmi,ymi, wid,hei, frameno, pm_ChangeLogPixel) );
-        DifferencesOnFrame t ( FindDifferences(background, screen, wid) );
+        BoundingBoxListType t ( FindDifferences(background, screen, wid) );
         info.DifferencesEachFrame[frameno].swap(t);
     }
 

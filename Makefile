@@ -9,7 +9,10 @@ ARCHFILES=\
 	dither.cc dither.hh \
 	align.cc align.hh \
 	mask.cc mask.hh \
-	sprites.cc sprites.hh \
+	sprites.cc \
+	sprites.hh \
+	sprites_find.cc \
+	sprites_refine.cc \
 	types.hh \
 	settype.hh \
 	maptype.hh \
@@ -55,7 +58,10 @@ CPPFLAGS += -Ifparser
 OBJS=\
 	main.o canvas.o pixel.o align.o \
 	palette.o quantize.o dither.o \
-	mask.o sprites.o
+	mask.o \
+	sprites.o \
+	sprites_find.o \
+	sprites_refine.o
 PROGS=\
 	animmerger
 
@@ -88,12 +94,12 @@ animmerger: $(OBJS) $(FPOBJS)
 
 animmerger_nes: \
 		main.o pixel.o align.o palette.o \
-		quantize.o dither.o mask.o sprites.o \
+		quantize.o dither.o mask.o sprites.o sprites_find.o sprites_refine.o \
 		canvas_nes.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 animmerger_cga16: \
 		main.o pixel.o align.o palette.o \
-		quantize.o dither.o mask.o sprites.o \
+		quantize.o dither.o mask.o sprites.o sprites_find.o sprites_refine.o  \
 		canvas_cga16.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 canvas_nes.o: canvas.cc

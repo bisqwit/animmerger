@@ -3,22 +3,24 @@
 
 #include "types.hh"
 #include "vectype.hh"
+#include "settype.hh"
+#include "maptype.hh"
 
-struct DifferingSection
+struct BoundingBox
 {
     unsigned x1,y1, wid,hei;
 
-    bool operator< (const DifferingSection& b) const;
-    bool operator== (const DifferingSection& b) const;
-    bool Overlaps(const DifferingSection& b) const;
+    bool operator< (const BoundingBox& b) const;
+    bool operator== (const BoundingBox& b) const;
+    bool Overlaps(const BoundingBox& b) const;
 };
 
-typedef VecType<DifferingSection> DifferencesOnFrame;
+typedef VecType<BoundingBox> BoundingBoxListType;
 
 /* Generate a set of rectangles that expresses all
  * differing pixels between the two images.
  */
-DifferencesOnFrame FindDifferences
+BoundingBoxListType FindDifferences
     (const VecType<uint32>& background,
      const VecType<uint32>& screen,
      unsigned width);
@@ -27,8 +29,8 @@ DifferencesOnFrame FindDifferences
  * They shoot projectiles, in which case one actor splits into two.
  * They pass each others, in which case two actors become one, or
  * one becomes two, or both.
- * The job of this function is to find out which DifferingSections
- * refer to the same actor, and to ignore those DifferingSections
+ * The job of this function is to find out which BoundingBoxs
+ * refer to the same actor, and to ignore those BoundingBoxs
  * that are ambiguous.
  *
  * TODO: Later phase:
@@ -44,7 +46,15 @@ DifferencesOnFrame FindDifferences
  */
 struct SpriteLore
 {
-    VecType<DifferencesOnFrame> DifferencesEachFrame;
+    // Raw data:
+    VecType<BoundingBoxListType> DifferencesEachFrame;
+
+    // Refined data:
+    struct ActorData
+    {
+        MapType<unsigned/*frame number*/, BoundingBox> locations;
+    };
+    MapType<unsigned/*actorid*/, ActorData> Actors;
 
     void FindDistinctActors();
 };
