@@ -274,14 +274,20 @@ void TILE_Tracker::Save()
     else
     {
         static unsigned count = 0;
-        SaveFrame(0, count++);
+        /* This dummy OMP loop is required, because SaveFrame()
+         * contains an ordered statement, which must never exist
+         * without a surrounding "for ordered" statement context.
+         */
+      #pragma omp parallel for ordered schedule(static,1)
+        for(unsigned dummy=0; dummy<1; ++dummy)
+            SaveFrame(0, count++);
     }
 }
 
 void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
 {
-    int ymi = ymin, yma = ymax;
-    int xmi = xmin, xma = xmax;
+    const int ymi = ymin, yma = ymax;
+    const int xmi = xmin, xma = xmax;
 
     unsigned wid = xma-xmi;
     unsigned hei = yma-ymi;
