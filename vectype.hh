@@ -15,8 +15,11 @@ template<typename T>
 class VecType
 {
 public:
+    typedef T value_type;
     typedef T* iterator;
     typedef const T* const_iterator;
+    typedef T* pointer;
+    typedef const T* const_pointer;
     typedef T& reference;
     typedef const T& const_reference;
     typedef unsigned size_type;
@@ -103,18 +106,18 @@ public:
     const_reference operator[] (size_type ind) const { return data[ind]; }
     iterator begin() { return data; }
     iterator end() { return data+len; }
+    reference front() { return *begin(); }
+    reference back() { return *rbegin(); }
     const_iterator begin() const { return data; }
     const_iterator end() const { return data+len; }
+    const_reference front() const { return *begin(); }
+    const_reference back() const { return *rbegin(); }
     typedef std::reverse_iterator<iterator> reverse_iterator;
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
     reverse_iterator rbegin() { return reverse_iterator( end() ); }
     reverse_iterator rend()   { return reverse_iterator( begin() ); }
     const_reverse_iterator rbegin() const { return const_reverse_iterator( end() ); }
     const_reverse_iterator rend()   const { return const_reverse_iterator( begin() ); }
-    reference front() { return *begin(); }
-    const_reference front() const { return *begin(); }
-    reference back() { return *rbegin(); }
-    const_reference back() const { return *rbegin(); }
 
     template<typename K>
     void push_back(K value)
@@ -228,6 +231,11 @@ public:
         }
     }
 
+    void pop_back()
+    {
+        destroy(&data[--len], 1);
+    }
+
     void resize(size_type newlen)
     {
         if(newlen < len)
@@ -297,8 +305,12 @@ public:
     bool empty() const { return len==0; }
     void clear()
     {
+        if(!cap) return;
         destroy(&data[0], len);
         len = 0;
+        alloc.deallocate(data, cap);
+        data = 0;
+        cap = 0;
     }
     size_type size()     const { return len; }
     size_type capacity() const { return cap; }
