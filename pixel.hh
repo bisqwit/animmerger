@@ -8,7 +8,7 @@ extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 
-extern enum PixelMethod
+enum PixelMethod
 {
     pm_AveragePixel,
     pm_LastPixel,
@@ -22,14 +22,25 @@ extern enum PixelMethod
     pm_LoopingLastPixel,
     pm_LastNMostPixel,
     pm_FirstNMostPixel
-} pixelmethod, bgmethod;
+};
+static const char* const PixelMethodNames[] =
+    {"Average","Last","First","MostUsed","LeastUsed",
+     "ActionAvg","ChangeLog","LoopingLog","LoopingAvg",
+     "LoopingLast","LastNMost","FirstNMost"};
 
+extern unsigned long pixelmethods_result;
+extern PixelMethod bgmethod;
+
+static const unsigned NPixelMethods = pm_FirstNMostPixel+1;
 static const unsigned long AnimatedPixelMethodsMask =
     (1ul << pm_ChangeLogPixel)
   | (1ul << pm_LoopingLogPixel)
   | (1ul << pm_LoopingAvgPixel)
   | (1ul << pm_LoopingLastPixel);
-
+static const unsigned long LoopingPixelMethodsMask =
+    (1ul << pm_LoopingLogPixel)
+  | (1ul << pm_LoopingAvgPixel)
+  | (1ul << pm_LoopingLastPixel);
 
 /* A vector of 256x256 pixels. */
 /* Each pixel has two traits:
@@ -39,8 +50,8 @@ static const unsigned long AnimatedPixelMethodsMask =
 struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
-    virtual uint32 GetLive(unsigned index, unsigned timer) const = 0;
-    virtual uint32 GetStatic(unsigned index)               const = 0;
+    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const = 0;
+    virtual uint32 GetStatic(unsigned index) const = 0;
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
 };
 class UncertainPixelVector256x256

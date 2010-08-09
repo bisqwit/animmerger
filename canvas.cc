@@ -226,12 +226,9 @@ TILE_Tracker::PutScreen
     }
 }
 
-void TILE_Tracker::Save()
+void TILE_Tracker::Save(unsigned method)
 {
-    const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_LoopingLastPixel
-                       || pixelmethod == pm_ChangeLogPixel
-                       || pixelmethod == pm_LoopingAvgPixel;
+    const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
 
     if(animated)
         std::fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
@@ -247,9 +244,7 @@ void TILE_Tracker::Save()
             Saving = true;
             unsigned SavedTimer = CurrentTimer;
 
-            if(pixelmethod == pm_LoopingLogPixel
-            || pixelmethod == pm_LoopingLastPixel
-            || pixelmethod == pm_LoopingAvgPixel)
+            if((1ul << method) & LoopingPixelMethodsMask)
             {
                 if(SavedTimer >= LoopingLogLength)
                     SavedTimer = LoopingLogLength;

@@ -50,14 +50,8 @@ public:
     {
     }
 
-    void SaveAndReset()
-    {
-        Save();
-        Reset();
-    }
-
-    void Save();
-    void SaveFrame(unsigned timer, unsigned imgcounter);
+    void Save(unsigned method);
+    void SaveFrame(unsigned method, unsigned timer, unsigned imgcounter);
 
     void Reset();
 

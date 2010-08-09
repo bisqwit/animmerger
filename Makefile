@@ -10,12 +10,13 @@ ARCHFILES=\
 	maptype.hh \
 	vectype.hh \
 	untreetype.hh \
-	pixel.cc pixel.hh \
+	pixel.cc pixel.hh pixels.hh \
 	pixels/averagepixel.hh \
 	pixels/changelogpixel.hh \
 	pixels/lastpixel.hh \
 	pixels/loopinglogpixel.hh \
 	pixels/mostusedpixel.hh \
+	pixelfactory.inc \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \
@@ -45,5 +46,10 @@ all: $(PROGS)
 animmerger: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
 
+makepixels: makepixels.o
+	$(CXX) $(CXXFLAGS) -o $@ makepixels.o $(LDFLAGS) $(LDLIBS)
+
+pixelfactory.inc: makepixels
+	./makepixels > $@
 
 include depfun.mak

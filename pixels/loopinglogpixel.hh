@@ -44,6 +44,11 @@ public:
         return most_used.get();
     }
 
+    inline uint32 GetLeastUsed(unsigned=0) const FasterPixelMethod
+    {
+        return most_used.GetLeastUsed();
+    }
+
     inline uint32 GetAverage(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetAverage();
@@ -57,6 +62,7 @@ public:
     static const unsigned long Traits =
         (1ul << pm_LoopingLogPixel)
       | (1ul << pm_MostUsedPixel)
+      | (1ul << pm_LeastUsedPixel)
       | (1ul << pm_AveragePixel)
       | (1ul << pm_ActionAvgPixel);
 };

@@ -481,6 +481,7 @@ private:
         /* Anything else. Take the value. */
         return i->second;
     }
+public:
 /////////
     static const unsigned long Traits =
       (1ul << pm_ChangeLogPixel)
