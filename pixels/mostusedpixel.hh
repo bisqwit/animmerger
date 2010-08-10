@@ -1,6 +1,7 @@
 #include "maptype.hh"
 
-class MostUsedPixel
+template<typename Base=DummyPixel>
+class MostUsedPixel: public Base
 {
     typedef MapType<uint32, unsigned short> vmap;
     vmap values;
@@ -9,13 +10,9 @@ public:
     {
     }
 
-    void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
+    void set(uint32 p, unsigned timer=0) FastPixelMethod
     {
-        uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p);
-    }
-    void set(uint32 p, unsigned=0) FastPixelMethod
-    {
+        Base::set(p,timer);
         vmap::iterator i = values.lower_bound(p);
         if(i == values.end() || i->first != p)
             values.insert(i, vmap::value_type(p,1));
@@ -56,7 +53,7 @@ public:
 
     uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
-        AveragePixel result;
+        AveragePixel<> result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
             result.set_n(i->first, i->second);
         return result.get();
@@ -65,7 +62,7 @@ public:
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
     {
         const uint32 most = GetMostUsed();
-        AveragePixel result;
+        AveragePixel<> result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
             result.set_n(i->first, i->first!=most ? i->second : 1);
         uint32 res = result.get();
@@ -74,7 +71,8 @@ public:
     }
 /////////
     static const unsigned long Traits =
-        (1ul << pm_MostUsedPixel)
+        Base::Traits
+      | (1ul << pm_MostUsedPixel)
       | (1ul << pm_LeastUsedPixel)
       | (1ul << pm_AveragePixel)
       | (1ul << pm_ActionAvgPixel);
@@ -82,17 +80,19 @@ public:
 
 
 // These variants are needed by ChangeLog to simplify templates
-struct ActionAvgPixel: public MostUsedPixel
+template<typename Base=DummyPixel>
+struct ActionAvgPixel: public MostUsedPixel<Base>
 {
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetActionAvg();
+        return MostUsedPixel<Base>::GetActionAvg();
     }
 };
-struct LeastUsedPixel: public MostUsedPixel
+template<typename Base=DummyPixel>
+struct LeastUsedPixel: public MostUsedPixel<Base>
 {
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetLeastUsed();
+        return MostUsedPixel<Base>::GetLeastUsed();
     }
 };

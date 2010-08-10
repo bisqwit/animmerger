@@ -11,6 +11,29 @@ int      FirstLastLength     = 16;
 unsigned long pixelmethods_result = 1ul << pm_MostUsedPixel;
 enum PixelMethod bgmethod = pm_MostUsedPixel;
 
+namespace
+{
+/*
+    template<typename T>
+    struct PixelAccessMethods
+    {
+        static uint32 (T::*const methods[NPixelMethods])(unsigned)const;
+    };
+    template<typename T>
+    uint32 (T::*const PixelAccessMethods<T>::methods[NPixelMethods])(unsigned)const =
+    {
+        #define MakeMethodPointer(n,f,name) &T::Get##name,
+        DefinePixelMethods(MakeMethodPointer)
+        #undef MakeMethodPointer
+    };
+*/
+    template<typename T>
+    struct PixelAccessMethodName
+    {
+        static const char name[];
+    };
+}
+
 template<typename T>
 struct Array256x256of: public Array256x256of_Base
 {
@@ -22,12 +45,45 @@ public:
 public:
     virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
     {
-        return (data[index].*(T::methods[method]))(timer);
+        #define MakeMethodCase(n,f,name) \
+        if(T::Traits == (1ul << pm_##name##Pixel)) \
+            return data[index].Get##name(0);
+        DefinePixelMethods(MakeMethodCase);
+        #undef MakeMethodCase
+        // This switchcase is actually pretty optimal
+        // compared to the method pointer table, because
+        // those cases that are not implemented in T
+        // actually expand to inline code that results in 0.
+        // It could still be improved though, by somehow
+        // removing the check for those methods that never
+        // can occur here.
+        switch(method)
+        {
+        #define MakeMethodCase(n,f,name) \
+            case pm_##name##Pixel: return data[index].Get##name(timer);
+        DefinePixelMethods(MakeMethodCase);
+        #undef MakeMethodCase
+            default: return 0;
+        }
+        //return (data[index].*(PixelAccessMethods<T>::methods[method]))(timer);
     }
 
     virtual uint32 GetStatic(unsigned index) const
     {
-        return (data[index].*(T::methods[bgmethod]))(0);
+        #define MakeMethodCase(n,f,name) \
+        if(T::Traits == (1ul << pm_##name##Pixel)) \
+            return data[index].Get##name(0);
+        DefinePixelMethods(MakeMethodCase);
+        #undef MakeMethodCase
+        switch(bgmethod)
+        {
+        #define MakeMethodCase(n,f,name) \
+            case pm_##name##Pixel: return data[index].Get##name(0);
+        DefinePixelMethods(MakeMethodCase);
+        #undef MakeMethodCase
+            default: return 0;
+        }
+        //return (data[index].*(PixelAccessMethods<T>::methods[bgmethod]))(0);
     }
 
     virtual void Set(unsigned index, uint32 p, unsigned timer)
@@ -42,7 +98,7 @@ public:
 
     virtual const char* GetPixelSetupName() const
     {
-        return T::name;
+        return PixelAccessMethodName<T>::name;
     }
 };
 

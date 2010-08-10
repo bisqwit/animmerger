@@ -21,7 +21,7 @@ static const char* const PixelMethodNames[NPixelMethods] =
 };
 #undef MakePixName
 
-#define MakeMethod(name) { #name, name::Traits, sizeof(name) },
+#define MakeMethod(id,name) { #name, name<>::Traits, sizeof(name<>) },
 static const struct Method
 {
     const char*   name;
@@ -47,65 +47,46 @@ static std::ostringstream NameDeclarationArray;
 static unsigned n_factories = 0;
 static std::ostringstream FactoryIndex, FactoryTable;
 
-static void PutResult(unsigned long input, unsigned long combination)
+static std::string MakeCombination(unsigned long combination)
 {
     static std::set<unsigned long> DoneCombinations;
 
-    std::ostringstream CombinationName;
-    CombinationName << "PixCombination";
-    for(unsigned n=0; n<nmethods; ++n)
+    std::string name = "";
+    for(unsigned n=nmethods; n-->0; )
         if(combination & (1 << n))
-            CombinationName << "_" << Methods[n].name;
+        {
+            name = Methods[n].name + std::string("<") + name;
+            if(name[name.size()-1] == '>') name += ' ';
+            name += '>';
+        }
+
+    std::ostringstream aliasbuf;
+    aliasbuf << "t" << combination;
+    std::string alias = aliasbuf.str();
 
     if(DoneCombinations.find(combination) == DoneCombinations.end())
     {
+        if(!n_factories)
+        {
+            Classes <<
+                "#define MakePixelCombination(alias,type) \\\n"
+                "    typedef type alias; \\\n"
+                "    template<> \\\n"
+                "    const char PixelAccessMethodName<alias>::name[] = #type\n"
+                "\n";
+        }
         ++n_factories;
         DoneCombinations.insert(combination);
-        std::string name = CombinationName.str();
 
-        Classes
-            << "struct " << name << ": private DummyPixel";
-        for(unsigned n=0; n<nmethods; ++n)
-            if(combination & (1 << n))
-                Classes << ", private " << Methods[n].name;
-        Classes
-            << "\n"
-               "{\n";
-        Classes <<
-            "    static const char name[];\n"
-            "    inline void set(unsigned timer, uint32 v) FastPixelMethod\n"
-            "    {\n";
-        for(unsigned n=0; n<nmethods; ++n)
-            if(combination & (1 << n))
-            {
-                Classes << "        " << Methods[n].name << "::set(timer,v);\n";
-            }
-        Classes <<
-            "    }\n"
-            "    static uint32 (" << name << "::*const methods[NPixelMethods])(unsigned)const;\n"
-            "};\n"
-            "uint32 (" << name << "::*const " << name << "::methods[NPixelMethods])(unsigned)const =\n"
-            "{\n";
-        for(unsigned p=0; p<NPixelMethods; ++p)
-        {
-            bool used=false;
-            for(unsigned n=0; n<nmethods; ++n)
-                if((combination & (1 << n))
-                && (Methods[n].traits & (1 << p)))
-                {
-                    Classes << "    &" << Methods[n].name << "::Get" << PixelMethodNames[p] << ",\n";
-                    used=true;
-                    break;
-                }
-            if(!used)
-                Classes << "    &DummyPixel::GetDummy,\n";
-        }
-        Classes <<
-            "};\n"
-            "const char " << name << "::name[] = \"" << name << "\";\n";
+        Classes << "MakePixelCombination(" << alias << ", " << name << ");\n";
     }
 
-    std::string namestr = CombinationName.str();
+    return alias;
+}
+
+static void PutResult(unsigned long input, unsigned long combination)
+{
+    std::string namestr = MakeCombination(combination);
 
     if(NameTable.find(namestr) == NameTable.end())
     {
@@ -139,7 +120,7 @@ static bool OkBitmask(unsigned n, unsigned maxbits)
 }
 
 static std::vector<std::string> FactoryTableData;
-unsigned FindTableOffset(const std::vector<std::string>& names)
+static unsigned FindTableOffset(const std::vector<std::string>& names)
 {
     unsigned begin=0;
     for(; begin < FactoryTableData.size(); ++begin)
@@ -167,7 +148,7 @@ unsigned FindTableOffset(const std::vector<std::string>& names)
     return begin;
 }
 
-void CreateFactoryTable()
+static void CreateFactoryTable()
 {
     FactoryTable <<
         "    static const FactoryType* const table[" << FactoryTableData.size() << "] =\n"
@@ -183,7 +164,7 @@ void CreateFactoryTable()
         "    };\n";
 }
 
-void CreateFactoryIndex(std::vector<bool> done)
+static void CreateFactoryIndex(std::vector<bool> done)
 {
     const unsigned n = NameList.size();
 
@@ -198,19 +179,6 @@ void CreateFactoryIndex(std::vector<bool> done)
                 }
         if(!remain) break;
 
-        /*if(max_remain - min_remain + 1 <= 32)
-        {
-            FactoryIndex << "static const unsigned char table[] = {\n";
-            for(unsigned a=min_remain;  a<=max_remain; ++a)
-            {
-                if(a != min_remain) FactoryIndex << ",";
-                if((a-min_remain)==32) FactoryIndex << "\n";
-                FactoryIndex << NameList[a];
-            }
-            FactoryIndex << "};\n";
-            FactoryIndex << "return table[index - " << min_remain << "];\n";
-            break;
-        }*/
         int best_add=0;
         unsigned best_mask=0;
         double best_score=0;
@@ -359,9 +327,9 @@ void CreateFactoryIndex(std::vector<bool> done)
                         done[a] = true;
                 }
                 if(miscoverage_min == 0)
-                    FactoryIndex << "    if(index < " << (miscoverage_max+1) << ") {\n";
+                    FactoryIndex << "    if(featuremask < " << (miscoverage_max+1) << ") {\n";
                 else
-                    FactoryIndex << "    if(index >= " << miscoverage_min << " && index <= " << miscoverage_max << ") {\n";
+                    FactoryIndex << "    if(featuremask >= " << miscoverage_min << " && featuremask <= " << miscoverage_max << ") {\n";
                 CreateFactoryIndex(child_simulated_done);
                 FactoryIndex << "    } /* " << miscoverage_min << ".." << miscoverage_max << " */\n";
                 //FactoryIndex << "/* Done recursion */\n";
@@ -372,7 +340,7 @@ void CreateFactoryIndex(std::vector<bool> done)
                 ++mask_downshift;
 
             std::ostringstream expr;
-            expr << "((index + " << best_add << ") >> " << mask_downshift << ") & " << (best_mask >> mask_downshift);
+            expr << "((featuremask + " << best_add << ") >> " << mask_downshift << ") & " << (best_mask >> mask_downshift);
 
             std::map<unsigned, std::string> SwitchOptions;
 
@@ -458,13 +426,13 @@ void CreateFactoryIndex(std::vector<bool> done)
             unsigned begin_offset = FindTableOffset(table);
 
             FactoryIndex <<
-                "    return table[(index - " << min_remain << ") + " << begin_offset << "];\n";
+                "    return table[(featuremask - " << min_remain << ") + " << begin_offset << "];\n";
             break;
         }
     }
 }
 
-void CreateFactoryIndex()
+static void CreateFactoryIndex()
 {
     const unsigned n = NameList.size();
     std::vector<bool> done(n, false);
@@ -473,13 +441,6 @@ void CreateFactoryIndex()
 
 int main()
 {
-    Classes <<
-        "struct DummyPixel\n"
-        "{\n"
-        "    uint32 GetDummy(unsigned=0) const FasterPixelMethod { return 0; }\n"
-        "};\n"
-        "\n";
-
     for(unsigned long a=0; a<ncombinations; ++a)
     {
         unsigned long best_m    = 0;
@@ -505,17 +466,26 @@ int main()
         }
         PutResult(a, best_m);
     }
-    std::cout << Classes.str();
 
     CreateFactoryIndex();
     CreateFactoryTable();
-    std::cout <<
-        "\n"
-        "const FactoryType* FindFactory(unsigned index)\n"
+
+    std::cout
+    <<  Classes.str()
+    <<  "\n"
+        "/* FindFactory() returns a FactoryType for the smallest pixel\n"
+        " * type that implements all features indicated in @featuremask.\n"
+        " * It does so by the means of an algorithm generated\n"
+        " * by the makepixels program provided in animmerger\n"
+        " * source code package.\n"
+        " * @featuremask is a bitmask of requested PixelMethods.\n"
+        " * Range: 0 < @featuremask < " << ncombinations << "\n"
+        " * where " << ncombinations << " = 2**NPixelMethods\n"
+        " */\n"
+        "const FactoryType* FindFactory(unsigned featuremask)\n"
         "{\n"
     <<  FactoryTable.str()
     <<  FactoryIndex.str()
     <<  "    return 0;\n"
-        "}\n"
-        "\n";
+        "}\n";
 }

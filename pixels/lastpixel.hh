@@ -1,16 +1,14 @@
-class LastPixel
+template<typename Base=DummyPixel>
+class LastPixel: public Base
 {
     uint32 pix;
 public:
     LastPixel() : pix(DefaultPixel)
     {
     }
-    void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
+    void set(uint32 p, unsigned timer=0) FasterPixelMethod
     {
-        set(((R) << 16) + ((G) << 8) + B);
-    }
-    void set(uint32 p, unsigned=0) FasterPixelMethod
-    {
+        Base::set(p,timer);
         pix = p;
     }
 
@@ -24,5 +22,6 @@ public:
     }
 /////////
     static const unsigned long Traits =
-        (1ul << pm_LastPixel);
+        Base::Traits
+      | (1ul << pm_LastPixel);
 };

@@ -3,22 +3,19 @@
 
 #include "vectype.hh"
 
-class LoopingLogPixel
+template<typename Base=DummyPixel>
+class LoopingLogPixel: public Base
 {
-    MostUsedPixel most_used;
+    MostUsedPixel<> most_used;
 
-    VecType<LastPixel> history;
+    VecType<LastPixel<> > history;
 public:
     LoopingLogPixel(): history(LoopingLogLength)
     {
     }
-    void set(unsigned R,unsigned G,unsigned B, unsigned timer) FasterPixelMethod
-    {
-        uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p, timer);
-    }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
+        Base::set(p,timer);
         most_used.set(p);
 
         unsigned offs = timer % LoopingLogLength;
@@ -57,6 +54,7 @@ public:
     }
 /////////
     static const unsigned long Traits =
-        (1ul << pm_LoopingLogPixel)
-      | MostUsedPixel::Traits;
+        Base::Traits
+      | (1ul << pm_LoopingLogPixel)
+      | MostUsedPixel<>::Traits;
 };

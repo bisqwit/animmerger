@@ -165,6 +165,8 @@ int main(int argc, char** argv)
                     "Different combinations of pixel methods require different\n"
                     "amounts of memory. Use the -v option to see how much memory\n"
                     "is required per pixel when using different options.\n"
+                    "animmerger always strives to choose the smallest pixel\n"
+                    "implementation that provides all of the requested features.\n"
                     "\n");
                 return 0;
             }
