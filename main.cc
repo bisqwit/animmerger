@@ -240,30 +240,12 @@ int main(int argc, char** argv)
             case 'p':
             {
                 char* arg = optarg;
-                if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    pixelmethod = pm_AveragePixel;
-                else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    pixelmethod = pm_LastPixel;
-                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
-                    pixelmethod = pm_FirstPixel;
-                else if(strcmp(arg, "L") == 0 || strcmp(arg, "lastnmost") == 0)
-                    pixelmethod = pm_LastNMostPixel;
-                else if(strcmp(arg, "F") == 0 || strcmp(arg, "firstnmost") == 0)
-                    pixelmethod = pm_FirstNMostPixel;
-                else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    pixelmethod = pm_MostUsedPixel;
-                else if(strcmp(arg, "e") == 0 || strcmp(arg, "leastused") == 0)
-                    pixelmethod = pm_LeastUsedPixel;
-                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
-                    pixelmethod = pm_ActionAvgPixel;
-                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
-                    pixelmethod = pm_ChangeLogPixel;
-                else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
-                    pixelmethod = pm_LoopingLogPixel;
-                else if(strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0)
-                    pixelmethod = pm_LoopingLastPixel;
-                else if(strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
-                    pixelmethod = pm_LoopingAvgPixel;
+                if(false) {}
+                #define TestMethod(optchar,f,name) \
+                    else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                        pixelmethods_result = 1ul << pm_##name##Pixel;
+                DefinePixelMethods(TestMethod)
+                #undef TestMethod
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
@@ -274,38 +256,26 @@ int main(int argc, char** argv)
             case 'b':
             {
                 char* arg = optarg;
-                if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    bgmethod = pm_AveragePixel;
-                else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    bgmethod = pm_LastPixel;
-                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
-                    bgmethod = pm_FirstPixel;
-                else if(strcmp(arg, "L") == 0 || strcmp(arg, "lastnmost") == 0)
-                    bgmethod = pm_LastNMostPixel;
-                else if(strcmp(arg, "F") == 0 || strcmp(arg, "firstnmost") == 0)
-                    bgmethod = pm_FirstNMostPixel;
-                else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    bgmethod = pm_MostUsedPixel;
-                else if(strcmp(arg, "e") == 0 || strcmp(arg, "leastused") == 0)
-                    bgmethod = pm_LeastUsedPixel;
-                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
-                    bgmethod = pm_ActionAvgPixel;
-                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0
-                     || strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0
-                     || strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0
-                     || strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
-                {
-                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
-                }
+                if(false) {}
+                #define TestMethod(optchar,f,name) \
+                    else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                    { \
+                        if(f & 1) goto is_animated; \
+                        bgmethod = pm_##name##Pixel; \
+                    }
+                DefinePixelMethods(TestMethod)
+                #undef TestMethod
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized bgmethod: %s\n", arg);
                     return -1;
+                is_animated:
+                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
                 }
                 break;
             }
             case 'g':
-                SaveGif = true;
+                SaveGif = 1;
                 break;
         }
     }

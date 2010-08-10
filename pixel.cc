@@ -8,8 +8,9 @@ int      FirstLastLength     = 16;
 #include "pixel.hh"
 #include "pixels.hh"
 
-enum PixelMethod pixelmethod = pm_MostUsedPixel;
-enum PixelMethod bgmethod    = pm_MostUsedPixel;
+unsigned long pixelmethods_result = (1ul << NPixelMethods) - 1;
+
+enum PixelMethod bgmethod = pm_MostUsedPixel;
 
 template<typename T>
 struct Array256x256of: public Array256x256of_Base
@@ -20,14 +21,14 @@ public:
     Array256x256of() { }
     virtual ~Array256x256of() { }
 public:
-    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const
+    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const FastPixelMethod
     {
         return (data[index].*(T::methods[method]))(timer);
     }
 
     virtual uint32 GetStatic(unsigned index) const
     {
-        return GetLive(bgmethod, index, 0);
+        return (data[index].*(T::methods[bgmethod]))(0);
     }
 
     virtual void Set(unsigned index, uint32 p, unsigned timer)
@@ -60,9 +61,7 @@ namespace
     {
         inline const FactoryType* operator-> () const
         {
-            return &Factories[FactoryIndex[
-                pixelmethods_result
-              | (1ul << bgmethod)]];
+            return Factories[ pixelmethods_result | (1ul << bgmethod)];
         }
     };
 }

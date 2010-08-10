@@ -413,7 +413,8 @@ AlignResult Align(
     AlignResult result;
     result.suspect_reset = best_coord.length() > (16+16)
                  //      && (best_match < input_spots.size()/16)
-                       && (pixelmethod != pm_LoopingLogPixel);
+                 //      && (pixelmethod != pm_LoopingLogPixel)
+                         && false;
     result.offs_x        = best_coord.x;
     result.offs_y        = best_coord.y;
     return result;

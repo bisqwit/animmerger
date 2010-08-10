@@ -3,44 +3,66 @@
 
 #include "types.hh"
 
+/* This is the definite list of available pixel methods. */
+/* The order is arbitrary, but chosen so as to minimize
+ * the size of the operator[] function in PixelFactory.
+ * Params: option flag, animation flags, name
+ * animation flags & 1 = animated
+ * animation flags & 2 = looping
+ */
+#define DefinePixelMethods(callback) \
+    callback(o,3,LoopingLog) \
+    callback(f,0,First) \
+    callback(l,0,Last) \
+    callback(a,0,Average) \
+    callback(m,0,MostUsed) \
+    callback(e,0,LeastUsed) \
+    callback(t,0,ActionAvg) \
+    callback(c,1,ChangeLog) \
+    callback(v,3,LoopingAvg) \
+    callback(s,3,LoopingLast) \
+    callback(F,0,FirstNMost) \
+    callback(L,0,LastNMost)
+
+/* Create it as an enum */
+#define MakeEnum(o,f,name) pm_##name##Pixel,
+enum PixelMethod
+{
+    DefinePixelMethods(MakeEnum)
+    NPixelMethods
+};
+#undef MakeEnum
+
+
 extern bool OptimizeChangeLog;
 extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 
-enum PixelMethod
-{
-    pm_AveragePixel,
-    pm_LastPixel,
-    pm_FirstPixel,
-    pm_MostUsedPixel,
-    pm_LeastUsedPixel,
-    pm_ActionAvgPixel,
-    pm_ChangeLogPixel,
-    pm_LoopingLogPixel,
-    pm_LoopingAvgPixel,
-    pm_LoopingLastPixel,
-    pm_LastNMostPixel,
-    pm_FirstNMostPixel
-};
-static const char* const PixelMethodNames[] =
-    {"Average","Last","First","MostUsed","LeastUsed",
-     "ActionAvg","ChangeLog","LoopingLog","LoopingAvg",
-     "LoopingLast","LastNMost","FirstNMost"};
 
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;
 
-static const unsigned NPixelMethods = pm_FirstNMostPixel+1;
+#define MakeMask(o,flags,name) ((flags&1) ? (1ul << pm_##name##Pixel) : 0) |
 static const unsigned long AnimatedPixelMethodsMask =
-    (1ul << pm_ChangeLogPixel)
-  | (1ul << pm_LoopingLogPixel)
-  | (1ul << pm_LoopingAvgPixel)
-  | (1ul << pm_LoopingLastPixel);
+    DefinePixelMethods(MakeMask)
+0;
+#undef MakeMask
+#define MakeMask(o,flags,name) ((flags&2) ? (1ul << pm_##name##Pixel) : 0) |
 static const unsigned long LoopingPixelMethodsMask =
-    (1ul << pm_LoopingLogPixel)
-  | (1ul << pm_LoopingAvgPixel)
-  | (1ul << pm_LoopingLastPixel);
+    DefinePixelMethods(MakeMask)
+0;
+#undef MakeMask
+
+
+#ifdef __GNUC__
+# define FastPixelMethod __attribute__((regparm(6)))
+# define FasterPixelMethod __attribute__((regparm(6),always_inline))
+#else
+# define FastPixelMethod
+# define FasterPixelMethod
+#endif
+
 
 /* A vector of 256x256 pixels. */
 /* Each pixel has two traits:
@@ -50,8 +72,11 @@ static const unsigned long LoopingPixelMethodsMask =
 struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
-    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const = 0;
+
+    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const FastPixelMethod = 0;
+
     virtual uint32 GetStatic(unsigned index) const = 0;
+
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
 };
 class UncertainPixelVector256x256

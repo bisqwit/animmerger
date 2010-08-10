@@ -4,7 +4,7 @@
 # The same program is used in many different projects to create
 # the README.html file from progdesc.php.
 #
-# docmaker.php version 1.2.0
+# docmaker.php version 1.2.1
 
 # Copyright (C) 2000,2004 Bisqwit (http://iki.fi/bisqwit/)
 
@@ -23,7 +23,7 @@
 
 @$archivename = $argv[1];
 @$docmodulefn = $argv[2];
-$docformatfn = '/WWW/document.php';
+$docformatfn = 'doc/document.php';
 
 if(!$docmodulefn) $docmodulefn = 'progdesc.php';
 
@@ -99,7 +99,7 @@ $text['download:99999. Downloading'] = $k;
 include $docformatfn;
 
 $st1 = stat($docmodulefn);
-$st2 = stat('docmaker.php');
+$st2 = stat($argv[0]);
 ?>
  <p align=right><small>Generated from
        <tt><?=$docmodulefn?></tt> (last updated: <?=date('r', $st1[9])?>)<br>
