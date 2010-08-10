@@ -1,15 +1,14 @@
 #include "types.hh"
 
 bool     OptimizeChangeLog   = true;
-unsigned AnimationBlurLength = 4;
+unsigned AnimationBlurLength = 0;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
 
 #include "pixel.hh"
 #include "pixels.hh"
 
-unsigned long pixelmethods_result = (1ul << NPixelMethods) - 1;
-
+unsigned long pixelmethods_result = 1ul << pm_MostUsedPixel;
 enum PixelMethod bgmethod = pm_MostUsedPixel;
 
 template<typename T>
@@ -34,6 +33,16 @@ public:
     virtual void Set(unsigned index, uint32 p, unsigned timer)
     {
         data[index].set(p, timer);
+    }
+
+    virtual unsigned GetPixelSize() const
+    {
+        return sizeof(T);
+    }
+
+    virtual const char* GetPixelSetupName() const
+    {
+        return T::name;
     }
 };
 
@@ -98,4 +107,20 @@ UncertainPixelVector256x256&
     else if(data) Get256x256pixelFactory()->Assign(*data, *b.data);
     else data = Get256x256pixelFactory()->Copy(*b.data);
     return *this;
+}
+
+unsigned GetPixelSizeInBytes()
+{
+    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
+    unsigned result = p->GetPixelSize();
+    delete p;
+    return result;
+}
+
+const char* GetPixelSetupName()
+{
+    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
+    const char* result = p->GetPixelSetupName();
+    delete p;
+    return result;
 }

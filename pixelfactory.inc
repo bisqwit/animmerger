@@ -5,6 +5,7 @@ struct DummyPixel
 
 struct PixCombination_LastPixel: private DummyPixel, private LastPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -26,8 +27,10 @@ uint32 (PixCombination_LastPixel::*const PixCombination_LastPixel::methods[NPixe
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel::name[] = "PixCombination_LastPixel";
 struct PixCombination_FirstPixel: private DummyPixel, private FirstPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         FirstPixel::set(timer,v);
@@ -49,8 +52,10 @@ uint32 (PixCombination_FirstPixel::*const PixCombination_FirstPixel::methods[NPi
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_FirstPixel::name[] = "PixCombination_FirstPixel";
 struct PixCombination_LastPixel_FirstPixel: private DummyPixel, private LastPixel, private FirstPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -73,8 +78,10 @@ uint32 (PixCombination_LastPixel_FirstPixel::*const PixCombination_LastPixel_Fir
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel_FirstPixel::name[] = "PixCombination_LastPixel_FirstPixel";
 struct PixCombination_LoopingLogPixel: private DummyPixel, private LoopingLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LoopingLogPixel::set(timer,v);
@@ -96,8 +103,10 @@ uint32 (PixCombination_LoopingLogPixel::*const PixCombination_LoopingLogPixel::m
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LoopingLogPixel::name[] = "PixCombination_LoopingLogPixel";
 struct PixCombination_FirstPixel_LoopingLogPixel: private DummyPixel, private FirstPixel, private LoopingLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         FirstPixel::set(timer,v);
@@ -120,8 +129,10 @@ uint32 (PixCombination_FirstPixel_LoopingLogPixel::*const PixCombination_FirstPi
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_FirstPixel_LoopingLogPixel::name[] = "PixCombination_FirstPixel_LoopingLogPixel";
 struct PixCombination_LastPixel_LoopingLogPixel: private DummyPixel, private LastPixel, private LoopingLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -144,8 +155,10 @@ uint32 (PixCombination_LastPixel_LoopingLogPixel::*const PixCombination_LastPixe
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel_LoopingLogPixel::name[] = "PixCombination_LastPixel_LoopingLogPixel";
 struct PixCombination_LastPixel_FirstPixel_LoopingLogPixel: private DummyPixel, private LastPixel, private FirstPixel, private LoopingLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -169,8 +182,10 @@ uint32 (PixCombination_LastPixel_FirstPixel_LoopingLogPixel::*const PixCombinati
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel_FirstPixel_LoopingLogPixel::name[] = "PixCombination_LastPixel_FirstPixel_LoopingLogPixel";
 struct PixCombination_AveragePixel: private DummyPixel, private AveragePixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         AveragePixel::set(timer,v);
@@ -192,8 +207,10 @@ uint32 (PixCombination_AveragePixel::*const PixCombination_AveragePixel::methods
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_AveragePixel::name[] = "PixCombination_AveragePixel";
 struct PixCombination_FirstPixel_AveragePixel: private DummyPixel, private FirstPixel, private AveragePixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         FirstPixel::set(timer,v);
@@ -216,8 +233,10 @@ uint32 (PixCombination_FirstPixel_AveragePixel::*const PixCombination_FirstPixel
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_FirstPixel_AveragePixel::name[] = "PixCombination_FirstPixel_AveragePixel";
 struct PixCombination_LastPixel_AveragePixel: private DummyPixel, private LastPixel, private AveragePixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -240,8 +259,10 @@ uint32 (PixCombination_LastPixel_AveragePixel::*const PixCombination_LastPixel_A
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel_AveragePixel::name[] = "PixCombination_LastPixel_AveragePixel";
 struct PixCombination_LastPixel_FirstPixel_AveragePixel: private DummyPixel, private LastPixel, private FirstPixel, private AveragePixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
@@ -265,8 +286,10 @@ uint32 (PixCombination_LastPixel_FirstPixel_AveragePixel::*const PixCombination_
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_LastPixel_FirstPixel_AveragePixel::name[] = "PixCombination_LastPixel_FirstPixel_AveragePixel";
 struct PixCombination_MostUsedPixel: private DummyPixel, private MostUsedPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         MostUsedPixel::set(timer,v);
@@ -288,8 +311,10 @@ uint32 (PixCombination_MostUsedPixel::*const PixCombination_MostUsedPixel::metho
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
+const char PixCombination_MostUsedPixel::name[] = "PixCombination_MostUsedPixel";
 struct PixCombination_ChangeLogPixel: private DummyPixel, private ChangeLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         ChangeLogPixel::set(timer,v);
@@ -311,8 +336,10 @@ uint32 (PixCombination_ChangeLogPixel::*const PixCombination_ChangeLogPixel::met
     &ChangeLogPixel::GetFirstNMost,
     &ChangeLogPixel::GetLastNMost,
 };
+const char PixCombination_ChangeLogPixel::name[] = "PixCombination_ChangeLogPixel";
 struct PixCombination_LoopingLogPixel_ChangeLogPixel: private DummyPixel, private LoopingLogPixel, private ChangeLogPixel
 {
+    static const char name[];
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LoopingLogPixel::set(timer,v);
@@ -335,6 +362,7 @@ uint32 (PixCombination_LoopingLogPixel_ChangeLogPixel::*const PixCombination_Loo
     &ChangeLogPixel::GetFirstNMost,
     &ChangeLogPixel::GetLastNMost,
 };
+const char PixCombination_LoopingLogPixel_ChangeLogPixel::name[] = "PixCombination_LoopingLogPixel_ChangeLogPixel";
 
 const FactoryType* FindFactory(unsigned index)
 {

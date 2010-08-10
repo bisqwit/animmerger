@@ -298,12 +298,12 @@ void TILE_Tracker::SaveFrame(unsigned method, unsigned frameno, unsigned img_cou
     {
         // Multi-method output
         #define MakePixName(o,f,name) #name"-",
-        static const char* const PixelMethodNames[NPixelMethods] =
+        static const char* const Templates[NPixelMethods] =
         {
              DefinePixelMethods(MakePixName)
         };
         #undef MakePixName
-        nametemplate = PixelMethodNames[method];
+        nametemplate = Templates[method];
     }
 
     if(SaveGif == 1 || animated)

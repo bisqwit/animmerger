@@ -8,7 +8,9 @@
  * the size of the operator[] function in PixelFactory.
  * Params: option flag, animation flags, name
  * animation flags & 1 = animated
- * animation flags & 2 = looping
+ * animation flags & 2 = obeys looplength
+ * animation flags & 4 = obeys blur
+ * animation flags & 8 = obeys firstlastlength
  */
 #define DefinePixelMethods(callback) \
     callback(f,0,First) \
@@ -18,11 +20,11 @@
     callback(m,0,MostUsed) \
     callback(t,0,ActionAvg) \
     callback(e,0,LeastUsed) \
-    callback(c,1,ChangeLog) \
+    callback(c,5,ChangeLog) \
     callback(v,3,LoopingAvg) \
     callback(s,3,LoopingLast) \
-    callback(F,0,FirstNMost) \
-    callback(L,0,LastNMost)
+    callback(F,8,FirstNMost) \
+    callback(L,8,LastNMost)
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,
@@ -53,6 +55,16 @@ static const unsigned long LoopingPixelMethodsMask =
     DefinePixelMethods(MakeMask)
 0;
 #undef MakeMask
+#define MakeMask(o,flags,name) ((flags&4) ? (1ul << pm_##name##Pixel) : 0) |
+static const unsigned long BlurCapablePixelMethodsMask =
+    DefinePixelMethods(MakeMask)
+0;
+#undef MakeMask
+#define MakeMask(o,flags,name) ((flags&8) ? (1ul << pm_##name##Pixel) : 0) |
+static const unsigned long FirstLastPixelMethodsMask =
+    DefinePixelMethods(MakeMask)
+0;
+#undef MakeMask
 
 
 #ifdef __GNUC__
@@ -78,6 +90,9 @@ struct Array256x256of_Base
     virtual uint32 GetStatic(unsigned index) const = 0;
 
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
+
+    virtual unsigned GetPixelSize() const = 0;
+    virtual const char* GetPixelSetupName() const = 0;
 };
 class UncertainPixelVector256x256
 {
@@ -121,5 +136,8 @@ public:
 private:
     Array256x256of_Base* data;
 };
+
+unsigned GetPixelSizeInBytes();
+const char* GetPixelSetupName();
 
 #endif

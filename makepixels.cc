@@ -71,19 +71,8 @@ static void PutResult(unsigned long input, unsigned long combination)
         Classes
             << "\n"
                "{\n";
-        /*for(unsigned p=0; p<NPixelMethods; ++p)
-        {
-            bool used=false;
-            for(unsigned n=0; n<nmethods; ++n)
-                if((combination & (1 << n))
-                && (Methods[n].traits & (1 << p)))
-                {
-                    Classes << "    using " << Methods[n].name << "::Get" << PixelMethodNames[p] << ";\n";
-                    used=true;
-                    break;
-                }
-        }*/
         Classes <<
+            "    static const char name[];\n"
             "    inline void set(unsigned timer, uint32 v) FastPixelMethod\n"
             "    {\n";
         for(unsigned n=0; n<nmethods; ++n)
@@ -112,7 +101,8 @@ static void PutResult(unsigned long input, unsigned long combination)
                 Classes << "    &DummyPixel::GetDummy,\n";
         }
         Classes <<
-            "};\n";
+            "};\n"
+            "const char " << name << "::name[] = \"" << name << "\";\n";
     }
 
     std::string namestr = CombinationName.str();
