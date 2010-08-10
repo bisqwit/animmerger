@@ -164,7 +164,7 @@ int main(int argc, char** argv)
                     "\n"
                     "Different combinations of pixel methods require different\n"
                     "amounts of memory. Use the -v option to see how much memory\n"
-                    "is required by pixel when using different options.\n"
+                    "is required per pixel when using different options.\n"
                     "\n");
                 return 0;
             }
