@@ -13,8 +13,16 @@ public:
     {
         pix = p;
     }
+
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
         return pix;
     }
+    inline uint32 GetLast(unsigned=0) const FasterPixelMethod
+    {
+        return pix;
+    }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_LastPixel);
 };

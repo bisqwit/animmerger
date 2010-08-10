@@ -5,7 +5,7 @@
 
 #include "openmp.hh"
 
-bool SaveGif = false;
+int SaveGif = -1;
 
 static inline bool veq
     (const VecType<uint32>& a,
@@ -20,12 +20,12 @@ struct LoadCubeHelper
     VecType<uint32>& result;
     unsigned this_cube_ystart, this_cube_yend;
     unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx, targetpos, timer;
+    unsigned sx, targetpos, timer, method;
 
-    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g)
+    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g,unsigned h)
         : result(r), this_cube_ystart(a), this_cube_yend(b),
           this_cube_xstart(c), this_cube_xend(d),
-          sx(e), targetpos(f), timer(g) { }
+          sx(e), targetpos(f), timer(g), method(h) { }
 
     template<typename Cube>
     void operator() (const Cube& cube) const
@@ -37,7 +37,7 @@ struct LoadCubeHelper
             unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
             unsigned destp =   sx*y + targetpos        - this_cube_xstart;
             for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                result[destp + xp] = cube.GetLive(srcp + xp, timer);
+                result[destp + xp] = cube.GetLive(method, srcp + xp, timer);
         }
     }
 };
@@ -70,7 +70,8 @@ struct UpdateCubeHelper
 
 const VecType<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
-                         unsigned timer) const
+                         unsigned timer,
+                         unsigned method) const
 {
     // Create the result vector filled with default pixel value
     VecType<uint32> result(sy*sx, DefaultPixel);
@@ -130,7 +131,7 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                             this_cube_xstart,
                             this_cube_xend,
                             sx, targetpos,
-                            timer) );
+                            timer, method) );
                 }
 
                 unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
@@ -226,66 +227,61 @@ TILE_Tracker::PutScreen
     }
 }
 
-void TILE_Tracker::Save()
+void TILE_Tracker::Save(unsigned method)
 {
-    const bool animated = pixelmethod == pm_LoopingLogPixel
-                       || pixelmethod == pm_LoopingLastPixel
-                       || pixelmethod == pm_ChangeLogPixel
-                       || pixelmethod == pm_LoopingAvgPixel;
+    if(CurrentTimer == 0)
+        return;
 
-    if(animated)
-        std::fprintf(stderr, "Saving(%d,%d)\n", first,CurrentTimer);
-    else
-        std::fprintf(stderr, "Saving(%d)\n", first);
-    if(first) return;
+    if(method == ~0u)
+    {
+        for(unsigned m=0; m<NPixelMethods; ++m)
+        {
+            if(pixelmethods_result & (1ul << m))
+                Save(m);
+        }
+        return;
+    }
+
+    const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
+
+    std::fprintf(stderr, "Saving(%d)\n", CurrentTimer);
 
     if(animated)
     {
-        static bool Saving = false;
-        if(!Saving)
+        unsigned SavedTimer = CurrentTimer;
+
+        if((1ul << method) & LoopingPixelMethodsMask)
         {
-            Saving = true;
-            unsigned SavedTimer = CurrentTimer;
-
-            if(pixelmethod == pm_LoopingLogPixel
-            || pixelmethod == pm_LoopingLastPixel
-            || pixelmethod == pm_LoopingAvgPixel)
-            {
-                if(SavedTimer >= LoopingLogLength)
-                    SavedTimer = LoopingLogLength;
-            }
-
-            #pragma omp parallel for schedule(dynamic) ordered
-            for(unsigned frame=0; frame<SavedTimer; frame+=1)
-            {
-                std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
-                    frame, SavedTimer, SequenceBegin);
-                SaveFrame(frame, SequenceBegin + frame);
-            }
-
-            CurrentTimer  = SavedTimer;
-            Saving = false;
+            if(SavedTimer >= LoopingLogLength)
+                SavedTimer = LoopingLogLength;
         }
-        else
+
+        #pragma omp parallel for schedule(dynamic) ordered
+        for(unsigned frame=0; frame<SavedTimer; frame+=1)
         {
-            fflush(stdout);
+            //std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
+            //    frame, SavedTimer, SequenceBegin);
+            SaveFrame(method, frame, SequenceBegin + frame);
         }
+
+        fflush(stdout);
     }
     else
     {
-        static unsigned count = 0;
         /* This dummy OMP loop is required, because SaveFrame()
          * contains an ordered statement, which must never exist
          * without a surrounding "for ordered" statement context.
          */
       #pragma omp parallel for ordered schedule(static,1)
         for(unsigned dummy=0; dummy<1; ++dummy)
-            SaveFrame(0, count++);
+            SaveFrame(method, 0, SequenceBegin);
     }
 }
 
-void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
+void TILE_Tracker::SaveFrame(unsigned method, unsigned frameno, unsigned img_counter)
 {
+    const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
+
     const int ymi = ymin, yma = ymax;
     const int xmi = xmin, xma = xmax;
 
@@ -294,22 +290,35 @@ void TILE_Tracker::SaveFrame(unsigned frameno, unsigned img_counter)
 
     if(wid <= 1 || hei <= 1) return;
 
-    std::fprintf(stderr, " (%d,%d)-(%d,%d)\n", 0,0, xma-xmi, yma-ymi);
-    std::fflush(stderr);
-
-    VecType<uint32> screen ( LoadScreen(xmi,ymi, wid,hei, frameno) );
+    VecType<uint32> screen ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
-    if(SaveGif)
-        std::sprintf(Filename, "tile-%04u.gif", img_counter);
+    const char* nametemplate = "tile-";
+    if(pixelmethods_result != (1ul << method))
+    {
+        // Multi-method output
+        #define MakePixName(o,f,name) #name"-",
+        static const char* const Templates[NPixelMethods] =
+        {
+             DefinePixelMethods(MakePixName)
+        };
+        #undef MakePixName
+        nametemplate = Templates[method];
+    }
+
+    if(SaveGif == 1 || animated)
+        std::sprintf(Filename, "%s%04u.gif", nametemplate, img_counter);
     else
-        std::sprintf(Filename, "tile-%04u.png", img_counter);
+        std::sprintf(Filename, "%s%04u.png", nametemplate, img_counter);
+
+    std::fprintf(stderr, "%s: (%d,%d)-(%d,%d)\n", Filename, 0,0, xma-xmi, yma-ymi);
+    std::fflush(stderr);
 
     bool was_identical = false;
 
   #pragma omp ordered
   {
-    if(pixelmethod == pm_ChangeLogPixel)
+    if(animated)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
@@ -477,7 +486,7 @@ void TILE_Tracker::FitScreen
 #if 0
         goto AlwaysReset;
 #endif
-        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y, CurrentTimer);
+        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y, CurrentTimer, bgmethod);
         unsigned diff = 0;
         for(unsigned a=0; a<oldbuf.size(); ++a)
         {
@@ -506,17 +515,18 @@ void TILE_Tracker::FitScreen
 #else
 #if 1
         //AlwaysReset:
-            SaveAndReset();
+            Save();
+            Reset();
 #endif
 #endif
         }
     }
 
+    const bool first = CurrentTimer == 0;
     if(first || this_org_x < xmin) xmin = this_org_x;
     if(first || this_org_y < ymin) ymin = this_org_y;
     int xtmp = this_org_x+max_x; if(first || xtmp > xmax) xmax=xtmp;
     int ytmp = this_org_y+max_y; if(first || ytmp > ymax) ymax=ytmp;
-    first=false;
 
 #if 0
     /* If the image geometry would exceed some bounds */
@@ -541,7 +551,6 @@ void TILE_Tracker::Reset()
     org_y = 0x40000000;
     xmin=xmax=org_x;
     ymin=ymax=org_y;
-    first = true;
 }
 
 void TILE_Tracker::NextFrame()

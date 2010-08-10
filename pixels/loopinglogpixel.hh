@@ -41,29 +41,22 @@ public:
 
     inline uint32 GetMostUsed(unsigned=0) const FasterPixelMethod
     {
-        return most_used.get();
+        return most_used.GetMostUsed();
     }
-
+    inline uint32 GetLeastUsed(unsigned=0) const FasterPixelMethod
+    {
+        return most_used.GetLeastUsed();
+    }
     inline uint32 GetAverage(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetAverage();
     }
-
     inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetActionAvg();
     }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_LoopingLogPixel)
+      | MostUsedPixel::Traits;
 };
-
-/*
-LoopingLog defines these:
-
-    GetLoopingLog
-    GetMostUsed    (CHILD, NOT UNIQUE)
-    GetAverage     (CHILD EMULATED, NOT UNIQUE)
-    GetActionAvg   (CHILD EMULATED, NOT UNIQUE)
-*/
-
-DefineBasePair(LoopingLogPixel, LoopingLog,MostUsed)
-DefineBasePair(LoopingLogPixel, LoopingLog,Average)
-DefineBasePair(LoopingLogPixel, LoopingLog,ActionAvg)

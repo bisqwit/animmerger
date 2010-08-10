@@ -72,10 +72,16 @@ public:
         if(res == DefaultPixel) return most;
         return res;
     }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_MostUsedPixel)
+      | (1ul << pm_LeastUsedPixel)
+      | (1ul << pm_AveragePixel)
+      | (1ul << pm_ActionAvgPixel);
 };
 
-/*** MOSTUSED VARIANTS ***/
 
+// These variants are needed by ChangeLog to simplify templates
 struct ActionAvgPixel: public MostUsedPixel
 {
     inline uint32 get(unsigned=0) const FasterPixelMethod
@@ -90,21 +96,3 @@ struct LeastUsedPixel: public MostUsedPixel
         return GetLeastUsed();
     }
 };
-
-/*
-MostUsed defines these:
-
-    GetMostUsed
-    GetLeastUsed   (UNIQUE)
-    GetActionAvg   (NOT UNIQUE)
-    GetAverage     (EMULATED, NOT UNIQUE)
-*/
-
-DefineBasePair(MostUsedPixel, MostUsed,Average)
-DefineBasePair(MostUsedPixel, MostUsed,LeastUsed)
-DefineBasePair(MostUsedPixel, MostUsed,ActionAvg)
-
-DefineBasePair(MostUsedPixel, ActionAvg,Average)
-DefineBasePair(MostUsedPixel, ActionAvg,LeastUsed)
-
-DefineBasePair(MostUsedPixel, LeastUsed,Average)
