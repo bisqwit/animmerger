@@ -39,19 +39,23 @@ static const unsigned long nmethod_combinations = 1ul << nmethods;
 
 static std::map<std::string, unsigned> NameTable;
 static std::vector<unsigned> NameList;
+static std::vector<std::string> NameTrans;
 
 static std::ostringstream Creations;
 static std::ostringstream Classes;
-static std::ostringstream NameDeclarations;
 static std::ostringstream NameDeclarationArray;
 static unsigned n_factories = 0;
+static std::ostringstream FactoryIndex, FactoryTable;
 
 static void PutResult(unsigned long input, unsigned long combination)
 {
     static std::set<unsigned long> DoneCombinations;
 
     std::ostringstream CombinationName;
-    CombinationName << "PixelMethod" << std::hex << combination;
+    CombinationName << "PixCombination";
+    for(unsigned n=0; n<nmethods; ++n)
+        if(combination & (1 << n))
+            CombinationName << "_" << Methods[n].name;
 
     if(DoneCombinations.find(combination) == DoneCombinations.end())
     {
@@ -119,11 +123,7 @@ static void PutResult(unsigned long input, unsigned long combination)
         NameTable[namestr] = nameid;
         NameList.push_back(nameid);
 
-        NameDeclarations
-        << "/*" << nameid << "\t*/\n"
-           "{ FactoryMethods<" << namestr << ">::Construct,\n"
-           "  FactoryMethods<" << namestr << ">::Copy,\n"
-           "  FactoryMethods<" << namestr << ">::Assign },\n";
+        NameTrans.push_back( "FactoryMethods<" + namestr + ">::data" );
     }
     else
     {
@@ -148,6 +148,51 @@ static bool OkBitmask(unsigned n, unsigned maxbits)
     return n < (1u << maxbits);
 }
 
+static std::vector<std::string> FactoryTableData;
+unsigned FindTableOffset(const std::vector<std::string>& names)
+{
+    unsigned begin=0;
+    for(; begin < FactoryTableData.size(); ++begin)
+    {
+        bool match=true, partial_match=false;
+        for(unsigned n=0; n<names.size(); ++n)
+        {
+            if(begin+n >= FactoryTableData.size())
+            {
+                partial_match=true;
+                break;
+            }
+            if(FactoryTableData[begin+n] != names[n])
+            {
+                match=false;
+                break;
+            }
+        }
+        if(partial_match) break;
+        if(match) return begin;
+    }
+    for(unsigned n=0; n<names.size(); ++n)
+        if(begin+n >= FactoryTableData.size())
+            FactoryTableData.push_back(names[n]);
+    return begin;
+}
+
+void CreateFactoryTable()
+{
+    FactoryTable <<
+        "    static const FactoryType* const table[" << FactoryTableData.size() << "] =\n"
+        "    {\n";
+    for(unsigned a=0; a<FactoryTableData.size(); ++a)
+    {
+        FactoryTable
+        <<  "    "
+            "/* " << std::setw(2) << a << " */ "
+            "&" << FactoryTableData[a] << ",\n";
+    }
+    FactoryTable <<
+        "    };\n";
+}
+
 void CreateFactoryIndex(std::vector<bool> done)
 {
     const unsigned n = NameList.size();
@@ -165,15 +210,15 @@ void CreateFactoryIndex(std::vector<bool> done)
 
         /*if(max_remain - min_remain + 1 <= 32)
         {
-            std::cout << "static const unsigned char table[] = {\n";
+            FactoryIndex << "static const unsigned char table[] = {\n";
             for(unsigned a=min_remain;  a<=max_remain; ++a)
             {
-                if(a != min_remain) std::cout << ",";
-                if((a-min_remain)==32) std::cout << "\n";
-                std::cout << NameList[a];
+                if(a != min_remain) FactoryIndex << ",";
+                if((a-min_remain)==32) FactoryIndex << "\n";
+                FactoryIndex << NameList[a];
             }
-            std::cout << "};\n";
-            std::cout << "return table[index - " << min_remain << "];\n";
+            FactoryIndex << "};\n";
+            FactoryIndex << "return table[index - " << min_remain << "];\n";
             break;
         }*/
         int best_add=0;
@@ -216,7 +261,7 @@ void CreateFactoryIndex(std::vector<bool> done)
                         if(j->second > mostcommon)
                             { mostcommon = j->second; mostvalue = j->first; }
                     results[i->first] = mostvalue;
-                    //std::cout << "/* " << i->first << ": " << mostvalue << "*/\n";
+                    //FactoryIndex << "/* " << i->first << ": " << mostvalue << "*/\n";
                 }
                 int coverage = 0, miscoverage = 0;
                 unsigned miscoverage_min=n, miscoverage_max=0;
@@ -270,7 +315,7 @@ void CreateFactoryIndex(std::vector<bool> done)
         }
       }
 
-        std::cout << "/* of remaining " << remain
+        FactoryIndex << "/* of remaining " << remain
                   << " [" << min_remain << ".." << max_remain << "]"
                   << ", coverage " << best_coverage
                   << ", miscoverage " << best_miscoverage
@@ -298,7 +343,7 @@ void CreateFactoryIndex(std::vector<bool> done)
                     if(j->second > mostcommon)
                         { mostcommon = j->second; mostvalue = j->first; }
                 results[i->first] = mostvalue;
-                //std::cout << "/* " << i->first << ": " << mostvalue << "*/\n";
+                //FactoryIndex << "/* " << i->first << ": " << mostvalue << "*/\n";
             }
 
             if(best_miscoverage > 0)
@@ -324,21 +369,22 @@ void CreateFactoryIndex(std::vector<bool> done)
                         done[a] = true;
                 }
                 if(miscoverage_min == 0)
-                    std::cout << "        if(index < " << (miscoverage_max+1) << ") {\n";
+                    FactoryIndex << "    if(index < " << (miscoverage_max+1) << ") {\n";
                 else
-                    std::cout << "        if(index >= " << miscoverage_min << " && index <= " << miscoverage_max << ") {\n";
+                    FactoryIndex << "    if(index >= " << miscoverage_min << " && index <= " << miscoverage_max << ") {\n";
                 CreateFactoryIndex(child_simulated_done);
-                std::cout << "        } /* " << miscoverage_min << ".." << miscoverage_max << " */\n";
-                //std::cout << "/* Done recursion */\n";
+                FactoryIndex << "    } /* " << miscoverage_min << ".." << miscoverage_max << " */\n";
+                //FactoryIndex << "/* Done recursion */\n";
             }
 
             unsigned mask_downshift = 0;
             while(  ((best_mask >> mask_downshift)&1) == 0)
                 ++mask_downshift;
 
-            std::cout <<
-                "        switch( ((index + " << best_add << ") >> " << mask_downshift << ") & " << (best_mask >> mask_downshift) << ")\n"
-                "        {\n";
+            std::ostringstream expr;
+            expr << "((index + " << best_add << ") >> " << mask_downshift << ") & " << (best_mask >> mask_downshift);
+
+            std::map<unsigned, std::string> SwitchOptions;
 
             for(std::map<unsigned, unsigned>::const_iterator
                 i = results.begin(); i != results.end();
@@ -348,12 +394,12 @@ void CreateFactoryIndex(std::vector<bool> done)
                 if(i->first
                 !=  ((i->first >> mask_downshift) << mask_downshift))
                 {
-                    std::cout << "    /* ERROR */\n";
+                    FactoryIndex << "    /* ERROR 1 */\n";
                 }
                 unsigned caseval = i->first >> mask_downshift;
-                std::cout
-                    << "            case " << caseval
-                    << ": return &FactoryList[" << i->second << "];\n";
+
+                SwitchOptions[caseval] = NameTrans[i->second];
+
                 for(unsigned a=0; a<n; ++a)
                 {
                     if(done[a]) continue;
@@ -364,28 +410,65 @@ void CreateFactoryIndex(std::vector<bool> done)
                         done[a] = true;
                         if(value != i->second)
                         {
-                            std::cout << "    /* ERROR */\n";
+                            FactoryIndex << "    /* ERROR 2 */\n";
                         }
                     }
                 }
             }
-            std::cout <<
-                "        }\n" << std::flush;
+
+            if(SwitchOptions.size() == (best_mask >> mask_downshift)+1
+            && (SwitchOptions.rbegin()->first - SwitchOptions.begin()->first + 1)
+                 == SwitchOptions.size()) // An uninterrupted array
+            {
+                std::vector<std::string> table;
+                for(std::map<unsigned, std::string>::const_iterator
+                    i = SwitchOptions.begin();
+                    i != SwitchOptions.end();
+                    ++i)
+                {
+                    table.push_back(i->second);
+                }
+                unsigned begin_offset = FindTableOffset(table);
+                FactoryIndex <<
+                    "    return table[(" << expr.str() << ") + " << begin_offset << "];\n";
+            }
+            else
+            {
+                FactoryIndex <<
+                    "    switch( " << expr.str() << " )\n"
+                    "    {\n";
+                for(std::map<unsigned, std::string>::const_iterator
+                    i = SwitchOptions.begin();
+                    i != SwitchOptions.end();
+                    ++i)
+                {
+                    FactoryIndex
+                        << "        case " << i->first
+                        << ": return &" << i->second << ";\n";
+                }
+                FactoryIndex <<
+                    "    }\n" << std::flush;
+            }
         }
         else
         {
-            std::cout <<
-                "          static const unsigned char table[" << (max_remain-min_remain+1) << "] = {";
+            if(min_remain == 0)
+            {
+                min_remain = 1; // Skip #0
+                // Because it never happens that no method is wanted at all.
+            }
+
+            best_mask = 0xFFFF;
+            std::vector<std::string> table;
             for(unsigned a=min_remain;  a<=max_remain; ++a)
             {
-                if(a != min_remain) std::cout << ",";
-                if((a-min_remain)%32 == 0) std::cout << "\n          ";
-                std::cout << std::setw(2);
-                std::cout << NameList[a];
+                table.push_back(NameTrans[NameList[a]]);
+                if((a-min_remain) >= best_mask) break;
             }
-            std::cout <<
-                "};\n"
-                "          return &FactoryList[table[index - " << min_remain << "]];\n";
+            unsigned begin_offset = FindTableOffset(table);
+
+            FactoryIndex <<
+                "    return table[(index - " << min_remain << ") + " << begin_offset << "];\n";
             break;
         }
     }
@@ -395,7 +478,6 @@ void CreateFactoryIndex()
 {
     const unsigned n = NameList.size();
     std::vector<bool> done(n, false);
-
     CreateFactoryIndex(done);
 }
 
@@ -433,24 +515,17 @@ int main()
         }
         PutResult(a, best_m);
     }
-    std::cout <<
-        "const class Factories\n"
-        "{\n"
-        "    static const FactoryType FactoryList[" << n_factories << "];\n"
-        "public:\n"
-        "    const FactoryType* operator[] (unsigned index) const\n"
-        "    {\n";
-    CreateFactoryIndex();
-    std::cout <<
-        "        return 0;\n"
-        "    }\n"
-        "} Factories = {};\n"
-        "\n";
     std::cout << Classes.str();
+
+    CreateFactoryIndex();
+    CreateFactoryTable();
     std::cout <<
         "\n"
-        "const FactoryType Factories::FactoryList[] =\n"
+        "const FactoryType* FindFactory(unsigned index)\n"
         "{\n"
-        << NameDeclarations.str()
-     << "};\n";
+    <<  FactoryTable.str()
+    <<  FactoryIndex.str()
+    <<  "    return 0;\n"
+        "}\n"
+        "\n";
 }

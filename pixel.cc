@@ -53,15 +53,25 @@ namespace
         typedef Array256x256of<T> ResT;
         static ObjT* Construct()         { return new ResT; }
         static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
-        static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b;    }
+        static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b; }
+
+        static const FactoryType data;
     };
+    template<typename T>
+    const FactoryType FactoryMethods<T>::data =
+    {
+        FactoryMethods<T>::Construct,
+        FactoryMethods<T>::Copy,
+        FactoryMethods<T>::Assign
+    };
+
 #include "pixelfactory.inc"
 
     struct Get256x256pixelFactory
     {
         inline const FactoryType* operator-> () const
         {
-            return Factories[ pixelmethods_result | (1ul << bgmethod)];
+            return FindFactory( pixelmethods_result | (1ul << bgmethod) );
         }
     };
 }

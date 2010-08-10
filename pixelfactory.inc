@@ -1,55 +1,18 @@
-const class Factories
-{
-    static const FactoryType FactoryList[14];
-public:
-    const FactoryType* operator[] (unsigned index) const
-    {
-/* of remaining 4096 [0..4095], coverage 4096, miscoverage 128, best_score 2032.02, config=(add:0,mask:1) */
-        if(index < 128) {
-/* of remaining 128 [0..127], coverage 128, miscoverage 15, best_score 14.145, config=(add:0,mask:7) */
-        if(index < 15) {
-/* of remaining 15 [0..14], coverage 0, miscoverage 0, best_score 0, config=(add:0,mask:0) */
-          static const unsigned char table[15] = {
-           0, 1, 2, 3, 0, 4, 5, 6, 7, 1, 8, 3, 9, 4,10};
-          return &FactoryList[table[index - 0]];
-        } /* 0..14 */
-        switch( ((index + 0) >> 0) & 7)
-        {
-            case 0: return &FactoryList[11];
-            case 1: return &FactoryList[1];
-            case 2: return &FactoryList[12];
-            case 3: return &FactoryList[3];
-            case 4: return &FactoryList[12];
-            case 5: return &FactoryList[4];
-            case 6: return &FactoryList[12];
-            case 7: return &FactoryList[6];
-        }
-        } /* 0..127 */
-        switch( ((index + 0) >> 0) & 1)
-        {
-            case 0: return &FactoryList[12];
-            case 1: return &FactoryList[13];
-        }
-        return 0;
-    }
-} Factories = {};
-
 struct DummyPixel
 {
     uint32 GetDummy(unsigned=0) const FasterPixelMethod { return 0; }
 };
 
-struct PixelMethod1: private DummyPixel, private LastPixel
+struct PixCombination_LastPixel: private DummyPixel, private LastPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
     }
-    static uint32 (PixelMethod1::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LastPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod1::*const PixelMethod1::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LastPixel::*const PixCombination_LastPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &LastPixel::GetLast,
     &DummyPixel::GetDummy,
@@ -61,41 +24,18 @@ uint32 (PixelMethod1::*const PixelMethod1::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
-};
-struct PixelMethod20: private DummyPixel, private LoopingLogPixel
-{
-    inline void set(unsigned timer, uint32 v) FastPixelMethod
-    {
-        LoopingLogPixel::set(timer,v);
-    }
-    static uint32 (PixelMethod20::*const methods[NPixelMethods])(unsigned)const;
-};
-uint32 (PixelMethod20::*const PixelMethod20::methods[NPixelMethods])(unsigned)const =
-{
-    &LoopingLogPixel::GetLoopingLog,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &LoopingLogPixel::GetAverage,
-    &LoopingLogPixel::GetMostUsed,
-    &LoopingLogPixel::GetLeastUsed,
-    &LoopingLogPixel::GetActionAvg,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod2: private DummyPixel, private FirstPixel
+struct PixCombination_FirstPixel: private DummyPixel, private FirstPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         FirstPixel::set(timer,v);
     }
-    static uint32 (PixelMethod2::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_FirstPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod2::*const PixelMethod2::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_FirstPixel::*const PixCombination_FirstPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &FirstPixel::GetFirst,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
@@ -107,67 +47,19 @@ uint32 (PixelMethod2::*const PixelMethod2::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
-};
-struct PixelMethod22: private DummyPixel, private FirstPixel, private LoopingLogPixel
-{
-    inline void set(unsigned timer, uint32 v) FastPixelMethod
-    {
-        FirstPixel::set(timer,v);
-        LoopingLogPixel::set(timer,v);
-    }
-    static uint32 (PixelMethod22::*const methods[NPixelMethods])(unsigned)const;
-};
-uint32 (PixelMethod22::*const PixelMethod22::methods[NPixelMethods])(unsigned)const =
-{
-    &LoopingLogPixel::GetLoopingLog,
-    &FirstPixel::GetFirst,
-    &DummyPixel::GetDummy,
-    &LoopingLogPixel::GetAverage,
-    &LoopingLogPixel::GetMostUsed,
-    &LoopingLogPixel::GetLeastUsed,
-    &LoopingLogPixel::GetActionAvg,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod21: private DummyPixel, private LastPixel, private LoopingLogPixel
-{
-    inline void set(unsigned timer, uint32 v) FastPixelMethod
-    {
-        LastPixel::set(timer,v);
-        LoopingLogPixel::set(timer,v);
-    }
-    static uint32 (PixelMethod21::*const methods[NPixelMethods])(unsigned)const;
-};
-uint32 (PixelMethod21::*const PixelMethod21::methods[NPixelMethods])(unsigned)const =
-{
-    &LoopingLogPixel::GetLoopingLog,
-    &DummyPixel::GetDummy,
-    &LastPixel::GetLast,
-    &LoopingLogPixel::GetAverage,
-    &LoopingLogPixel::GetMostUsed,
-    &LoopingLogPixel::GetLeastUsed,
-    &LoopingLogPixel::GetActionAvg,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
-};
-struct PixelMethod3: private DummyPixel, private LastPixel, private FirstPixel
+struct PixCombination_LastPixel_FirstPixel: private DummyPixel, private LastPixel, private FirstPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
         FirstPixel::set(timer,v);
     }
-    static uint32 (PixelMethod3::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LastPixel_FirstPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod3::*const PixelMethod3::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LastPixel_FirstPixel::*const PixCombination_LastPixel_FirstPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &FirstPixel::GetFirst,
     &LastPixel::GetLast,
     &DummyPixel::GetDummy,
@@ -179,8 +71,80 @@ uint32 (PixelMethod3::*const PixelMethod3::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
 };
-struct PixelMethod23: private DummyPixel, private LastPixel, private FirstPixel, private LoopingLogPixel
+struct PixCombination_LoopingLogPixel: private DummyPixel, private LoopingLogPixel
+{
+    inline void set(unsigned timer, uint32 v) FastPixelMethod
+    {
+        LoopingLogPixel::set(timer,v);
+    }
+    static uint32 (PixCombination_LoopingLogPixel::*const methods[NPixelMethods])(unsigned)const;
+};
+uint32 (PixCombination_LoopingLogPixel::*const PixCombination_LoopingLogPixel::methods[NPixelMethods])(unsigned)const =
+{
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &LoopingLogPixel::GetLoopingLog,
+    &LoopingLogPixel::GetAverage,
+    &LoopingLogPixel::GetMostUsed,
+    &LoopingLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLeastUsed,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+};
+struct PixCombination_FirstPixel_LoopingLogPixel: private DummyPixel, private FirstPixel, private LoopingLogPixel
+{
+    inline void set(unsigned timer, uint32 v) FastPixelMethod
+    {
+        FirstPixel::set(timer,v);
+        LoopingLogPixel::set(timer,v);
+    }
+    static uint32 (PixCombination_FirstPixel_LoopingLogPixel::*const methods[NPixelMethods])(unsigned)const;
+};
+uint32 (PixCombination_FirstPixel_LoopingLogPixel::*const PixCombination_FirstPixel_LoopingLogPixel::methods[NPixelMethods])(unsigned)const =
+{
+    &FirstPixel::GetFirst,
+    &DummyPixel::GetDummy,
+    &LoopingLogPixel::GetLoopingLog,
+    &LoopingLogPixel::GetAverage,
+    &LoopingLogPixel::GetMostUsed,
+    &LoopingLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLeastUsed,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+};
+struct PixCombination_LastPixel_LoopingLogPixel: private DummyPixel, private LastPixel, private LoopingLogPixel
+{
+    inline void set(unsigned timer, uint32 v) FastPixelMethod
+    {
+        LastPixel::set(timer,v);
+        LoopingLogPixel::set(timer,v);
+    }
+    static uint32 (PixCombination_LastPixel_LoopingLogPixel::*const methods[NPixelMethods])(unsigned)const;
+};
+uint32 (PixCombination_LastPixel_LoopingLogPixel::*const PixCombination_LastPixel_LoopingLogPixel::methods[NPixelMethods])(unsigned)const =
+{
+    &DummyPixel::GetDummy,
+    &LastPixel::GetLast,
+    &LoopingLogPixel::GetLoopingLog,
+    &LoopingLogPixel::GetAverage,
+    &LoopingLogPixel::GetMostUsed,
+    &LoopingLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLeastUsed,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+    &DummyPixel::GetDummy,
+};
+struct PixCombination_LastPixel_FirstPixel_LoopingLogPixel: private DummyPixel, private LastPixel, private FirstPixel, private LoopingLogPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
@@ -188,32 +152,32 @@ struct PixelMethod23: private DummyPixel, private LastPixel, private FirstPixel,
         FirstPixel::set(timer,v);
         LoopingLogPixel::set(timer,v);
     }
-    static uint32 (PixelMethod23::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LastPixel_FirstPixel_LoopingLogPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod23::*const PixelMethod23::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LastPixel_FirstPixel_LoopingLogPixel::*const PixCombination_LastPixel_FirstPixel_LoopingLogPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &LoopingLogPixel::GetLoopingLog,
     &FirstPixel::GetFirst,
     &LastPixel::GetLast,
+    &LoopingLogPixel::GetLoopingLog,
     &LoopingLogPixel::GetAverage,
     &LoopingLogPixel::GetMostUsed,
-    &LoopingLogPixel::GetLeastUsed,
     &LoopingLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLeastUsed,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod4: private DummyPixel, private AveragePixel
+struct PixCombination_AveragePixel: private DummyPixel, private AveragePixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         AveragePixel::set(timer,v);
     }
-    static uint32 (PixelMethod4::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_AveragePixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod4::*const PixelMethod4::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_AveragePixel::*const PixCombination_AveragePixel::methods[NPixelMethods])(unsigned)const =
 {
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
@@ -228,19 +192,19 @@ uint32 (PixelMethod4::*const PixelMethod4::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod6: private DummyPixel, private FirstPixel, private AveragePixel
+struct PixCombination_FirstPixel_AveragePixel: private DummyPixel, private FirstPixel, private AveragePixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         FirstPixel::set(timer,v);
         AveragePixel::set(timer,v);
     }
-    static uint32 (PixelMethod6::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_FirstPixel_AveragePixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod6::*const PixelMethod6::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_FirstPixel_AveragePixel::*const PixCombination_FirstPixel_AveragePixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &FirstPixel::GetFirst,
+    &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &AveragePixel::GetAverage,
     &DummyPixel::GetDummy,
@@ -252,20 +216,20 @@ uint32 (PixelMethod6::*const PixelMethod6::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod5: private DummyPixel, private LastPixel, private AveragePixel
+struct PixCombination_LastPixel_AveragePixel: private DummyPixel, private LastPixel, private AveragePixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         LastPixel::set(timer,v);
         AveragePixel::set(timer,v);
     }
-    static uint32 (PixelMethod5::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LastPixel_AveragePixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod5::*const PixelMethod5::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LastPixel_AveragePixel::*const PixCombination_LastPixel_AveragePixel::methods[NPixelMethods])(unsigned)const =
 {
     &DummyPixel::GetDummy,
-    &DummyPixel::GetDummy,
     &LastPixel::GetLast,
+    &DummyPixel::GetDummy,
     &AveragePixel::GetAverage,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
@@ -276,7 +240,7 @@ uint32 (PixelMethod5::*const PixelMethod5::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod7: private DummyPixel, private LastPixel, private FirstPixel, private AveragePixel
+struct PixCombination_LastPixel_FirstPixel_AveragePixel: private DummyPixel, private LastPixel, private FirstPixel, private AveragePixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
@@ -284,13 +248,13 @@ struct PixelMethod7: private DummyPixel, private LastPixel, private FirstPixel, 
         FirstPixel::set(timer,v);
         AveragePixel::set(timer,v);
     }
-    static uint32 (PixelMethod7::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LastPixel_FirstPixel_AveragePixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod7::*const PixelMethod7::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LastPixel_FirstPixel_AveragePixel::*const PixCombination_LastPixel_FirstPixel_AveragePixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &FirstPixel::GetFirst,
     &LastPixel::GetLast,
+    &DummyPixel::GetDummy,
     &AveragePixel::GetAverage,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
@@ -301,70 +265,70 @@ uint32 (PixelMethod7::*const PixelMethod7::methods[NPixelMethods])(unsigned)cons
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod8: private DummyPixel, private MostUsedPixel
+struct PixCombination_MostUsedPixel: private DummyPixel, private MostUsedPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         MostUsedPixel::set(timer,v);
     }
-    static uint32 (PixelMethod8::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_MostUsedPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod8::*const PixelMethod8::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_MostUsedPixel::*const PixCombination_MostUsedPixel::methods[NPixelMethods])(unsigned)const =
 {
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &MostUsedPixel::GetAverage,
     &MostUsedPixel::GetMostUsed,
-    &MostUsedPixel::GetLeastUsed,
     &MostUsedPixel::GetActionAvg,
+    &MostUsedPixel::GetLeastUsed,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
     &DummyPixel::GetDummy,
 };
-struct PixelMethod10: private DummyPixel, private ChangeLogPixel
+struct PixCombination_ChangeLogPixel: private DummyPixel, private ChangeLogPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
         ChangeLogPixel::set(timer,v);
     }
-    static uint32 (PixelMethod10::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_ChangeLogPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod10::*const PixelMethod10::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_ChangeLogPixel::*const PixCombination_ChangeLogPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &DummyPixel::GetDummy,
     &ChangeLogPixel::GetFirst,
     &ChangeLogPixel::GetLast,
+    &DummyPixel::GetDummy,
     &ChangeLogPixel::GetAverage,
     &ChangeLogPixel::GetMostUsed,
-    &ChangeLogPixel::GetLeastUsed,
     &ChangeLogPixel::GetActionAvg,
+    &ChangeLogPixel::GetLeastUsed,
     &ChangeLogPixel::GetChangeLog,
     &ChangeLogPixel::GetLoopingAvg,
     &ChangeLogPixel::GetLoopingLast,
     &ChangeLogPixel::GetFirstNMost,
     &ChangeLogPixel::GetLastNMost,
 };
-struct PixelMethod30: private DummyPixel, private ChangeLogPixel, private LoopingLogPixel
+struct PixCombination_LoopingLogPixel_ChangeLogPixel: private DummyPixel, private LoopingLogPixel, private ChangeLogPixel
 {
     inline void set(unsigned timer, uint32 v) FastPixelMethod
     {
-        ChangeLogPixel::set(timer,v);
         LoopingLogPixel::set(timer,v);
+        ChangeLogPixel::set(timer,v);
     }
-    static uint32 (PixelMethod30::*const methods[NPixelMethods])(unsigned)const;
+    static uint32 (PixCombination_LoopingLogPixel_ChangeLogPixel::*const methods[NPixelMethods])(unsigned)const;
 };
-uint32 (PixelMethod30::*const PixelMethod30::methods[NPixelMethods])(unsigned)const =
+uint32 (PixCombination_LoopingLogPixel_ChangeLogPixel::*const PixCombination_LoopingLogPixel_ChangeLogPixel::methods[NPixelMethods])(unsigned)const =
 {
-    &LoopingLogPixel::GetLoopingLog,
     &ChangeLogPixel::GetFirst,
     &ChangeLogPixel::GetLast,
-    &ChangeLogPixel::GetAverage,
-    &ChangeLogPixel::GetMostUsed,
-    &ChangeLogPixel::GetLeastUsed,
-    &ChangeLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLoopingLog,
+    &LoopingLogPixel::GetAverage,
+    &LoopingLogPixel::GetMostUsed,
+    &LoopingLogPixel::GetActionAvg,
+    &LoopingLogPixel::GetLeastUsed,
     &ChangeLogPixel::GetChangeLog,
     &ChangeLogPixel::GetLoopingAvg,
     &ChangeLogPixel::GetLoopingLast,
@@ -372,62 +336,42 @@ uint32 (PixelMethod30::*const PixelMethod30::methods[NPixelMethods])(unsigned)co
     &ChangeLogPixel::GetLastNMost,
 };
 
-const FactoryType Factories::FactoryList[] =
+const FactoryType* FindFactory(unsigned index)
 {
-/*0	*/
-{ FactoryMethods<PixelMethod1>::Construct,
-  FactoryMethods<PixelMethod1>::Copy,
-  FactoryMethods<PixelMethod1>::Assign },
-/*1	*/
-{ FactoryMethods<PixelMethod20>::Construct,
-  FactoryMethods<PixelMethod20>::Copy,
-  FactoryMethods<PixelMethod20>::Assign },
-/*2	*/
-{ FactoryMethods<PixelMethod2>::Construct,
-  FactoryMethods<PixelMethod2>::Copy,
-  FactoryMethods<PixelMethod2>::Assign },
-/*3	*/
-{ FactoryMethods<PixelMethod22>::Construct,
-  FactoryMethods<PixelMethod22>::Copy,
-  FactoryMethods<PixelMethod22>::Assign },
-/*4	*/
-{ FactoryMethods<PixelMethod21>::Construct,
-  FactoryMethods<PixelMethod21>::Copy,
-  FactoryMethods<PixelMethod21>::Assign },
-/*5	*/
-{ FactoryMethods<PixelMethod3>::Construct,
-  FactoryMethods<PixelMethod3>::Copy,
-  FactoryMethods<PixelMethod3>::Assign },
-/*6	*/
-{ FactoryMethods<PixelMethod23>::Construct,
-  FactoryMethods<PixelMethod23>::Copy,
-  FactoryMethods<PixelMethod23>::Assign },
-/*7	*/
-{ FactoryMethods<PixelMethod4>::Construct,
-  FactoryMethods<PixelMethod4>::Copy,
-  FactoryMethods<PixelMethod4>::Assign },
-/*8	*/
-{ FactoryMethods<PixelMethod6>::Construct,
-  FactoryMethods<PixelMethod6>::Copy,
-  FactoryMethods<PixelMethod6>::Assign },
-/*9	*/
-{ FactoryMethods<PixelMethod5>::Construct,
-  FactoryMethods<PixelMethod5>::Copy,
-  FactoryMethods<PixelMethod5>::Assign },
-/*10	*/
-{ FactoryMethods<PixelMethod7>::Construct,
-  FactoryMethods<PixelMethod7>::Copy,
-  FactoryMethods<PixelMethod7>::Assign },
-/*11	*/
-{ FactoryMethods<PixelMethod8>::Construct,
-  FactoryMethods<PixelMethod8>::Copy,
-  FactoryMethods<PixelMethod8>::Assign },
-/*12	*/
-{ FactoryMethods<PixelMethod10>::Construct,
-  FactoryMethods<PixelMethod10>::Copy,
-  FactoryMethods<PixelMethod10>::Assign },
-/*13	*/
-{ FactoryMethods<PixelMethod30>::Construct,
-  FactoryMethods<PixelMethod30>::Copy,
-  FactoryMethods<PixelMethod30>::Assign },
-};
+    static const FactoryType* const table[21] =
+    {
+    /*  0 */ &FactoryMethods<PixCombination_FirstPixel>::data,
+    /*  1 */ &FactoryMethods<PixCombination_LastPixel>::data,
+    /*  2 */ &FactoryMethods<PixCombination_LastPixel_FirstPixel>::data,
+    /*  3 */ &FactoryMethods<PixCombination_LoopingLogPixel>::data,
+    /*  4 */ &FactoryMethods<PixCombination_FirstPixel_LoopingLogPixel>::data,
+    /*  5 */ &FactoryMethods<PixCombination_LastPixel_LoopingLogPixel>::data,
+    /*  6 */ &FactoryMethods<PixCombination_LastPixel_FirstPixel_LoopingLogPixel>::data,
+    /*  7 */ &FactoryMethods<PixCombination_AveragePixel>::data,
+    /*  8 */ &FactoryMethods<PixCombination_FirstPixel_AveragePixel>::data,
+    /*  9 */ &FactoryMethods<PixCombination_LastPixel_AveragePixel>::data,
+    /* 10 */ &FactoryMethods<PixCombination_LastPixel_FirstPixel_AveragePixel>::data,
+    /* 11 */ &FactoryMethods<PixCombination_MostUsedPixel>::data,
+    /* 12 */ &FactoryMethods<PixCombination_ChangeLogPixel>::data,
+    /* 13 */ &FactoryMethods<PixCombination_ChangeLogPixel>::data,
+    /* 14 */ &FactoryMethods<PixCombination_ChangeLogPixel>::data,
+    /* 15 */ &FactoryMethods<PixCombination_LoopingLogPixel>::data,
+    /* 16 */ &FactoryMethods<PixCombination_FirstPixel_LoopingLogPixel>::data,
+    /* 17 */ &FactoryMethods<PixCombination_LastPixel_LoopingLogPixel>::data,
+    /* 18 */ &FactoryMethods<PixCombination_LastPixel_FirstPixel_LoopingLogPixel>::data,
+    /* 19 */ &FactoryMethods<PixCombination_ChangeLogPixel>::data,
+    /* 20 */ &FactoryMethods<PixCombination_LoopingLogPixel_ChangeLogPixel>::data,
+    };
+/* of remaining 4096 [0..4095], coverage 4096, miscoverage 128, best_score 2032.02, config=(add:0,mask:4) */
+    if(index < 128) {
+/* of remaining 128 [0..127], coverage 128, miscoverage 12, best_score 14.52, config=(add:0,mask:7) */
+    if(index < 12) {
+/* of remaining 12 [0..11], coverage 12, miscoverage 4, best_score 1.02, config=(add:0,mask:7) */
+    return table[(index - 1) + 0];
+    } /* 0..11 */
+    return table[(((index + 0) >> 0) & 7) + 11];
+    } /* 0..127 */
+    return table[(((index + 0) >> 2) & 1) + 19];
+    return 0;
+}
+

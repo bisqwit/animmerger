@@ -11,13 +11,13 @@
  * animation flags & 2 = looping
  */
 #define DefinePixelMethods(callback) \
-    callback(o,3,LoopingLog) \
     callback(f,0,First) \
     callback(l,0,Last) \
+    callback(o,3,LoopingLog) \
     callback(a,0,Average) \
     callback(m,0,MostUsed) \
-    callback(e,0,LeastUsed) \
     callback(t,0,ActionAvg) \
+    callback(e,0,LeastUsed) \
     callback(c,1,ChangeLog) \
     callback(v,3,LoopingAvg) \
     callback(s,3,LoopingLast) \

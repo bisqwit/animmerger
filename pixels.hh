@@ -7,11 +7,13 @@
 
 /* List of pixel classes. Only list those pixel
  * classes that have an unique set of Traits.
+ * Sort them in the order of preference-of-use
+ * when multiple classes implement the same method.
  */
 #define DefinePixelClasses(callback) \
     callback(LastPixel) \
     callback(FirstPixel) \
     callback(AveragePixel) \
     callback(MostUsedPixel) \
-    callback(ChangeLogPixel) \
-    callback(LoopingLogPixel)
+    callback(LoopingLogPixel) \
+    callback(ChangeLogPixel)
