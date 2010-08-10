@@ -25,7 +25,9 @@ public:
         iterator i = lower_bound(key);
         if(i == this->end() || !(key==i->first))
         {
-            i = insert(i, value_type(key, V()));
+            i = insert(i,
+                typename UntreeType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
+                    value_type(key, V()));
         }
         return i->second;
     }

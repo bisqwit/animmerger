@@ -21,8 +21,10 @@ an actor around (and the background scrolls to follow them), it
 creates a movie that has a fixed background, and the camera moves
 around in the scene.
 <p>
-It does this with a motion detection algorithm, and a set of
-different pixel methods.
+It does this with a motion detection algorithm, a set of
+different pixel methods, and a simulated infinite 2D canvas
+&mdash; a 2D canvas that extends infinitely to all four directions
+(well, as infinite as 32-bit integers can get&hellip;)
 
 ", 'methods:1. Pixel methods' => "
 
@@ -60,7 +62,7 @@ This removes the text (white) as well as the blinking coin.
 </td></tr></table><br>
 <small>
 The graphics material comes from Super Mario Bros.<br>
-Mario, Super Mario Bros, and The Nintendo Entertainment System (NES)
+Mario, Super Mario Bros., and The Nintendo Entertainment System (NES)
 are registered trademarks of Nintendo of America Inc.
 But you knew that, right?</small>
 
@@ -80,8 +82,7 @@ to spot.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-a.png<br>
-# <a href=\"http://advsys.net/ken/utils.htm\">pngout</a>-hard demo/method-a.png</code>
+# mv tile-0000.png demo/method-a.png</code>
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
@@ -95,8 +96,7 @@ average of moving actors.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-t.png<br>
-# pngout-hard demo/method-t.png</code>
+# mv tile-0000.png demo/method-t.png</code>
 
 ", 'mostused:1.1.1. MOSTUSED' => "
 
@@ -114,8 +114,7 @@ anything that wanders around.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pm snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-m.png<br>
-# pngout-hard demo/method-m.png</code>
+# mv tile-0000.png demo/method-m.png</code>
 
 ", 'last:1.1.1. LAST'=> "
 
@@ -127,8 +126,7 @@ method, simply recording the last pixel value in any location.
 <p>
 Produced with commandline:<br>
 <code># animmerger -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-l.png<br>
-# pngout-hard demo/method-l.png</code>
+# mv tile-0000.png demo/method-l.png</code>
 
 ", 'last:1.1.1. FIRST'=> "
 
@@ -143,8 +141,80 @@ It is the same effect as if you move the paper in a desktop scanner during the s
 <p>
 Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# mv tile-0000.png demo/method-f.png<br>
-# pngout-hard demo/method-f.png</code>
+# mv tile-0000.png demo/method-f.png</code>
+
+", 'firstnmost:1.1.1. FIRSTNMOST'=> "
+
+The \"firstnmost\" method is analogous to \"first\" and \"mostused\";
+it chooses the most common pixel of first N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets last uncommon pixel.<br>
+If N is negative, using least common values rather than most common.
+<p>
+Most common of first 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
+     alt=\"Most common of first 4\">
+<p>
+Most common of first 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
+     alt=\"Most common of first 10\">
+<p>
+Most common of first 16:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
+     alt=\"Most common of first 16\">
+<p>
+First uncommon:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
+     alt=\"First uncommon\">
+<p>
+Least common of first 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
+     alt=\"Least common of first 10\">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 -10 16 0; do <br>
+# &nbsp; animmerger -pF -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Ff\$f.png<br>
+# done</code>
+
+", 'lastnmost:1.1.1. LASTNMOST'=> "
+
+The \"lastnmost\" method is analogous to \"last\" and \"mostused\";
+it chooses the most common pixel of last N pixel values.
+Set N with the --firstlast (-f) option.<br>
+If N is 0, instead gets last uncommon pixel.<br>
+If N is negative, using least common values rather than most common.
+<p>
+Most common of last 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
+     alt=\"Most common of last 10\">
+<p>
+Last uncommon:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
+     alt=\"Last uncommon\">
+<p>
+Least common of last 10:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
+     alt=\"Least common of last 10\">
+<p>
+Produced with commandline:<br>
+<code># for f in 4 10 -10 16 0; do <br>
+# &nbsp; animmerger -pL -f\$f snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; mv tile-0000.png demo/method-Lf\$f.png<br>
+# done</code>
+
+", 'leastused:1.1.1. LEASTUSED' => "
+
+The \"least used\" method is analogous to \"most used\".<br>
+It can be used to find graphical artifacts and teleporting actors,
+but for the most part, the output is not very useful.
+<p>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
+     alt=\"Least used\">
+<p>
+Produced with commandline:<br>
+<code># animmerger -pe snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-e.png</code>
 
 ", 'animated:1.1. Animated methods' => "
 
@@ -182,6 +252,31 @@ Produced with commandline:<br>
 # <a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
+
+", 'motionblur:1.1.1.1. Motion blur' => "
+
+The changelog method also supports motion blur. Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
+<p>
+Blur length 1:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
+     alt=\"Changelog, blur 1\">
+<p>
+Blur length 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
+     alt=\"Changelog, blur 4\">
+<p>
+Blur length 20:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
+     alt=\"Changelog, blur 1\">
+<p>
+Produced with commandline:<br>
+<code>
+# for b in 1 4 20;do <br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; animmerger --gif -B\$b -pc snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -o demo/method-cB\"\$b\".gif -l0 -d3 tile-*.gif<br>
+# done</code>
 
 ", 'loopinglog:1.1.1. LOOPINGLOG' => "
 
@@ -277,6 +372,15 @@ and is distributed under the terms of the
 
 GNU make and C++ compiler is required to recompile the source code.<br>
 libgd is also required.
+
+", '1. See also' => "
+
+<ul>
+<li><a href=\"http://advsys.net/ken/utils.htm\">pngout</a> for making PNG files considerably smaller.
+</li>
+<li><a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> for creating and optimizing GIF animations
+</li>
+</ul>
 
 ");
 include '/WWW/progdesc.php';

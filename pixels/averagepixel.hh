@@ -25,10 +25,19 @@ public:
         n += count;
     }
 
-    uint32 get(unsigned=0) const FastPixelMethod
+    inline uint32 get(unsigned=0) const FasterPixelMethod
+    {
+        return GetAverage();
+    }
+
+    uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
         return n
             ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
             : DefaultPixel;
     }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_AveragePixel);
 };
+

@@ -45,6 +45,15 @@ public:
         return result.first;
     }
 
+    uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
+    {
+        std::pair<uint32,unsigned short> result(DefaultPixel,~(unsigned short)0);
+        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
+            if(i->second < result.second)
+                result = *i;
+        return result.first;
+    }
+
     uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
         AveragePixel result;
@@ -63,26 +72,27 @@ public:
         if(res == DefaultPixel) return most;
         return res;
     }
+/////////
+    static const unsigned long Traits =
+        (1ul << pm_MostUsedPixel)
+      | (1ul << pm_LeastUsedPixel)
+      | (1ul << pm_AveragePixel)
+      | (1ul << pm_ActionAvgPixel);
 };
 
-/*** MOSTUSED VARIANTS ***/
 
+// These variants are needed by ChangeLog to simplify templates
 struct ActionAvgPixel: public MostUsedPixel
 {
-    inline uint32 get(unsigned timer) const FasterPixelMethod
+    inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetActionAvg(timer);
+        return GetActionAvg();
     }
 };
-
-/*
-MostUsed defines these:
-
-    GetMostUsed
-    GetActionAvg   (NOT UNIQUE)
-    GetAverage     (EMULATED, NOT UNIQUE)
-*/
-
-DefineBasePair(MostUsedPixel, MostUsed,Average)
-DefineBasePair(MostUsedPixel, MostUsed,ActionAvg) // Also implemented in ChangeLogPixel
-DefineBasePair(MostUsedPixel, ActionAvg,Average) // Also implemented in ChangeLogPixel
+struct LeastUsedPixel: public MostUsedPixel
+{
+    inline uint32 get(unsigned=0) const FasterPixelMethod
+    {
+        return GetLeastUsed();
+    }
+};

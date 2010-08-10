@@ -2,9 +2,6 @@
 //#include "pixels/lastpixel.hh"
 #include "maptype.hh"
 
-/* undef or define. */
-static const bool CHANGELOG_GUESS_OUTSIDES = true;
-
 #define CHANGELOG_USE_LASTTIMESTAMP 0
 
 class ChangeLogPixel
@@ -63,7 +60,7 @@ public:
             return;
         }
 
-        if(i != history.begin())
+        if(i != history.begin() && OptimizeChangeLog)
         {
             MapType<unsigned, uint32>::iterator prev1(i);
             --prev1;
@@ -122,45 +119,32 @@ public:
         return GetChangeLog(timer);
     }
 
+    uint32 GetChangeLogOnly(unsigned timer) const FastPixelMethod
+    {
+        return Find(timer, DefaultPixel);
+    }
+
     uint32 GetChangeLog(unsigned timer) const FastPixelMethod
     {
-        // Find the pixel value that was present at the given time.
-        /*
-          map::lower_bound:
-            Returns an iterator pointing to first element >= key, or end().
-          map::upper_bound:
-            Returns an iterator pointing to first element > key, or end().
+        if(AnimationBlurLength == 0) return Find(timer);
 
-          What we want is an iterator pointing
-            to the last element that is <= key.
-         */
-        MapType<unsigned, uint32>::const_iterator
-            i = history.upper_bound(timer);
+        const uint32 most = GetMostUsed();
+        uint32 pix = Find(timer, most);
 
-        /* Pre-begin value: reasonable default */
-        if(i == history.begin())
+        if(pix != most) return pix;
+
+        AveragePixel result;
+        unsigned remaining_blur = AnimationBlurLength;
+        result.set_n(pix, 1);
+
+        for(; timer-- > 0 && remaining_blur-- > 0; )
         {
-            return CHANGELOG_GUESS_OUTSIDES
-                ? GetMostUsed()
-                : DefaultPixel;
+            pix = Find(timer, most);
+            result.set_n(pix, 1);
+            if(pix != most) break;
         }
 
-        /* Post-end value: Special handling */
-        bool last = (i == history.end());
-
-        /* Anything else. Take the value. */
-        --i;
-        if(i->first < timer && last
-#if CHANGELOG_USE_LASTTIMESTAMP
-                                   && timer > last_time
-#endif
-          )
-        {
-            return CHANGELOG_GUESS_OUTSIDES
-                ? GetMostUsed()
-                : DefaultPixel;
-        }
-        return i->second;
+        return result.get();
     }
 
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
@@ -257,9 +241,10 @@ public:
         return result;
     }
 
-    uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetAggregate(unsigned=0) const
     {
-        MostUsedPixel result;
+        SlaveType result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -279,26 +264,41 @@ public:
         return result.get();
     }
 
+    inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<MostUsedPixel> ();
+    }
+    inline uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<LeastUsedPixel> ();
+    }
+    inline uint32 GetAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<AveragePixel> ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
     }
-
     inline uint32 GetFirst(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.begin()->second;
     }
 
-    uint32 GetAverage(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetFirstNAggregate(unsigned n) const
     {
-        AveragePixel result;
+        const unsigned first_time = history.empty() ? 0 : history.begin()->first;
+        const unsigned end_threshold = first_time + n;
+        SlaveType result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
             )
         {
             MapType<unsigned, uint32>::const_iterator j(i); ++i;
-            unsigned count =
+            unsigned begin    = j->first;
+            unsigned duration =
                 (i != history.end()) ? (i->first - j->first) :
 #if CHANGELOG_USE_LASTTIMESTAMP
                     (last_time - j->first) + 1
@@ -306,65 +306,193 @@ public:
                     1
 #endif
                     ;
-
-            result.set_n(j->second, count);
+            if(begin >= end_threshold) break;
+            unsigned n_hits = 0;
+            while(duration--)
+                if(begin++ < end_threshold)
+                    ++n_hits;
+            result.set_n(j->second, n_hits);
         }
         return result.get();
     }
-};
 
-/*** CHANGELOG VARIANTS ***/
-
-struct LoopingAvgPixel: public ChangeLogPixel
-{
-    inline uint32 get(unsigned timer) const FasterPixelMethod
+    template<typename SlaveType>
+    uint32 GetLastNAggregate(unsigned n) const
     {
-        return GetLoopingAvg(timer);
+#if !CHANGELOG_USE_LASTTIMESTAMP
+        const unsigned last_time = history.empty() ? 0 : (history.rbegin()->first + 1);
+#endif
+        const unsigned begin_threshold = n < last_time ? last_time-n : 0;
+        SlaveType result;
+        MapType<unsigned, uint32>::const_iterator
+            i ( history.upper_bound(begin_threshold) );
+        if(i != history.begin()) --i;
+        while(i != history.end())
+        {
+            MapType<unsigned, uint32>::const_iterator j(i); ++i;
+            unsigned begin    = j->first;
+            unsigned duration =
+                (i != history.end()) ? (i->first - j->first) :
+#if CHANGELOG_USE_LASTTIMESTAMP
+                    (last_time - j->first) + 1
+#else
+                    1
+#endif
+                    ;
+            unsigned n_hits = 0;
+            while(duration--)
+                if(begin++ >= begin_threshold)
+                    ++n_hits;
+            result.set_n(j->second, n_hits);
+        }
+        return result.get();
     }
-};
-struct LoopingLastPixel: public ChangeLogPixel
-{
-    inline uint32 get(unsigned timer) const FasterPixelMethod
+
+    uint32 GetFirstNMost(unsigned=0) const FastPixelMethod
     {
-        return GetLoopingLast(timer);
+        if(FirstLastLength == 0) return GetFirstUncommon();
+        if(FirstLastLength > 0)
+            return GetFirstNAggregate<MostUsedPixel>(FirstLastLength);
+        else
+            return GetFirstNAggregate<LeastUsedPixel>(-FirstLastLength);
     }
+
+    uint32 GetLastNMost(unsigned=0) const FastPixelMethod
+    {
+        if(FirstLastLength == 0) return GetLastUncommon();
+        if(FirstLastLength > 0)
+            return GetLastNAggregate<MostUsedPixel>(FirstLastLength);
+        else
+            return GetLastNAggregate<LeastUsedPixel>(-FirstLastLength);
+    }
+
+    uint32 GetFirstUncommon(unsigned=0) const FastPixelMethod
+    {
+        // Invoked with GetFirstNMost when FirstLastLength=0
+        const uint32 most = GetMostUsed();
+        for(MapType<unsigned, uint32>::const_iterator
+            i = history.begin();
+            i != history.end();
+            ++i)
+        {
+            if(i->second != most) return i->second;
+        }
+        return most;
+    }
+
+    uint32 GetLastUncommon(unsigned=0) const FastPixelMethod
+    {
+        // Invoked with GetLastNMost when FirstLastLength=0
+        const uint32 most = GetMostUsed();
+        for(MapType<unsigned, uint32>::const_reverse_iterator
+            i = history.rbegin();
+            i != history.rend();
+            ++i)
+        {
+            if(i->second != most) return i->second;
+        }
+        return most;
+    }
+private:
+    uint32 Find(unsigned timer) const FastPixelMethod
+    {
+        if(!OptimizeChangeLog)
+        {
+            MapType<unsigned, uint32>::const_iterator
+                i = history.find(timer);
+            if(i == history.end() || i->first != timer)
+                return GetMostUsed();
+            return i->second;
+        }
+        // Find the pixel value that was present at the given time.
+        /*
+          map::lower_bound:
+            Returns an iterator pointing to first element >= key, or end().
+          map::upper_bound:
+            Returns an iterator pointing to first element > key, or end().
+
+          What we want is an iterator pointing
+            to the last element that is <= key.
+         */
+        MapType<unsigned, uint32>::const_iterator
+            i = history.upper_bound(timer);
+
+        /* Pre-begin value: Use background */
+        if(i == history.begin())
+        {
+            return GetMostUsed();
+        }
+
+        bool last = (i == history.end());
+        --i;
+        if(i->first < timer && last
+#if CHANGELOG_USE_LASTTIMESTAMP
+                                   && timer > last_time
+#endif
+          )
+        {
+            /* Post-end value: Use background */
+            return GetMostUsed();
+        }
+        /* Anything else. Take the value. */
+        return i->second;
+    }
+
+    uint32 Find(unsigned timer, uint32 background) const FastPixelMethod
+    {
+        if(!OptimizeChangeLog)
+        {
+            MapType<unsigned, uint32>::const_iterator
+                i = history.find(timer);
+            if(i == history.end() || i->first != timer)
+                return background;
+            return i->second;
+        }
+        // Find the pixel value that was present at the given time.
+        /*
+          map::lower_bound:
+            Returns an iterator pointing to first element >= key, or end().
+          map::upper_bound:
+            Returns an iterator pointing to first element > key, or end().
+
+          What we want is an iterator pointing
+            to the last element that is <= key.
+         */
+        MapType<unsigned, uint32>::const_iterator
+            i = history.upper_bound(timer);
+
+        /* Pre-begin value: Use background */
+        if(i == history.begin())
+        {
+            return background;
+        }
+
+        bool last = (i == history.end());
+        --i;
+        if(i->first < timer && last
+#if CHANGELOG_USE_LASTTIMESTAMP
+                                   && timer > last_time
+#endif
+          )
+        {
+            /* Post-end value: Use background */
+            return background;
+        }
+        /* Anything else. Take the value. */
+        return i->second;
+    }
+public:
+/////////
+    static const unsigned long Traits =
+      (1ul << pm_ChangeLogPixel)
+    | (1ul << pm_ActionAvgPixel)
+    | (1ul << pm_LoopingAvgPixel)
+    | (1ul << pm_LoopingLastPixel)
+    | (1ul << pm_MostUsedPixel)
+    | (1ul << pm_LeastUsedPixel)
+    | (1ul << pm_AveragePixel)
+    | (1ul << pm_LastPixel)
+    | (1ul << pm_FirstPixel)
+    | (1ul << pm_FirstNMostPixel)
+    | (1ul << pm_LastNMostPixel);
 };
-
-/*
-ChangeLog defines these:
-
-    GetChangeLog
-    GetActionAvg   (UNIQUE, BUT ALSO IMPLEMENTED IN "MOSTUSED")
-    GetLoopingAvg  (UNIQUE)
-    GetLoopingLast (UNIQUE)
-    GetMostUsed    (EMULATED, NOT UNIQUE)
-    GetLast        (EMULATED, NOT UNIQUE)
-    GetFirst       (EMULATED, NOT UNIQUE)
-    GetAverage     (EMULATED, NOT UNIQUE)
-*/
-
-DefineBasePair(ChangeLogPixel, ChangeLog, ActionAvg)
-DefineBasePair(ChangeLogPixel, ChangeLog, LoopingAvg)
-DefineBasePair(ChangeLogPixel, ChangeLog, LoopingLast)
-DefineBasePair(ChangeLogPixel, ChangeLog, MostUsed)
-DefineBasePair(ChangeLogPixel, ChangeLog, Last)
-DefineBasePair(ChangeLogPixel, ChangeLog, First)
-DefineBasePair(ChangeLogPixel, ChangeLog, Average)
-
-DefineBasePair(ChangeLogPixel, ActionAvg, LoopingAvg)
-DefineBasePair(ChangeLogPixel, ActionAvg, LoopingLast)
-//DefineBasePair(ChangeLogPixel, ActionAvg, MostUsed) -- used MostUsedPixel version instead
-DefineBasePair(ChangeLogPixel, ActionAvg, Last)
-DefineBasePair(ChangeLogPixel, ActionAvg, First)
-//DefineBasePair(ChangeLogPixel, ActionAvg, Average) -- used MostUsedPixel version instead
-
-DefineBasePair(ChangeLogPixel, LoopingAvg, LoopingLast)
-DefineBasePair(ChangeLogPixel, LoopingAvg, MostUsed)
-DefineBasePair(ChangeLogPixel, LoopingAvg, Last)
-DefineBasePair(ChangeLogPixel, LoopingAvg, First)
-DefineBasePair(ChangeLogPixel, LoopingAvg, Average)
-
-DefineBasePair(ChangeLogPixel, LoopingLast, MostUsed)
-DefineBasePair(ChangeLogPixel, LoopingLast, Last)
-DefineBasePair(ChangeLogPixel, LoopingLast, First)
-DefineBasePair(ChangeLogPixel, LoopingLast, Average)

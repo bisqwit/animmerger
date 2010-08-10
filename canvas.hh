@@ -13,7 +13,7 @@
 
 //extern unsigned CurrentTimer;       // For animated
 //extern unsigned SequenceBegin;      // For animated
-extern bool SaveGif;
+extern int SaveGif;
 
 class TILE_Tracker
 {
@@ -21,7 +21,6 @@ class TILE_Tracker
 
     int xmin,ymin;
     int xmax,ymax;
-    bool first;
 
     typedef UncertainPixelVector256x256 vectype;
 
@@ -50,19 +49,14 @@ public:
     {
     }
 
-    void SaveAndReset()
-    {
-        Save();
-        Reset();
-    }
-
-    void Save();
-    void SaveFrame(unsigned timer, unsigned imgcounter);
+    void Save(unsigned method = ~0u);
+    void SaveFrame(unsigned method, unsigned timer, unsigned imgcounter);
 
     void Reset();
 
     const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
-                                     unsigned timer) const;
+                                     unsigned timer,
+                                     unsigned method) const;
 
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
                    unsigned timer);

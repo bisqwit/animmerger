@@ -12,9 +12,18 @@ struct AlphaRange
     SetType<unsigned> colors;
 };
 
+#define MakePixName(o,f,name) #name,
+static const char* const PixelMethodNames[NPixelMethods] =
+{
+     DefinePixelMethods(MakePixName)
+};
+#undef MakePixName
+
 int main(int argc, char** argv)
 {
     VecType<AlphaRange> alpha_ranges;
+
+    int verbose=0;
 
     for(;;)
     {
@@ -27,12 +36,15 @@ int main(int argc, char** argv)
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"looplength", 1,0,'l'},
+            {"motionblur", 1,0,'B'},
+            {"firstlast",  1,0,'f'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
             {"gif",        0,0,'g'},
+            {"verbose",    0,0,'v'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:r:a:g", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gv", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -52,9 +64,9 @@ int main(int argc, char** argv)
                     " --mask, -m <defs>      Define a mask, see instructions below\n"
                     " --method, -p <mode>    Select pixel type, see below\n"
                     " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
-                    "                        Tip: Use -bl for some memory usage reduction,\n"
-                    "                        when you're using --method=average.\n"
-                    " --looplength, -l <int> Set loop length for the LOOPINGLOG mode\n"
+                    " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
+                    " --motionblur, -B <int> Set motion blur length for CHANGELOG mode\n"
+                    " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
                     " --version, -V          Displays version information\n"
                     " --refscale, -r <x>,<y>\n"
                     "     Change the grid size that controls\n"
@@ -69,6 +81,7 @@ int main(int argc, char** argv)
                     "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
                     "     only scroll horizontally and by 4 pixels at most per frame.\n"
                     " --gif, -g              Save GIF frames instead of PNG frames\n"
+                    " --verbose, -v          Increase verbosity\n"
                     "\n"
                     "animmerger will always output PNG files into the current\n"
                     "working directory, with the filename pattern tile-####.png\n"
@@ -89,6 +102,19 @@ int main(int argc, char** argv)
                     "     Produces a single image. Each pixel\n"
                     "     records the color that most often occured in that location.\n"
                     "     Use this option for making maps!\n"
+                    "  LEASTUSED, long option: --method=leastused, short option: -pe\n"
+                    "     Produces a single image. Each pixel\n"
+                    "     records the color that least commonly occured in that location.\n"
+                    "  LASTNMOST, long option: --method=lastnmost, short option: -pL\n"
+                    "     Combines \"mostused\" and \"last\". Set threshold using\n"
+                    "     the -f option. Example: -f16 -pL = most used of last 16 pixels.\n"
+                    "     If -f0, then selects the last not-common pixel value.\n"
+                    "     If -f value is negative, uses leastused instead of mostused.\n"
+                    "  FIRSTNMOST, long option: --method=firstnmost, short option: -pF\n"
+                    "     Combines \"mostused\" and \"first\". Set threshold using\n"
+                    "     the -f option. Example: -f16 -pF = most used of first 16 pixels.\n"
+                    "     If -f0, then selects the first not-common pixel value.\n"
+                    "     If -f value is negative, uses leastused instead of mostused.\n"
                     "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
                     "     Similar to average, except that blurring of actors\n"
                     "     over the background is avoided.\n"
@@ -125,6 +151,20 @@ int main(int argc, char** argv)
                     "Converting a GIF animation into individual frame files:\n"
                     "   gifsicle -U -E animation.gif\n"
                     "   animmerger <...> animation.gif.*\n"
+                    "\n"
+                    "To create images with multiple methods in succession,\n"
+                    "you can use the multimode option. For example,\n"
+                    "    --method average,last,mostused, or -pa,l,m\n"
+                    "creates three images, corresponding to that if\n"
+                    "you ran animmerger with -pa, -pl, -pm options\n"
+                    "in succession. Note that all modes share the same\n"
+                    "other parameters (firstlast, looplength).\n"
+                    "The benefit in doing this is that the image alignment\n"
+                    "phase needs only be done once.\n"
+                    "\n"
+                    "Different combinations of pixel methods require different\n"
+                    "amounts of memory. Use the -v option to see how much memory\n"
+                    "is required by pixel when using different options.\n"
                     "\n");
                 return 0;
             }
@@ -158,14 +198,39 @@ int main(int argc, char** argv)
                 alpha_ranges.push_back(range);
                 break;
             }
+            case 'f':
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                FirstLastLength = tmp;
+                if(tmp != FirstLastLength)
+                {
+                    fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
+                    FirstLastLength = 1;
+                }
+                break;
+            }
             case 'l':
             {
                 char* arg = optarg;
-                LoopingLogLength = strtol(arg, 0, 10);
-                if(LoopingLogLength < 1)
+                long tmp = strtol(arg, 0, 10);
+                LoopingLogLength = tmp;
+                if(LoopingLogLength < 1 || tmp != LoopingLogLength)
                 {
-                    fprintf(stderr, "animmerger: Bad loop length: %d\n", LoopingLogLength);
+                    fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
                     LoopingLogLength = 1;
+                }
+                break;
+            }
+            case 'B':
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                AnimationBlurLength = tmp;
+                if(tmp < 0 || tmp != AnimationBlurLength)
+                {
+                    fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
+                    AnimationBlurLength = 0;
                 }
                 break;
             }
@@ -197,63 +262,80 @@ int main(int argc, char** argv)
             }
             case 'p':
             {
-                char* arg = optarg;
-                if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    pixelmethod = pm_AveragePixel;
-                else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    pixelmethod = pm_LastPixel;
-                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
-                    pixelmethod = pm_FirstPixel;
-                else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    pixelmethod = pm_MostUsedPixel;
-                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
-                    pixelmethod = pm_ActionAvgPixel;
-                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0)
-                    pixelmethod = pm_ChangeLogPixel;
-                else if(strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0)
-                    pixelmethod = pm_LoopingLogPixel;
-                else if(strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0)
-                    pixelmethod = pm_LoopingLastPixel;
-                else if(strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
-                    pixelmethod = pm_LoopingAvgPixel;
-                else
+                pixelmethods_result = 0;
+                for(; char* arg = std::strtok(optarg, ","); optarg=0)
                 {
-                    std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
-                    return -1;
+                    if(strcmp(arg, "*") == 0)
+                        pixelmethods_result |= ((1ul << NPixelMethods) - 1);
+                    #define TestMethod(optchar,f,name) \
+                        else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                            pixelmethods_result |= 1ul << pm_##name##Pixel;
+                    DefinePixelMethods(TestMethod)
+                    #undef TestMethod
+                    else
+                    {
+                        std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
+                        return -1;
+                    }
+                }
+                if(!pixelmethods_result)
+                {
+                    std::fprintf(stderr, "animmerger: Error: No pixel method defined\n");
+                    pixelmethods_result = 1ul << pm_MostUsedPixel;
                 }
                 break;
             }
             case 'b':
             {
                 char* arg = optarg;
-                if(strcmp(arg, "a") == 0 || strcmp(arg, "average") == 0)
-                    bgmethod = pm_AveragePixel;
-                else if(strcmp(arg, "l") == 0 || strcmp(arg, "last") == 0)
-                    bgmethod = pm_LastPixel;
-                else if(strcmp(arg, "f") == 0 || strcmp(arg, "first") == 0)
-                    bgmethod = pm_FirstPixel;
-                else if(strcmp(arg, "m") == 0 || strcmp(arg, "mostused") == 0)
-                    bgmethod = pm_MostUsedPixel;
-                else if(strcmp(arg, "t") == 0 || strcmp(arg, "actionavg") == 0)
-                    bgmethod = pm_ActionAvgPixel;
-                else if(strcmp(arg, "c") == 0 || strcmp(arg, "changelog") == 0
-                     || strcmp(arg, "o") == 0 || strcmp(arg, "loopinglog") == 0
-                     || strcmp(arg, "s") == 0 || strcmp(arg, "loopinglast") == 0
-                     || strcmp(arg, "v") == 0 || strcmp(arg, "loopingavg") == 0)
-                {
-                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
-                }
+                if(false) {}
+                #define TestMethod(optchar,f,name) \
+                    else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                    { \
+                        if(f & 1) goto is_animated; \
+                        bgmethod = pm_##name##Pixel; \
+                    }
+                DefinePixelMethods(TestMethod)
+                #undef TestMethod
                 else
                 {
                     std::fprintf(stderr, "animmerger: Unrecognized bgmethod: %s\n", arg);
                     return -1;
+                is_animated:
+                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
                 }
                 break;
             }
+            case 'v':
+                ++verbose;
+                break;
             case 'g':
-                SaveGif = true;
+                SaveGif = 1;
                 break;
         }
+    }
+
+    if(verbose)
+    {
+        const unsigned long AllUsedMethods = (1ul << bgmethod) | pixelmethods_result;
+
+        std::printf("\tChosen background method: %s\n", PixelMethodNames[bgmethod]);
+        std::printf("\tChosen foreground methods:");
+        for(unsigned a=0; a<NPixelMethods; ++a)
+            if(pixelmethods_result & (1ul << a))
+                std::printf(" %s", PixelMethodNames[a]);
+        std::printf("\n");
+
+        if(AllUsedMethods & LoopingPixelMethodsMask)
+            std::printf("\tLoop length: %u\n", LoopingLogLength);
+
+        if(AllUsedMethods & FirstLastPixelMethodsMask)
+            std::printf("\tFirstLastLength: %d\n", FirstLastLength);
+
+        if(AllUsedMethods & BlurCapablePixelMethodsMask)
+            std::printf("\tBlur length: %u\n", AnimationBlurLength);
+
+        std::printf("\tPixel size in bytes: %u (%s)\n", GetPixelSizeInBytes(), GetPixelSetupName());
     }
 
     TILE_Tracker tracker;
@@ -327,5 +409,5 @@ int main(int argc, char** argv)
 
         tracker.NextFrame();
     }
-    tracker.SaveAndReset();
+    tracker.Save();
 }

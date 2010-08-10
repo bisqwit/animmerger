@@ -1,0 +1,16 @@
+To add a new pixel method, do these steps:
+
+1. Add a method number in pixel.hh (#define DefinePixelMethods).
+
+2. Implement the method in pixels/ .
+	Either add it as a method in one of the existing classes,
+	or add a new class that implements that method.
+	
+	Remember to update the traits in whatever class you modify.
+
+3. If you added a new class, update pixels.hh by
+	adding the relevant include file there, and
+	by updating the #define DefinePixelClasses.
+
+4. Update pixelfactory.inc by running makepixels. 
+	(Recompile makepixels if needed.)
