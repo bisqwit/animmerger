@@ -20,7 +20,7 @@ public:
     Array256x256of() { }
     virtual ~Array256x256of() { }
 public:
-    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const FastPixelMethod
+    virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
     {
         return (data[index].*(T::methods[method]))(timer);
     }

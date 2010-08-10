@@ -50,13 +50,13 @@ public:
     }
 
     void Save(unsigned method = ~0u);
-    void SaveFrame(unsigned method, unsigned timer, unsigned imgcounter);
+    void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
 
     void Reset();
 
     const VecType<uint32> LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                                      unsigned timer,
-                                     unsigned method) const;
+                                     PixelMethod method) const;
 
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
                    unsigned timer);

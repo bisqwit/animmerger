@@ -20,9 +20,10 @@ struct LoadCubeHelper
     VecType<uint32>& result;
     unsigned this_cube_ystart, this_cube_yend;
     unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx, targetpos, timer, method;
+    unsigned sx, targetpos, timer;
+    PixelMethod method;
 
-    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g,unsigned h)
+    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g,PixelMethod h)
         : result(r), this_cube_ystart(a), this_cube_yend(b),
           this_cube_xstart(c), this_cube_xend(d),
           sx(e), targetpos(f), timer(g), method(h) { }
@@ -71,7 +72,7 @@ struct UpdateCubeHelper
 const VecType<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                          unsigned timer,
-                         unsigned method) const
+                         PixelMethod method) const
 {
     // Create the result vector filled with default pixel value
     VecType<uint32> result(sy*sx, DefaultPixel);
@@ -237,7 +238,7 @@ void TILE_Tracker::Save(unsigned method)
         for(unsigned m=0; m<NPixelMethods; ++m)
         {
             if(pixelmethods_result & (1ul << m))
-                Save(m);
+                Save( (PixelMethod) m);
         }
         return;
     }
@@ -261,7 +262,7 @@ void TILE_Tracker::Save(unsigned method)
         {
             //std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
             //    frame, SavedTimer, SequenceBegin);
-            SaveFrame(method, frame, SequenceBegin + frame);
+            SaveFrame( (PixelMethod)method, frame, SequenceBegin + frame);
         }
 
         fflush(stdout);
@@ -274,11 +275,11 @@ void TILE_Tracker::Save(unsigned method)
          */
       #pragma omp parallel for ordered schedule(static,1)
         for(unsigned dummy=0; dummy<1; ++dummy)
-            SaveFrame(method, 0, SequenceBegin);
+            SaveFrame( (PixelMethod)method, 0, SequenceBegin);
     }
 }
 
-void TILE_Tracker::SaveFrame(unsigned method, unsigned frameno, unsigned img_counter)
+void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_counter)
 {
     const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
 

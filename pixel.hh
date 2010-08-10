@@ -85,7 +85,7 @@ struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
 
-    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const FastPixelMethod = 0;
+    virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod = 0;
 
     virtual uint32 GetStatic(unsigned index) const = 0;
 
