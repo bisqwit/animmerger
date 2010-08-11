@@ -14,70 +14,18 @@
 
 #include <cstring>
 
-
-/* Create pixel method name list */
-#define MakePixName(o,f,name) #name,
-static const char* const PixelMethodNames[NPixelMethods] =
-{
-     DefinePixelMethods(MakePixName)
-};
-#undef MakePixName
-
-static const unsigned long nmethod_combinations = 1ul << (0 +
-#define CountImpl(id,name) +1
-DefinePixelClasses(CountImpl)
-#undef CountImpl
-);
-
-static const unsigned long ncombinations = 1ul << NPixelMethods;
-
-static unsigned Solution[ncombinations];
-
+static const unsigned long NMethodCombinations = 1ul << NPixelMethods;
+static unsigned Solution[NMethodCombinations];
 static std::ostringstream FactoryIndex, FactoryTable;
-
-template<unsigned CombinationIndex>
-struct AllCombinations
-{
-    typedef typename PixelMethodImplComb<CombinationIndex>::result Obj;
-    static unsigned FindSize(unsigned s)
-    {
-        if(s == CombinationIndex) return sizeof(Obj);
-        return AllCombinations<CombinationIndex-1>::FindSize(s);
-    }
-    static unsigned FindSizePenalty(unsigned s)
-    {
-        if(s == CombinationIndex) return Obj::SizePenalty;
-        return AllCombinations<CombinationIndex-1>::FindSizePenalty(s);
-    }
-    static unsigned long FindTraits(unsigned s)
-    {
-        if(s == CombinationIndex) return Obj::Traits;
-        return AllCombinations<CombinationIndex-1>::FindTraits(s);
-    }
-    static const char* FindName(unsigned s)
-    {
-        if(s == CombinationIndex) return PixelMethodImplName<Obj>::getname();
-        return AllCombinations<CombinationIndex-1>::FindName(s);
-    }
-};
-template<>
-struct AllCombinations<0>
-{
-    static inline unsigned FindSize(unsigned) { return 0; }
-    static inline unsigned FindSizePenalty(unsigned) { return 0; }
-    static inline unsigned long FindTraits(unsigned) { return 0; }
-    static inline const char* FindName(unsigned) { return 0; }
-};
-typedef AllCombinations<nmethod_combinations-1> CombinationLore;
 
 static std::string GetFactoryName(unsigned long combination)
 {
-    unsigned size        = CombinationLore::FindSize(combination);
-    unsigned sizepenalty = CombinationLore::FindSizePenalty(combination);
-    const char* name = CombinationLore::FindName(combination);
+    unsigned size        = PixelMethodImplComb<>::FindSize(combination);
+    unsigned sizepenalty = PixelMethodImplComb<>::FindSizePenalty(combination);
+    const char* name = PixelMethodImplComb<>::FindName(combination);
 
     std::ostringstream tmp;
-    tmp << "FactoryMethods<PixelMethodImplComb<" << combination << ">::result>::data"
+    tmp << "PixelImplFactory<" << combination << ">::data"
            " /* " << size << "(+" << sizepenalty << ") bytes: " << name << " */";
     return tmp.str();
 }
@@ -143,12 +91,12 @@ static void CreateFactoryTable()
         "    };\n";
 }
 
-static void CreateFactoryIndex(bool done[ncombinations])
+static void CreateFactoryIndex(bool done[NMethodCombinations])
 {
     for(;;)
     {
-        unsigned remain = 0, min_remain=ncombinations, max_remain=0;
-        for(unsigned a=0; a<ncombinations; ++a)
+        unsigned remain = 0, min_remain=NMethodCombinations, max_remain=0;
+        for(unsigned a=0; a<NMethodCombinations; ++a)
             if(!done[a])
                 { if(a < min_remain) min_remain = a;
                   if(a > max_remain) max_remain = a;
@@ -181,7 +129,7 @@ static void CreateFactoryIndex(bool done[ncombinations])
                 typedef std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > r1;
                 typedef std::map<unsigned, r1, std::less<unsigned>, FSBAllocator<int> > r2;
                 r2 result_counts;
-                for(unsigned a=0; a<ncombinations; ++a)
+                for(unsigned a=0; a<NMethodCombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + add) & mask;
@@ -199,9 +147,9 @@ static void CreateFactoryIndex(bool done[ncombinations])
                     //FactoryIndex << "/* " << i->first << ": " << mostvalue << "*/\n";
                 }
                 int coverage = 0, miscoverage = 0;
-                unsigned miscoverage_min=ncombinations, miscoverage_max=0;
+                unsigned miscoverage_min=NMethodCombinations, miscoverage_max=0;
                 std::set<unsigned, std::less<unsigned>, FSBAllocator<int> > cases;
-                for(unsigned a=0; a<ncombinations; ++a)
+                for(unsigned a=0; a<NMethodCombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + add) & mask;
@@ -218,7 +166,7 @@ static void CreateFactoryIndex(bool done[ncombinations])
                 }
                 unsigned n_cases = cases.size();
                 if(!n_cases) goto nextmask;
-                if(miscoverage_min != ncombinations)
+                if(miscoverage_min != NMethodCombinations)
                     miscoverage = miscoverage_max - miscoverage_min + 1;
 
                 //if(miscoverage_max-miscoverage_min+1 > ) goto nextmask;
@@ -263,7 +211,7 @@ static void CreateFactoryIndex(bool done[ncombinations])
             typedef std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > r1;
             typedef std::map<unsigned, r1, std::less<unsigned>, FSBAllocator<int> > r2;
             r2 result_counts;
-            for(unsigned a=0; a<ncombinations; ++a)
+            for(unsigned a=0; a<NMethodCombinations; ++a)
             {
                 if(done[a]) continue;
                 const unsigned index = (a + best_add) & best_mask;
@@ -283,11 +231,11 @@ static void CreateFactoryIndex(bool done[ncombinations])
 
             if(best_miscoverage > 0)
             {
-                bool child_simulated_done[ncombinations];
+                bool child_simulated_done[NMethodCombinations];
                 std::memcpy(child_simulated_done, done, sizeof(done));
 
-                unsigned miscoverage_min=ncombinations, miscoverage_max=0;
-                for(unsigned a=0; a<ncombinations; ++a)
+                unsigned miscoverage_min=NMethodCombinations, miscoverage_max=0;
+                for(unsigned a=0; a<NMethodCombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + best_add) & best_mask;
@@ -298,7 +246,7 @@ static void CreateFactoryIndex(bool done[ncombinations])
                         if(a > miscoverage_max) miscoverage_max = a;
                     }
                 }
-                for(unsigned a=0; a<ncombinations; ++a)
+                for(unsigned a=0; a<NMethodCombinations; ++a)
                 {
                     if(a < miscoverage_min || a > miscoverage_max)
                         child_simulated_done[a] = true;
@@ -337,7 +285,7 @@ static void CreateFactoryIndex(bool done[ncombinations])
 
                 SwitchOptions[caseval] = GetFactoryName(i->second);
 
-                for(unsigned a=0; a<ncombinations; ++a)
+                for(unsigned a=0; a<NMethodCombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + best_add) & best_mask;
@@ -413,24 +361,26 @@ static void CreateFactoryIndex(bool done[ncombinations])
 
 static void CreateFactoryIndex()
 {
-    bool done [ ncombinations ] = { false };
+    bool done [ NMethodCombinations ] = { false };
     CreateFactoryIndex(done);
 }
 
 int main()
 {
+    const unsigned long NImplCombinations = 1ul << GetMethodImplCount<>::result;
+
     /* For each combination of pixel methods (trait bitmasks) */
-    for(unsigned long a=0; a<ncombinations; ++a)
+    for(unsigned long a=0; a<NMethodCombinations; ++a)
     {
         unsigned long best_m      = 0;
         unsigned long best_size   = 0;
         unsigned long best_traits = 0;
         /* Go through each combination of pixel implementations */
-        for(unsigned long m=0; m<nmethod_combinations; ++m)
+        for(unsigned long m=0; m < NImplCombinations; ++m)
         {
-            unsigned long traits = CombinationLore::FindTraits(m);
-            unsigned long size   = CombinationLore::FindSize(m)
-                                 + CombinationLore::FindSizePenalty(m);
+            unsigned long traits = PixelMethodImplComb<>::FindTraits(m);
+            unsigned long size   = PixelMethodImplComb<>::FindSize(m)
+                                 + PixelMethodImplComb<>::FindSizePenalty(m);
 
             /* If this combination implements all the desired methods */
             if((traits & a) == a)
@@ -467,8 +417,8 @@ int main()
         " * by the makepixels program provided in animmerger\n"
         " * source code package.\n"
         " * @featuremask is a bitmask of requested PixelMethods.\n"
-        " * Range: 0 < @featuremask < " << ncombinations << "\n"
-        " * where " << ncombinations << " = 2**NPixelMethods\n"
+        " * Range: 0 < @featuremask < " << NMethodCombinations << "\n"
+        " * where " << NMethodCombinations << " = 2**NPixelMethods\n"
         " */\n"
         "const FactoryType* FindFactory(unsigned featuremask)\n"
         "{\n"

@@ -42,9 +42,11 @@ struct DummyPixel
 #include "pixels/loopinglogpixel.hh"
 #include "pixels/changelogpixel.hh"
 
+/* This converts an implementation index into a type. */
 template<unsigned id, typename Base>
 struct PixelMethodImpl { typedef void result; };
 
+/* This converts a type into a name (string). */
 template<typename T>
 struct PixelMethodImplName { };
 
@@ -72,6 +74,11 @@ struct PixelMethodImplName { };
 DefinePixelClasses(MakePixelMethodImpl)
 #undef MakePixelMethodImpl
 
+template<unsigned n=0, typename Obj = typename PixelMethodImpl<n,DummyPixel>::result>
+struct GetMethodImplCount { enum { result = GetMethodImplCount<n+1>::result }; };
+template<unsigned n>
+struct GetMethodImplCount<n,void> { enum { result = n }; };
+
 template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
 struct GetLowestBit { enum { result = GetLowestBit<Value/2, Basevalue+1>::result }; };
 template<unsigned Value, unsigned Basevalue>
@@ -82,16 +89,48 @@ struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
 /* "PixelMethodImplementationCombination" would be somewhat wordy.
  * Hence abbreviated.
  */
-template<unsigned bitmask,
-         unsigned lowestbit = GetLowestBit<bitmask>::result,
-         unsigned remainingbits = bitmask & ~(1ul << lowestbit)>
+template<unsigned bitmask=1>
 struct PixelMethodImplComb
-    : public PixelMethodImpl
-        <lowestbit,
-         typename PixelMethodImplComb<remainingbits>::result>
-{ };
+{
+    enum { lowestbit = GetLowestBit<bitmask>::result,
+           remainingbits = bitmask & ~(1ul << lowestbit),
+           nextbitmask = (bitmask+1) & ((1ul << GetMethodImplCount<>::result)-1)
+         };
 
+    /* This converts an implementation index bitmask into a type. */
+    typedef typename PixelMethodImpl
+        <lowestbit,
+         typename PixelMethodImplComb<remainingbits>::result>::result result;
+
+    static unsigned FindSize(unsigned combination)
+    {
+        if(combination == bitmask) return sizeof(result);
+        return PixelMethodImplComb<nextbitmask>::FindSize(combination);
+    }
+    static unsigned FindSizePenalty(unsigned combination)
+    {
+        if(combination == bitmask) return result::SizePenalty;
+        return PixelMethodImplComb<nextbitmask>::FindSizePenalty(combination);
+    }
+    static unsigned long FindTraits(unsigned combination)
+    {
+        if(combination == bitmask) return result::Traits;
+        return PixelMethodImplComb<nextbitmask>::FindTraits(combination);
+    }
+    static const char* FindName(unsigned combination)
+    {
+        if(combination == bitmask) return PixelMethodImplName<result>::getname();
+        return PixelMethodImplComb<nextbitmask>::FindName(combination);
+    }
+};
 template<>
-struct PixelMethodImplComb<0> { typedef DummyPixel result; };
+struct PixelMethodImplComb<0>
+{
+    typedef DummyPixel result;
+    static inline unsigned FindSize(unsigned) { return 0; }
+    static inline unsigned FindSizePenalty(unsigned) { return 0; }
+    static inline unsigned long FindTraits(unsigned) { return 0; }
+    static inline const char* FindName(unsigned) { return 0; }
+};
 
 #endif

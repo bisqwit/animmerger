@@ -29,12 +29,13 @@
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,
-enum PixelMethod
-{
-    DefinePixelMethods(MakeEnum)
-    NPixelMethods
-};
+enum PixelMethod { DefinePixelMethods(MakeEnum) };
 #undef MakeEnum
+
+/* Count them into NPixelMethods */
+#define CountMethods(o,f,name) +1
+enum { NPixelMethods = 0 DefinePixelMethods(CountMethods) };
+#undef CountMethods
 
 
 extern bool OptimizeChangeLog;
@@ -47,24 +48,16 @@ extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;
 
 #define MakeMask(o,flags,name) ((flags&1) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long AnimatedPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+static const unsigned long AnimatedPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
 #undef MakeMask
 #define MakeMask(o,flags,name) ((flags&2) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long LoopingPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+static const unsigned long LoopingPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
 #undef MakeMask
 #define MakeMask(o,flags,name) ((flags&4) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long BlurCapablePixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+static const unsigned long BlurCapablePixelMethodsMask = DefinePixelMethods(MakeMask) 0;
 #undef MakeMask
 #define MakeMask(o,flags,name) ((flags&8) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long FirstLastPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+static const unsigned long FirstLastPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
 #undef MakeMask
 
 
@@ -91,10 +84,6 @@ struct Array256x256of_Base
     virtual uint32 GetStatic(unsigned index) const = 0;
 
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
-
-    virtual unsigned GetPixelSize() const = 0;
-    virtual unsigned GetPixelSizePenalty() const = 0;
-    virtual const char* GetPixelSetupName() const = 0;
 };
 class UncertainPixelVector256x256
 {

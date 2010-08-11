@@ -1,5 +1,3 @@
-//#include <typeinfo>
-
 #include "types.hh"
 
 bool     OptimizeChangeLog   = true;
@@ -56,14 +54,14 @@ public:
         // removing the check for those methods that never
         // can occur here.
 
-        switch(method)
-        {
         #define MakeMethodCase(n,f,name) \
             case pm_##name##Pixel: return data[index].Get##name(timer);
-        DefinePixelMethods(MakeMethodCase);
-        #undef MakeMethodCase
+        switch(method)
+        {
+            DefinePixelMethods(MakeMethodCase);
             default: return 0;
         }
+        #undef MakeMethodCase
 
         //return (data[index].*(PixelMethodImpls<T>::methods[method]))(timer);
     }
@@ -76,14 +74,14 @@ public:
         DefinePixelMethods(MakeMethodCase);
         #undef MakeMethodCase
 
-        switch(bgmethod)
-        {
         #define MakeMethodCase(n,f,name) \
             case pm_##name##Pixel: return data[index].Get##name(0);
-        DefinePixelMethods(MakeMethodCase);
-        #undef MakeMethodCase
+        switch(bgmethod)
+        {
+            DefinePixelMethods(MakeMethodCase);
             default: return 0;
         }
+        #undef MakeMethodCase
 
         //return (data[index].*(PixelMethodImpls<T>::methods[bgmethod]))(0);
     }
@@ -91,22 +89,6 @@ public:
     virtual void Set(unsigned index, uint32 p, unsigned timer)
     {
         data[index].set(p, timer);
-    }
-
-    virtual unsigned GetPixelSize() const
-    {
-        return sizeof(T);
-    }
-
-    virtual unsigned GetPixelSizePenalty() const
-    {
-        return T::SizePenalty;
-    }
-
-    virtual const char* GetPixelSetupName() const
-    {
-        //return typeid( T() ).name();
-        return PixelMethodImplName<T>::getname();
     }
 };
 
@@ -118,6 +100,9 @@ namespace
         ObjT* (*Construct)();
         ObjT* (*Copy)(const ObjT& b);
         void  (*Assign)(ObjT& tgt, const ObjT& b);
+        const char* (*GetName)();
+        unsigned short Size;
+        unsigned short SizePenalty;
     };
     template<typename T>
     struct FactoryMethods
@@ -127,25 +112,29 @@ namespace
         static ObjT* Construct()         { return new ResT; }
         static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
         static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b; }
-
+    };
+    template<unsigned impl_index>
+    struct PixelImplFactory
+    {
+        typedef typename PixelMethodImplComb<impl_index>::result T;
         static const FactoryType data;
     };
-    template<typename T>
-    const FactoryType FactoryMethods<T>::data =
+    template<unsigned impl_index>
+    const FactoryType PixelImplFactory<impl_index>::data =
     {
         FactoryMethods<T>::Construct,
         FactoryMethods<T>::Copy,
-        FactoryMethods<T>::Assign
+        FactoryMethods<T>::Assign,
+        PixelMethodImplName<T>::getname,
+        sizeof(T),
+        T::SizePenalty
     };
 
 #include "pixelfactory.inc"
 
-    struct Get256x256pixelFactory
+    const FactoryType* Get256x256pixelFactory()
     {
-        inline const FactoryType* operator-> () const
-        {
-            return FindFactory( pixelmethods_result | (1ul << bgmethod) );
-        }
+        return FindFactory( pixelmethods_result | (1ul << bgmethod) );
     };
 }
 
@@ -175,23 +164,13 @@ UncertainPixelVector256x256&
 
 unsigned GetPixelSizeInBytes()
 {
-    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
-    unsigned result = p->GetPixelSize();
-    delete p;
-    return result;
+    return Get256x256pixelFactory()->Size;
 }
 unsigned GetPixelSizePenaltyInBytes()
 {
-    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
-    unsigned result = p->GetPixelSizePenalty();
-    delete p;
-    return result;
+    return Get256x256pixelFactory()->SizePenalty;
 }
-
 const char* GetPixelSetupName()
 {
-    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
-    const char* result = p->GetPixelSetupName();
-    delete p;
-    return result;
+    return Get256x256pixelFactory()->GetName();
 }
