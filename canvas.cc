@@ -294,11 +294,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     VecType<uint32> screen ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
-    const char* nametemplate = "tile-";
+    const char* nametemplate = "tile";
     if(pixelmethods_result != (1ul << method))
     {
         // Multi-method output
-        #define MakePixName(o,f,name) #name"-",
+        #define MakePixName(o,f,name) #name,
         static const char* const Templates[NPixelMethods] =
         {
              DefinePixelMethods(MakePixName)
@@ -308,9 +308,9 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     }
 
     if(SaveGif == 1 || animated)
-        std::sprintf(Filename, "%s%04u.gif", nametemplate, img_counter);
+        std::sprintf(Filename, "%s-%04u.gif", nametemplate, img_counter);
     else
-        std::sprintf(Filename, "%s%04u.png", nametemplate, img_counter);
+        std::sprintf(Filename, "%s-%04u.png", nametemplate, img_counter);
 
     std::fprintf(stderr, "%s: (%d,%d)-(%d,%d)\n", Filename, 0,0, xma-xmi, yma-ymi);
     std::fflush(stderr);

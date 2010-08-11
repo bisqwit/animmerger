@@ -38,74 +38,43 @@ static std::ostringstream FactoryIndex, FactoryTable;
 template<unsigned CombinationIndex>
 struct AllCombinations
 {
+    typedef typename PixelMethodImplComb<CombinationIndex>::result Obj;
     static unsigned FindSize(unsigned s)
     {
-        if((s+1) == CombinationIndex)
-        {
-            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
-            return sizeof(Obj);
-        }
+        if(s == CombinationIndex) return sizeof(Obj);
         return AllCombinations<CombinationIndex-1>::FindSize(s);
     }
     static unsigned FindSizePenalty(unsigned s)
     {
-        if((s+1) == CombinationIndex)
-        {
-            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
-            return Obj::SizePenalty;
-        }
+        if(s == CombinationIndex) return Obj::SizePenalty;
         return AllCombinations<CombinationIndex-1>::FindSizePenalty(s);
     }
     static unsigned long FindTraits(unsigned s)
     {
-        if((s+1) == CombinationIndex)
-        {
-            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
-            return Obj::Traits;
-        }
+        if(s == CombinationIndex) return Obj::Traits;
         return AllCombinations<CombinationIndex-1>::FindTraits(s);
     }
-    static const  char* FindName(unsigned s)
+    static const char* FindName(unsigned s)
     {
-        if((s+1) == CombinationIndex)
-        {
-            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
-            return PixelMethodImplName<Obj>::getname();
-        }
+        if(s == CombinationIndex) return PixelMethodImplName<Obj>::getname();
         return AllCombinations<CombinationIndex-1>::FindName(s);
     }
 };
 template<>
-struct AllCombinations<1>
+struct AllCombinations<0>
 {
     static inline unsigned FindSize(unsigned) { return 0; }
     static inline unsigned FindSizePenalty(unsigned) { return 0; }
     static inline unsigned long FindTraits(unsigned) { return 0; }
     static inline const char* FindName(unsigned) { return 0; }
 };
-
-static unsigned long GetCombinationTraits(unsigned long combination)
-{
-    return AllCombinations<nmethod_combinations>::FindTraits(combination);
-}
-static unsigned GetCombinationSize(unsigned long combination)
-{
-    return AllCombinations<nmethod_combinations>::FindSize(combination);
-}
-static unsigned GetCombinationSizePenalty(unsigned long combination)
-{
-    return AllCombinations<nmethod_combinations>::FindSizePenalty(combination);
-}
-static const char* GetCombinationName(unsigned long combination)
-{
-    return AllCombinations<nmethod_combinations>::FindName(combination);
-}
+typedef AllCombinations<nmethod_combinations-1> CombinationLore;
 
 static std::string GetFactoryName(unsigned long combination)
 {
-    unsigned size        = GetCombinationSize(combination);
-    unsigned sizepenalty = GetCombinationSizePenalty(combination);
-    const char* name = GetCombinationName(combination);
+    unsigned size        = CombinationLore::FindSize(combination);
+    unsigned sizepenalty = CombinationLore::FindSizePenalty(combination);
+    const char* name = CombinationLore::FindName(combination);
 
     std::ostringstream tmp;
     tmp << "FactoryMethods<PixelMethodImplComb<" << combination << ">::result>::data"
@@ -459,9 +428,9 @@ int main()
         /* Go through each combination of pixel implementations */
         for(unsigned long m=0; m<nmethod_combinations; ++m)
         {
-            unsigned long traits = GetCombinationTraits(m);
-            unsigned long size   = GetCombinationSize(m)
-                                 + GetCombinationSizePenalty(m);
+            unsigned long traits = CombinationLore::FindTraits(m);
+            unsigned long size   = CombinationLore::FindSize(m)
+                                 + CombinationLore::FindSizePenalty(m);
 
             /* If this combination implements all the desired methods */
             if((traits & a) == a)

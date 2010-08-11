@@ -72,12 +72,10 @@ struct PixelMethodImplName { };
 DefinePixelClasses(MakePixelMethodImpl)
 #undef MakePixelMethodImpl
 
-template<unsigned Value, unsigned Basevalue=0, bool bit1=Value&1>
+template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
 struct GetLowestBit { enum { result = GetLowestBit<Value/2, Basevalue+1>::result }; };
 template<unsigned Value, unsigned Basevalue>
 struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
-template<unsigned Basevalue, bool bit1>
-struct GetLowestBit<0, Basevalue, bit1> { enum { result = 0 }; };
 
 /* Creates a combination class of pixel methods matching the requested bitmask. */
 /* The combination is created through chain-inheritance. */
