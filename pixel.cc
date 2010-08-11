@@ -1,3 +1,5 @@
+//#include <typeinfo>
+
 #include "types.hh"
 
 bool     OptimizeChangeLog   = true;
@@ -15,23 +17,18 @@ namespace
 {
 /*
     template<typename T>
-    struct PixelAccessMethods
+    struct PixelMethodImpls
     {
         static uint32 (T::*const methods[NPixelMethods])(unsigned)const;
     };
     template<typename T>
-    uint32 (T::*const PixelAccessMethods<T>::methods[NPixelMethods])(unsigned)const =
+    uint32 (T::*const PixelMethodImpls<T>::methods[NPixelMethods])(unsigned)const =
     {
         #define MakeMethodPointer(n,f,name) &T::Get##name,
         DefinePixelMethods(MakeMethodPointer)
         #undef MakeMethodPointer
     };
 */
-    template<typename T>
-    struct PixelAccessMethodName
-    {
-        static const char name[];
-    };
 }
 
 template<typename T>
@@ -50,6 +47,7 @@ public:
             return data[index].Get##name(0);
         DefinePixelMethods(MakeMethodCase);
         #undef MakeMethodCase
+
         // This switchcase is actually pretty optimal
         // compared to the method pointer table, because
         // those cases that are not implemented in T
@@ -57,6 +55,7 @@ public:
         // It could still be improved though, by somehow
         // removing the check for those methods that never
         // can occur here.
+
         switch(method)
         {
         #define MakeMethodCase(n,f,name) \
@@ -65,7 +64,8 @@ public:
         #undef MakeMethodCase
             default: return 0;
         }
-        //return (data[index].*(PixelAccessMethods<T>::methods[method]))(timer);
+
+        //return (data[index].*(PixelMethodImpls<T>::methods[method]))(timer);
     }
 
     virtual uint32 GetStatic(unsigned index) const
@@ -75,6 +75,7 @@ public:
             return data[index].Get##name(0);
         DefinePixelMethods(MakeMethodCase);
         #undef MakeMethodCase
+
         switch(bgmethod)
         {
         #define MakeMethodCase(n,f,name) \
@@ -83,7 +84,8 @@ public:
         #undef MakeMethodCase
             default: return 0;
         }
-        //return (data[index].*(PixelAccessMethods<T>::methods[bgmethod]))(0);
+
+        //return (data[index].*(PixelMethodImpls<T>::methods[bgmethod]))(0);
     }
 
     virtual void Set(unsigned index, uint32 p, unsigned timer)
@@ -98,7 +100,8 @@ public:
 
     virtual const char* GetPixelSetupName() const
     {
-        return PixelAccessMethodName<T>::name;
+        //return typeid( T() ).name();
+        return PixelMethodImplName<T>::getname();
     }
 };
 

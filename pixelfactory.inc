@@ -1,23 +1,3 @@
-#define MakePixelCombination(alias,type) \
-    typedef type alias; \
-    template<> \
-    const char PixelAccessMethodName<alias>::name[] = #type
-
-MakePixelCombination(t1, LastPixel<>);
-MakePixelCombination(t2, FirstPixel<>);
-MakePixelCombination(t3, LastPixel<FirstPixel<> >);
-MakePixelCombination(t16, LoopingLogPixel<>);
-MakePixelCombination(t18, FirstPixel<LoopingLogPixel<> >);
-MakePixelCombination(t17, LastPixel<LoopingLogPixel<> >);
-MakePixelCombination(t19, LastPixel<FirstPixel<LoopingLogPixel<> > >);
-MakePixelCombination(t4, AveragePixel<>);
-MakePixelCombination(t6, FirstPixel<AveragePixel<> >);
-MakePixelCombination(t5, LastPixel<AveragePixel<> >);
-MakePixelCombination(t7, LastPixel<FirstPixel<AveragePixel<> > >);
-MakePixelCombination(t8, MostUsedPixel<>);
-MakePixelCombination(t32, ChangeLogPixel<>);
-MakePixelCombination(t48, LoopingLogPixel<ChangeLogPixel<> >);
-
 /* FindFactory() returns a FactoryType for the smallest pixel
  * type that implements all features indicated in @featuremask.
  * It does so by the means of an algorithm generated
@@ -31,27 +11,27 @@ const FactoryType* FindFactory(unsigned featuremask)
 {
     static const FactoryType* const table[21] =
     {
-    /*  0 */ &FactoryMethods<t2>::data,
-    /*  1 */ &FactoryMethods<t1>::data,
-    /*  2 */ &FactoryMethods<t3>::data,
-    /*  3 */ &FactoryMethods<t16>::data,
-    /*  4 */ &FactoryMethods<t18>::data,
-    /*  5 */ &FactoryMethods<t17>::data,
-    /*  6 */ &FactoryMethods<t19>::data,
-    /*  7 */ &FactoryMethods<t4>::data,
-    /*  8 */ &FactoryMethods<t6>::data,
-    /*  9 */ &FactoryMethods<t5>::data,
-    /* 10 */ &FactoryMethods<t7>::data,
-    /* 11 */ &FactoryMethods<t8>::data,
-    /* 12 */ &FactoryMethods<t32>::data,
-    /* 13 */ &FactoryMethods<t32>::data,
-    /* 14 */ &FactoryMethods<t32>::data,
-    /* 15 */ &FactoryMethods<t16>::data,
-    /* 16 */ &FactoryMethods<t18>::data,
-    /* 17 */ &FactoryMethods<t17>::data,
-    /* 18 */ &FactoryMethods<t19>::data,
-    /* 19 */ &FactoryMethods<t32>::data,
-    /* 20 */ &FactoryMethods<t48>::data,
+    /*  0 */ &FactoryMethods<PixelMethodImplComb<2>::result>::data,
+    /*  1 */ &FactoryMethods<PixelMethodImplComb<1>::result>::data,
+    /*  2 */ &FactoryMethods<PixelMethodImplComb<3>::result>::data,
+    /*  3 */ &FactoryMethods<PixelMethodImplComb<16>::result>::data,
+    /*  4 */ &FactoryMethods<PixelMethodImplComb<18>::result>::data,
+    /*  5 */ &FactoryMethods<PixelMethodImplComb<17>::result>::data,
+    /*  6 */ &FactoryMethods<PixelMethodImplComb<19>::result>::data,
+    /*  7 */ &FactoryMethods<PixelMethodImplComb<4>::result>::data,
+    /*  8 */ &FactoryMethods<PixelMethodImplComb<6>::result>::data,
+    /*  9 */ &FactoryMethods<PixelMethodImplComb<5>::result>::data,
+    /* 10 */ &FactoryMethods<PixelMethodImplComb<7>::result>::data,
+    /* 11 */ &FactoryMethods<PixelMethodImplComb<8>::result>::data,
+    /* 12 */ &FactoryMethods<PixelMethodImplComb<32>::result>::data,
+    /* 13 */ &FactoryMethods<PixelMethodImplComb<32>::result>::data,
+    /* 14 */ &FactoryMethods<PixelMethodImplComb<32>::result>::data,
+    /* 15 */ &FactoryMethods<PixelMethodImplComb<16>::result>::data,
+    /* 16 */ &FactoryMethods<PixelMethodImplComb<18>::result>::data,
+    /* 17 */ &FactoryMethods<PixelMethodImplComb<17>::result>::data,
+    /* 18 */ &FactoryMethods<PixelMethodImplComb<19>::result>::data,
+    /* 19 */ &FactoryMethods<PixelMethodImplComb<32>::result>::data,
+    /* 20 */ &FactoryMethods<PixelMethodImplComb<48>::result>::data,
     };
 /* of remaining 4096 [0..4095], coverage 4096, miscoverage 128, best_score 2032.02, config=(add:0,mask:4) */
     if(featuremask < 128) {

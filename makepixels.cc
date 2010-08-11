@@ -12,6 +12,8 @@
 #include <map>
 #include <string>
 
+#include <cstring>
+
 
 /* Create pixel method name list */
 #define MakePixName(o,f,name) #name,
@@ -21,86 +23,30 @@ static const char* const PixelMethodNames[NPixelMethods] =
 };
 #undef MakePixName
 
-#define MakeMethod(id,name) { #name, name<>::Traits, sizeof(name<>) },
-static const struct Method
+#define MakeImpl(id,name) { name<>::Traits, sizeof(name<>) },
+static const struct Impl
 {
-    const char*   name;
     unsigned long traits;
     unsigned long size;
-} Methods[] =
+} Impls[] =
 {
-    DefinePixelClasses(MakeMethod)
+    DefinePixelClasses(MakeImpl)
 };
-#undef MakeMethod
-static const unsigned nmethods = sizeof(Methods) / sizeof(*Methods);
+#undef MakeImpl
+static const unsigned n_implementations = sizeof(Impls) / sizeof(*Impls);
 
 static const unsigned long ncombinations = 1ul << NPixelMethods;
-static const unsigned long nmethod_combinations = 1ul << nmethods;
+static const unsigned long nmethod_combinations = 1ul << n_implementations;
 
-static std::map<std::string, unsigned> NameTable;
-static std::vector<unsigned> NameList;
-static std::vector<std::string> NameTrans;
+static unsigned Solution[ncombinations];
 
-static std::ostringstream Creations;
-static std::ostringstream Classes;
-static std::ostringstream NameDeclarationArray;
-static unsigned n_factories = 0;
 static std::ostringstream FactoryIndex, FactoryTable;
 
-static std::string MakeCombination(unsigned long combination)
+static std::string GetFactoryName(unsigned long combination)
 {
-    static std::set<unsigned long> DoneCombinations;
-
-    std::string name = "";
-    for(unsigned n=nmethods; n-->0; )
-        if(combination & (1 << n))
-        {
-            name = Methods[n].name + std::string("<") + name;
-            if(name[name.size()-1] == '>') name += ' ';
-            name += '>';
-        }
-
-    std::ostringstream aliasbuf;
-    aliasbuf << "t" << combination;
-    std::string alias = aliasbuf.str();
-
-    if(DoneCombinations.find(combination) == DoneCombinations.end())
-    {
-        if(!n_factories)
-        {
-            Classes <<
-                "#define MakePixelCombination(alias,type) \\\n"
-                "    typedef type alias; \\\n"
-                "    template<> \\\n"
-                "    const char PixelAccessMethodName<alias>::name[] = #type\n"
-                "\n";
-        }
-        ++n_factories;
-        DoneCombinations.insert(combination);
-
-        Classes << "MakePixelCombination(" << alias << ", " << name << ");\n";
-    }
-
-    return alias;
-}
-
-static void PutResult(unsigned long input, unsigned long combination)
-{
-    std::string namestr = MakeCombination(combination);
-
-    if(NameTable.find(namestr) == NameTable.end())
-    {
-        unsigned nameid = NameTable.size();
-        NameTable[namestr] = nameid;
-        NameList.push_back(nameid);
-
-        NameTrans.push_back( "FactoryMethods<" + namestr + ">::data" );
-    }
-    else
-    {
-        unsigned nameid = NameTable[namestr];
-        NameList.push_back(nameid);
-    }
+    std::ostringstream tmp;
+    tmp << "FactoryMethods<PixelMethodImplComb<" << combination << ">::result>::data";
+    return tmp.str();
 }
 
 static unsigned PopCount(unsigned n)
@@ -164,14 +110,12 @@ static void CreateFactoryTable()
         "    };\n";
 }
 
-static void CreateFactoryIndex(std::vector<bool> done)
+static void CreateFactoryIndex(bool done[ncombinations])
 {
-    const unsigned n = NameList.size();
-
     for(;;)
     {
-        unsigned remain = 0, min_remain=n, max_remain=0;
-        for(size_t a=0; a<n; ++a)
+        unsigned remain = 0, min_remain=ncombinations, max_remain=0;
+        for(unsigned a=0; a<ncombinations; ++a)
             if(!done[a])
                 { if(a < min_remain) min_remain = a;
                   if(a > max_remain) max_remain = a;
@@ -204,11 +148,11 @@ static void CreateFactoryIndex(std::vector<bool> done)
                 typedef std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > r1;
                 typedef std::map<unsigned, r1, std::less<unsigned>, FSBAllocator<int> > r2;
                 r2 result_counts;
-                for(unsigned a=0; a<n; ++a)
+                for(unsigned a=0; a<ncombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + add) & mask;
-                    const unsigned value = NameList[a];
+                    const unsigned value = Solution[a];
                     ++result_counts[index][value];
                 }
                 std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > results;
@@ -222,13 +166,13 @@ static void CreateFactoryIndex(std::vector<bool> done)
                     //FactoryIndex << "/* " << i->first << ": " << mostvalue << "*/\n";
                 }
                 int coverage = 0, miscoverage = 0;
-                unsigned miscoverage_min=n, miscoverage_max=0;
+                unsigned miscoverage_min=ncombinations, miscoverage_max=0;
                 std::set<unsigned, std::less<unsigned>, FSBAllocator<int> > cases;
-                for(unsigned a=0; a<n; ++a)
+                for(unsigned a=0; a<ncombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + add) & mask;
-                    const unsigned value = NameList[a];
+                    const unsigned value = Solution[a];
                     ++coverage;
                     if(results[index] != value)
                     {
@@ -241,7 +185,7 @@ static void CreateFactoryIndex(std::vector<bool> done)
                 }
                 unsigned n_cases = cases.size();
                 if(!n_cases) goto nextmask;
-                if(miscoverage_min != n)
+                if(miscoverage_min != ncombinations)
                     miscoverage = miscoverage_max - miscoverage_min + 1;
 
                 //if(miscoverage_max-miscoverage_min+1 > ) goto nextmask;
@@ -286,11 +230,11 @@ static void CreateFactoryIndex(std::vector<bool> done)
             typedef std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > r1;
             typedef std::map<unsigned, r1, std::less<unsigned>, FSBAllocator<int> > r2;
             r2 result_counts;
-            for(unsigned a=0; a<n; ++a)
+            for(unsigned a=0; a<ncombinations; ++a)
             {
                 if(done[a]) continue;
                 const unsigned index = (a + best_add) & best_mask;
-                const unsigned value = NameList[a];
+                const unsigned value = Solution[a];
                 ++result_counts[index][value];
             }
             std::map<unsigned, unsigned, std::less<unsigned>, FSBAllocator<int> > results;
@@ -306,20 +250,22 @@ static void CreateFactoryIndex(std::vector<bool> done)
 
             if(best_miscoverage > 0)
             {
-                std::vector<bool> child_simulated_done=done;
-                unsigned miscoverage_min=n, miscoverage_max=0;
-                for(unsigned a=0; a<n; ++a)
+                bool child_simulated_done[ncombinations];
+                std::memcpy(child_simulated_done, done, sizeof(done));
+
+                unsigned miscoverage_min=ncombinations, miscoverage_max=0;
+                for(unsigned a=0; a<ncombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + best_add) & best_mask;
-                    const unsigned value = NameList[a];
+                    const unsigned value = Solution[a];
                     if(results[index] != value)
                     {
                         if(a < miscoverage_min) miscoverage_min = a;
                         if(a > miscoverage_max) miscoverage_max = a;
                     }
                 }
-                for(unsigned a=0; a<n; ++a)
+                for(unsigned a=0; a<ncombinations; ++a)
                 {
                     if(a < miscoverage_min || a > miscoverage_max)
                         child_simulated_done[a] = true;
@@ -356,13 +302,13 @@ static void CreateFactoryIndex(std::vector<bool> done)
                 }
                 unsigned caseval = i->first >> mask_downshift;
 
-                SwitchOptions[caseval] = NameTrans[i->second];
+                SwitchOptions[caseval] = GetFactoryName(i->second);
 
-                for(unsigned a=0; a<n; ++a)
+                for(unsigned a=0; a<ncombinations; ++a)
                 {
                     if(done[a]) continue;
                     const unsigned index = (a + best_add) & best_mask;
-                    const unsigned value = NameList[a];
+                    const unsigned value = Solution[a];
                     if(index == i->first)
                     {
                         done[a] = true;
@@ -420,7 +366,7 @@ static void CreateFactoryIndex(std::vector<bool> done)
             std::vector<std::string> table;
             for(unsigned a=min_remain;  a<=max_remain; ++a)
             {
-                table.push_back(NameTrans[NameList[a]]);
+                table.push_back( GetFactoryName( Solution[a] ) );
                 if((a-min_remain) >= best_mask) break;
             }
             unsigned begin_offset = FindTableOffset(table);
@@ -434,29 +380,32 @@ static void CreateFactoryIndex(std::vector<bool> done)
 
 static void CreateFactoryIndex()
 {
-    const unsigned n = NameList.size();
-    std::vector<bool> done(n, false);
+    bool done [ ncombinations ] = { false };
     CreateFactoryIndex(done);
 }
 
 int main()
 {
+    /* For each combination of pixel methods (trait bitmasks) */
     for(unsigned long a=0; a<ncombinations; ++a)
     {
         unsigned long best_m    = 0;
         unsigned long best_size = 0;
+        /* Go through each combination of pixel implementations */
         for(unsigned long m=0; m<nmethod_combinations; ++m)
         {
             unsigned long traits = 0;
             unsigned long size   = 0;
-            for(unsigned n=0; n<nmethods; ++n)
+            for(unsigned n=0; n<n_implementations; ++n)
                 if(m & (1 << n))
                 {
-                    traits |= Methods[n].traits;
-                    size   += Methods[n].size;
+                    traits |= Impls[n].traits;
+                    size   += Impls[n].size;
                 }
+            /* If this combination implements all the desired methods */
             if((traits & a) == a)
             {
+                /* Pick that combination that takes least space */
                 if(best_size == 0 || size < best_size)
                 {
                     best_size = size;
@@ -464,16 +413,18 @@ int main()
                 }
             }
         }
-        PutResult(a, best_m);
+
+        /* The combination has been chosen */
+        Solution[a] = best_m;
     }
 
+    /* Create minimal C++ program that accesses that array */
+    /* Otherwise, we need a 4096-pointer array, which is not that nice */
     CreateFactoryIndex();
     CreateFactoryTable();
 
     std::cout
-    <<  Classes.str()
-    <<  "\n"
-        "/* FindFactory() returns a FactoryType for the smallest pixel\n"
+    <<  "/* FindFactory() returns a FactoryType for the smallest pixel\n"
         " * type that implements all features indicated in @featuremask.\n"
         " * It does so by the means of an algorithm generated\n"
         " * by the makepixels program provided in animmerger\n"

@@ -29,7 +29,7 @@ struct DummyPixel
     DefinePixelMethods(CreateDummyAliases)
     #undef CreateDummyAliases
 /////////
-    static const unsigned long Traits = 0;
+    static const unsigned long Traits = 0ul;
 };
 
 #include "pixels/lastpixel.hh"
@@ -38,5 +38,59 @@ struct DummyPixel
 #include "pixels/mostusedpixel.hh"
 #include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
+
+template<unsigned id, typename Base>
+struct PixelMethodImpl { typedef void result; };
+
+template<typename T>
+struct PixelMethodImplName { };
+
+#define MakePixelMethodImpl(id,name) \
+    template<typename Base> \
+    struct PixelMethodImpl<id, Base> \
+    { \
+        typedef name<Base> result; \
+    }; \
+    template<typename Base> \
+    struct PixelMethodImplName< name<Base> > \
+    { \
+        static const char* getname() \
+        { \
+            static const std::string n = \
+                #name + std::string("+") + PixelMethodImplName<Base>::getname(); \
+            return n.c_str(); \
+        } \
+    }; \
+    template<> \
+    struct PixelMethodImplName< name<DummyPixel> > \
+    { \
+        static inline const char* getname() { return #name; } \
+    };
+DefinePixelClasses(MakePixelMethodImpl)
+#undef MakePixelMethodImpl
+
+template<unsigned Value, unsigned Basevalue=0, bool bit1=Value&1>
+struct GetLowestBit { enum { result = GetLowestBit<Value/2, Basevalue+1>::result }; };
+template<unsigned Value, unsigned Basevalue>
+struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
+template<unsigned Basevalue, bool bit1>
+struct GetLowestBit<0, Basevalue, bit1> { enum { result = 0 }; };
+
+/* Creates a combination class of pixel methods matching the requested bitmask. */
+/* The combination is created through chain-inheritance. */
+/* "PixelMethodImplementationCombination" would be somewhat wordy.
+ * Hence abbreviated.
+ */
+template<unsigned bitmask,
+         unsigned lowestbit = GetLowestBit<bitmask>::result,
+         unsigned remainingbits = bitmask & ~(1ul << lowestbit)>
+struct PixelMethodImplComb
+    : public PixelMethodImpl
+        <lowestbit,
+         typename PixelMethodImplComb<remainingbits>::result>
+{ };
+
+template<>
+struct PixelMethodImplComb<0> { typedef DummyPixel result; };
 
 #endif

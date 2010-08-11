@@ -5,7 +5,7 @@
 
 /* This is the definite list of available pixel methods. */
 /* The order is arbitrary, but chosen so as to minimize
- * the size of the operator[] function in PixelFactory.
+ * the size of the generated FindFactory() function.
  * Params: option flag, animation flags, name
  * animation flags & 1 = animated
  * animation flags & 2 = obeys looplength
