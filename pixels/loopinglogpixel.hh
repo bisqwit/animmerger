@@ -7,12 +7,29 @@ template<typename Base=DummyPixel>
 class LoopingLogPixel: public Base
 {
     MostUsedPixel<> most_used;
-
-    VecType<LastPixel<> > history;
+    LastPixel<>* history;
 public:
-    LoopingLogPixel(): history(LoopingLogLength)
+    LoopingLogPixel()
+        : history(new LastPixel<> [LoopingLogLength])
     {
     }
+    ~LoopingLogPixel()
+    {
+        delete[] history;
+    }
+    LoopingLogPixel(const LoopingLogPixel<Base>& b)
+        : history(new LastPixel<> [LoopingLogLength])
+    {
+        for(unsigned a=0; a<LoopingLogLength; ++a)
+            history[a] = b.history[a];
+    }
+    LoopingLogPixel& operator=(const LoopingLogPixel<Base> &b)
+    {
+        for(unsigned a=0; a<LoopingLogLength; ++a)
+            history[a] = b.history[a];
+        return *this;
+    }
+
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
         Base::set(p,timer);
@@ -48,6 +65,10 @@ public:
     {
         return most_used.GetAverage();
     }
+    inline uint32 GetTinyAverage(unsigned=0) const FasterPixelMethod
+    {
+        return most_used.GetTinyAverage();
+    }
     inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetActionAvg();
@@ -57,4 +78,6 @@ public:
         Base::Traits
       | (1ul << pm_LoopingLogPixel)
       | MostUsedPixel<>::Traits;
+    static const unsigned SizePenalty =
+        Base::SizePenalty + MostUsedPixel<>::SizePenalty + 8;
 };

@@ -23,4 +23,5 @@ public:
     static const unsigned long Traits =
         Base::Traits
       | (1ul << pm_FirstPixel);
+    static const unsigned SizePenalty = Base::SizePenalty + 0;
 };

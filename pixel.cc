@@ -98,6 +98,11 @@ public:
         return sizeof(T);
     }
 
+    virtual unsigned GetPixelSizePenalty() const
+    {
+        return T::SizePenalty;
+    }
+
     virtual const char* GetPixelSetupName() const
     {
         //return typeid( T() ).name();
@@ -172,6 +177,13 @@ unsigned GetPixelSizeInBytes()
 {
     Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
     unsigned result = p->GetPixelSize();
+    delete p;
+    return result;
+}
+unsigned GetPixelSizePenaltyInBytes()
+{
+    Array256x256of_Base* p = Get256x256pixelFactory()->Construct();
+    unsigned result = p->GetPixelSizePenalty();
     delete p;
     return result;
 }

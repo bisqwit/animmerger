@@ -23,29 +23,93 @@ static const char* const PixelMethodNames[NPixelMethods] =
 };
 #undef MakePixName
 
-#define MakeImpl(id,name) { name<>::Traits, sizeof(name<>) },
-static const struct Impl
-{
-    unsigned long traits;
-    unsigned long size;
-} Impls[] =
-{
-    DefinePixelClasses(MakeImpl)
-};
-#undef MakeImpl
-static const unsigned n_implementations = sizeof(Impls) / sizeof(*Impls);
+static const unsigned long nmethod_combinations = 1ul << (0 +
+#define CountImpl(id,name) +1
+DefinePixelClasses(CountImpl)
+#undef CountImpl
+);
 
 static const unsigned long ncombinations = 1ul << NPixelMethods;
-static const unsigned long nmethod_combinations = 1ul << n_implementations;
 
 static unsigned Solution[ncombinations];
 
 static std::ostringstream FactoryIndex, FactoryTable;
 
+template<unsigned CombinationIndex>
+struct AllCombinations
+{
+    static unsigned FindSize(unsigned s)
+    {
+        if((s+1) == CombinationIndex)
+        {
+            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
+            return sizeof(Obj);
+        }
+        return AllCombinations<CombinationIndex-1>::FindSize(s);
+    }
+    static unsigned FindSizePenalty(unsigned s)
+    {
+        if((s+1) == CombinationIndex)
+        {
+            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
+            return Obj::SizePenalty;
+        }
+        return AllCombinations<CombinationIndex-1>::FindSizePenalty(s);
+    }
+    static unsigned long FindTraits(unsigned s)
+    {
+        if((s+1) == CombinationIndex)
+        {
+            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
+            return Obj::Traits;
+        }
+        return AllCombinations<CombinationIndex-1>::FindTraits(s);
+    }
+    static const  char* FindName(unsigned s)
+    {
+        if((s+1) == CombinationIndex)
+        {
+            typedef typename PixelMethodImplComb<(CombinationIndex-1)>::result Obj;
+            return PixelMethodImplName<Obj>::getname();
+        }
+        return AllCombinations<CombinationIndex-1>::FindName(s);
+    }
+};
+template<>
+struct AllCombinations<1>
+{
+    static inline unsigned FindSize(unsigned) { return 0; }
+    static inline unsigned FindSizePenalty(unsigned) { return 0; }
+    static inline unsigned long FindTraits(unsigned) { return 0; }
+    static inline const char* FindName(unsigned) { return 0; }
+};
+
+static unsigned long GetCombinationTraits(unsigned long combination)
+{
+    return AllCombinations<nmethod_combinations>::FindTraits(combination);
+}
+static unsigned GetCombinationSize(unsigned long combination)
+{
+    return AllCombinations<nmethod_combinations>::FindSize(combination);
+}
+static unsigned GetCombinationSizePenalty(unsigned long combination)
+{
+    return AllCombinations<nmethod_combinations>::FindSizePenalty(combination);
+}
+static const char* GetCombinationName(unsigned long combination)
+{
+    return AllCombinations<nmethod_combinations>::FindName(combination);
+}
+
 static std::string GetFactoryName(unsigned long combination)
 {
+    unsigned size        = GetCombinationSize(combination);
+    unsigned sizepenalty = GetCombinationSizePenalty(combination);
+    const char* name = GetCombinationName(combination);
+
     std::ostringstream tmp;
-    tmp << "FactoryMethods<PixelMethodImplComb<" << combination << ">::result>::data";
+    tmp << "FactoryMethods<PixelMethodImplComb<" << combination << ">::result>::data"
+           " /* " << size << "(+" << sizepenalty << ") bytes: " << name << " */";
     return tmp.str();
 }
 
@@ -136,11 +200,11 @@ static void CreateFactoryIndex(bool done[ncombinations])
 
       if(1)
       {
-        //#pragma omp parallel for schedule(dynamic)
+        #pragma omp parallel for schedule(dynamic)
         for(unsigned mask=1; mask<=max_remain; ++mask)
         {
             if(OkBitmask(mask, 4))
-            for(int addshift=-4; addshift<=4; ++addshift)
+            for(int addshift=-13; addshift<=13; ++addshift)
             {
               {
                 const int add = AddFromShift(addshift);
@@ -389,27 +453,31 @@ int main()
     /* For each combination of pixel methods (trait bitmasks) */
     for(unsigned long a=0; a<ncombinations; ++a)
     {
-        unsigned long best_m    = 0;
-        unsigned long best_size = 0;
+        unsigned long best_m      = 0;
+        unsigned long best_size   = 0;
+        unsigned long best_traits = 0;
         /* Go through each combination of pixel implementations */
         for(unsigned long m=0; m<nmethod_combinations; ++m)
         {
-            unsigned long traits = 0;
-            unsigned long size   = 0;
-            for(unsigned n=0; n<n_implementations; ++n)
-                if(m & (1 << n))
-                {
-                    traits |= Impls[n].traits;
-                    size   += Impls[n].size;
-                }
+            unsigned long traits = GetCombinationTraits(m);
+            unsigned long size   = GetCombinationSize(m)
+                                 + GetCombinationSizePenalty(m);
+
             /* If this combination implements all the desired methods */
             if((traits & a) == a)
             {
                 /* Pick that combination that takes least space */
-                if(best_size == 0 || size < best_size)
+                if(best_size == 0
+                || (size < best_size)
+                /*|| (size == best_size &&
+                       (PopCount(m) < PopCount(best_m)
+                    || (PopCount(m) == PopCount(best_m) &&
+                          PopCount(traits) < PopCount(best_traits) ))*/
+                  )
                 {
-                    best_size = size;
-                    best_m    = m;
+                    best_size   = size;
+                    best_m      = m;
+                    best_traits = traits;
                 }
             }
         }
@@ -419,7 +487,7 @@ int main()
     }
 
     /* Create minimal C++ program that accesses that array */
-    /* Otherwise, we need a 4096-pointer array, which is not that nice */
+    /* Otherwise, we need a 8192-pointer array, which is not that nice */
     CreateFactoryIndex();
     CreateFactoryTable();
 

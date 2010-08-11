@@ -11,10 +11,11 @@
 #define DefinePixelClasses(callback) \
     callback(0,LastPixel) \
     callback(1,FirstPixel) \
-    callback(2,AveragePixel) \
-    callback(3,MostUsedPixel) \
-    callback(4,LoopingLogPixel) \
-    callback(5,ChangeLogPixel)
+    callback(2,TinyAveragePixel) \
+    callback(3,AveragePixel) \
+    callback(4,MostUsedPixel) \
+    callback(5,LoopingLogPixel) \
+    callback(6,ChangeLogPixel)
 
 /* DummyPixel is a method that implements the interface
  * for all pixel methods but with no actual features
@@ -30,14 +31,16 @@ struct DummyPixel
     #undef CreateDummyAliases
 /////////
     static const unsigned long Traits = 0ul;
+    static const unsigned SizePenalty = 0ul;
 };
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
 #include "pixels/averagepixel.hh"
+#include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"
-#include "pixels/changelogpixel.hh"
 #include "pixels/loopinglogpixel.hh"
+#include "pixels/changelogpixel.hh"
 
 template<unsigned id, typename Base>
 struct PixelMethodImpl { typedef void result; };

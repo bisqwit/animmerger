@@ -1,10 +1,9 @@
 template<typename Base=DummyPixel>
-class AveragePixel: public Base
+class TinyAveragePixel: public Base
 {
-    unsigned r,g,b;
-    unsigned n;
+    unsigned result, n;
 public:
-    AveragePixel() : r(0),g(0),b(0),n(0)
+    TinyAveragePixel() : result(DefaultPixel), n(0)
     {
     }
     void set(uint32 p, unsigned timer=0) FasterPixelMethod
@@ -18,31 +17,30 @@ public:
     }
     void set_rgb(unsigned R,unsigned G,unsigned B, unsigned=0) FastPixelMethod
     {
-        r+=R; g+=G; b+=B;
-        ++n;
+        set_n_rgb(R,G,B, 1);
     }
     void set_n_rgb(unsigned R,unsigned G,unsigned B, unsigned count) FastPixelMethod
     {
-        r+=R*count; g+=G*count; b+=B*count;
+        unsigned r = (result>>16)&0xFF, g = (result>>8)&0xFF, b = (result&0xFF);
+        r = (r*n+R*count) / (n+count);
+        g = (g*n+G*count) / (n+count);
+        b = (b*n+B*count) / (n+count);
         n += count;
+        result = (r<<16) | (g<<8) | (b<<0);
     }
 
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetAverage();
+        return GetTinyAverage();
     }
 
-    uint32 GetAverage(unsigned=0) const FastPixelMethod
+    inline uint32 GetTinyAverage(unsigned=0) const FasterPixelMethod
     {
-        return n
-            ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
-            : DefaultPixel;
+        return result;
     }
 /////////
     static const unsigned long Traits =
         Base::Traits
-      | (1ul << pm_AveragePixel);
-    static const unsigned SizePenalty =
-        Base::SizePenalty + 0;
+      | (1ul << pm_TinyAveragePixel);
+    static const unsigned SizePenalty = Base::SizePenalty + 0;
 };
-

@@ -273,6 +273,10 @@ public:
     {
         return GetAggregate<AveragePixel<> > ();
     }
+    inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<TinyAveragePixel<> > ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
@@ -489,8 +493,10 @@ public:
     | (1ul << pm_MostUsedPixel)
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)
+    | (1ul << pm_TinyAveragePixel)
     | (1ul << pm_LastPixel)
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)
     | (1ul << pm_LastNMostPixel);
+    static const unsigned SizePenalty = Base::SizePenalty + 24;
 };

@@ -92,6 +92,8 @@ int main(int argc, char** argv)
                     "  AVERAGE, long option: --method=average , short option: -pa\n"
                     "     Produces a single image. Each pixel\n"
                     "     is the average of all frames addressing that pixel.\n"
+                    "  TINYAVERAGE, long option: --method=tinyaverage , short option: -pA\n"
+                    "     A less accurate but more space-efficient version of \"average\".\n"
                     "  LAST, long option: --method=last , short option: -pl\n"
                     "     Produces a single image. Each pixel\n"
                     "     records the latest color addressing that pixel.\n"
@@ -337,7 +339,11 @@ int main(int argc, char** argv)
         if(AllUsedMethods & BlurCapablePixelMethodsMask)
             std::printf("\tBlur length: %u\n", AnimationBlurLength);
 
-        std::printf("\tPixel size in bytes: %u (%s)\n", GetPixelSizeInBytes(), GetPixelSetupName());
+        unsigned size = GetPixelSizeInBytes();
+        int penalty = GetPixelSizePenaltyInBytes();
+        std::printf("\tPixel size in bytes: %u", size);
+        for(; penalty>=8; penalty-=16) std::printf("+n");
+        std::printf(" (%s)\n", GetPixelSetupName());
     }
 
     TILE_Tracker tracker;

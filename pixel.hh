@@ -17,9 +17,10 @@
     callback(l,0,Last) \
     callback(o,3,LoopingLog) \
     callback(a,0,Average) \
+    callback(A,0,TinyAverage) \
     callback(m,0,MostUsed) \
-    callback(t,0,ActionAvg) \
     callback(e,0,LeastUsed) \
+    callback(t,0,ActionAvg) \
     callback(c,5,ChangeLog) \
     callback(v,3,LoopingAvg) \
     callback(s,3,LoopingLast) \
@@ -68,8 +69,8 @@ static const unsigned long FirstLastPixelMethodsMask =
 
 
 #ifdef __GNUC__
-# define FastPixelMethod __attribute__((regparm(6)))
-# define FasterPixelMethod __attribute__((regparm(6),always_inline))
+# define FastPixelMethod __attribute__((regparm(3)))
+# define FasterPixelMethod __attribute__((regparm(3),always_inline))
 #else
 # define FastPixelMethod
 # define FasterPixelMethod
@@ -92,6 +93,7 @@ struct Array256x256of_Base
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
 
     virtual unsigned GetPixelSize() const = 0;
+    virtual unsigned GetPixelSizePenalty() const = 0;
     virtual const char* GetPixelSetupName() const = 0;
 };
 class UncertainPixelVector256x256
@@ -138,6 +140,7 @@ private:
 };
 
 unsigned GetPixelSizeInBytes();
+unsigned GetPixelSizePenaltyInBytes();
 const char* GetPixelSetupName();
 
 #endif

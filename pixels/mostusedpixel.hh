@@ -59,6 +59,14 @@ public:
         return result.get();
     }
 
+    uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        AveragePixel<> result;
+        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
+            result.set_n(i->first, i->second);
+        return result.get();
+    }
+
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
     {
         const uint32 most = GetMostUsed();
@@ -75,7 +83,9 @@ public:
       | (1ul << pm_MostUsedPixel)
       | (1ul << pm_LeastUsedPixel)
       | (1ul << pm_AveragePixel)
+      | (1ul << pm_TinyAveragePixel)
       | (1ul << pm_ActionAvgPixel);
+    static const unsigned SizePenalty = Base::SizePenalty + 16;
 };
 
 

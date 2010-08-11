@@ -54,8 +54,8 @@ animmerger: $(OBJS)
 makepixels: makepixels.o
 	$(CXX) $(CXXFLAGS) -o $@ makepixels.o $(LDFLAGS) $(LDLIBS)
 
-#pixelfactory.inc: makepixels
-#	./makepixels > $@
+pixelfactory.inc: makepixels
+	./makepixels > $@
 
 doc/README.html: doc/docmaker.php progdesc.php Makefile
 	php -q "$<" "$(ARCHNAME)" > "$@"
