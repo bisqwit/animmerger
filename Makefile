@@ -10,9 +10,9 @@ ARCHFILES=\
 	maptype.hh \
 	vectype.hh \
 	untreetype.hh \
-	makepixels.cc \
-	pixel.cc pixel.hh pixels.hh \
+	pixel.cc pixel.hh \
 	pixels/averagepixel.hh \
+	pixels/tinyaveragepixel.hh \
 	pixels/changelogpixel.hh \
 	pixels/lastpixel.hh \
 	pixels/loopinglogpixel.hh \
@@ -50,12 +50,6 @@ all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
-
-makepixels: makepixels.o
-	$(CXX) $(CXXFLAGS) -o $@ makepixels.o $(LDFLAGS) $(LDLIBS)
-
-pixelfactory.inc: makepixels
-	./makepixels > $@
 
 doc/README.html: doc/docmaker.php progdesc.php Makefile
 	php -q "$<" "$(ARCHNAME)" > "$@"

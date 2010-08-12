@@ -4,8 +4,7 @@
 #include "types.hh"
 
 /* This is the definite list of available pixel methods. */
-/* The order is arbitrary, but chosen so as to minimize
- * the size of the generated FindFactory() function.
+/* The order is completely arbitrary and irrelevant.
  * Params: option flag, animation flags, name
  * animation flags & 1 = animated
  * animation flags & 2 = obeys looplength
@@ -15,17 +14,17 @@
 #define DefinePixelMethods(callback) \
     callback(f,0,First) \
     callback(l,0,Last) \
-    callback(o,3,LoopingLog) \
+    callback(F,8,FirstNMost) \
+    callback(L,8,LastNMost) \
     callback(a,0,Average) \
     callback(A,0,TinyAverage) \
+    callback(t,0,ActionAvg) \
     callback(m,0,MostUsed) \
     callback(e,0,LeastUsed) \
-    callback(t,0,ActionAvg) \
     callback(c,5,ChangeLog) \
+    callback(o,3,LoopingLog) \
     callback(v,3,LoopingAvg) \
-    callback(s,3,LoopingLast) \
-    callback(F,8,FirstNMost) \
-    callback(L,8,LastNMost)
+    callback(s,3,LoopingLast)
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,
@@ -47,17 +46,17 @@ extern int FirstLastLength;
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;
 
-#define MakeMask(o,flags,name) ((flags&1) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long AnimatedPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
+#define MakeMask(o,flags,name) | ((flags&1) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long AnimatedPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&2) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long LoopingPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
+#define MakeMask(o,flags,name) | ((flags&2) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long LoopingPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&4) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long BlurCapablePixelMethodsMask = DefinePixelMethods(MakeMask) 0;
+#define MakeMask(o,flags,name) | ((flags&4) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long BlurCapablePixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&8) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long FirstLastPixelMethodsMask = DefinePixelMethods(MakeMask) 0;
+#define MakeMask(o,flags,name) | ((flags&8) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long FirstLastPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
 
 
