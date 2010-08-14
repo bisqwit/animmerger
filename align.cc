@@ -21,23 +21,12 @@ int mv_ymax = +9999;
 
 namespace
 {
-    static const int RGB2YUV_SHIFT = 15; /* highest value where [RGB][YUV] fit in signed short */
+    static const unsigned RY = 8;  // 0.299*27 ~ 16/27 = 0.296{296...}
+    static const unsigned GY = 16; // 0.587*27 ~ 32/27 = 0.592{592...}
+    static const unsigned BY = 3;  // 0.114*27 ~  6/27 = 0.111{111...}
+    static const unsigned RGB2YUV_MUL = RY+GY+BY;
+    // Factor 27 chosen for minimal bit count (fastest to calculate).
 
-    static const int RY = 8414;  //  ((int)(( 65.738/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int RV = 14392; //  ((int)((112.439/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int RU = -4856; //  ((int)((-37.945/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int GY = 16519; //  ((int)((129.057/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int GV = -12051;//  ((int)((-94.154/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int GU = -9534; //  ((int)((-74.494/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int BY = 3208;  //  ((int)(( 25.064/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int BV = -2339; //  ((int)((-18.285/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-    static const int BU = 14392; //  ((int)((112.439/256.0)*(1<<RGB2YUV_SHIFT)+0.5));
-
-    static const int Y_ADD = 16;
-    static const int U_ADD = 128;
-    static const int V_ADD = 128;
 
     /* RelativeCoordinate is like IntCoordinate,
      * but in sorting, values closer to origo (0,0)
@@ -105,13 +94,12 @@ void FindInterestingSpots(
         {
             if((input[p] & 0xFF000000u) == 0)
             {
-                Y[p] = ((((input[p] >> 16) & 0xFF) * RY
-                      +  ((input[p] >> 8)  & 0xFF) * GY
-                      +  ((input[p]     )  & 0xFF) * BY
-                        ) >> RGB2YUV_SHIFT) + Y_ADD;
-                // U and V could be calculated similarly,
-                // by using RU,GU,BY,U_ADD for U
-                // and by using RV,GV,BV,V_ADD for V.
+                Y[p] = (((input[p]&0xFF0000u)*RY/(1<<16))
+                      + ((input[p]&0x00FF00u)*GY/(1<<8))
+                      + ((input[p]&0x0000FFu)*BY/(1<<0))
+                      + RGB2YUV_MUL/2
+                       ) / RGB2YUV_MUL;
+                // Get the luma in 0..255 range.
             }
             else
             {
