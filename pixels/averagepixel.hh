@@ -1,5 +1,4 @@
-template<typename Base=DummyPixel>
-class AveragePixel: public Base
+class AveragePixel
 {
     unsigned r,g,b;
     unsigned n;
@@ -7,9 +6,8 @@ public:
     AveragePixel() : r(0),g(0),b(0),n(0)
     {
     }
-    void set(uint32 p, unsigned timer=0) FasterPixelMethod
+    void set(uint32 p, unsigned=0) FasterPixelMethod
     {
-        Base::set(p, timer);
         set_rgb((p>>16)&0xFF, (p>>8)&0xFF, p&0xFF);
     }
     void set_n(uint32 p, unsigned count) FasterPixelMethod
@@ -38,11 +36,10 @@ public:
             ? (((r/n) << 16) + ((g/n) << 8) + (b/n))
             : DefaultPixel;
     }
+
+
 /////////
     static const unsigned long Traits =
-        Base::Traits
-      | (1ul << pm_AveragePixel);
-    static const unsigned SizePenalty =
-        Base::SizePenalty + 0;
+        (1ul << pm_AveragePixel);
+    static const unsigned SizePenalty = 0;
 };
-

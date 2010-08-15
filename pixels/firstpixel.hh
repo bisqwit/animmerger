@@ -1,14 +1,12 @@
-template<typename Base=DummyPixel>
-class FirstPixel: public Base
+class FirstPixel
 {
     uint32 pix;
 public:
     FirstPixel() : pix(DefaultPixel)
     {
     }
-    void set(uint32 p, unsigned timer=0) FasterPixelMethod
+    void set(uint32 p, unsigned=0) FasterPixelMethod
     {
-        Base::set(p,timer);
         if(pix == DefaultPixel) pix = p;
     }
     inline uint32 get(unsigned=0) const FasterPixelMethod
@@ -19,9 +17,9 @@ public:
     {
         return pix;
     }
+
 /////////
     static const unsigned long Traits =
-        Base::Traits
-      | (1ul << pm_FirstPixel);
-    static const unsigned SizePenalty = Base::SizePenalty + 0;
+        (1ul << pm_FirstPixel);
+    static const unsigned SizePenalty = 0;
 };

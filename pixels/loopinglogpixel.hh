@@ -3,27 +3,26 @@
 
 #include "vectype.hh"
 
-template<typename Base=DummyPixel>
-class LoopingLogPixel: public Base
+class LoopingLogPixel
 {
-    MostUsedPixel<> most_used;
-    LastPixel<>* history;
+    MostUsedPixel most_used;
+    LastPixel* history;
 public:
     LoopingLogPixel()
-        : history(new LastPixel<> [LoopingLogLength])
+        : history(new LastPixel [LoopingLogLength])
     {
     }
     ~LoopingLogPixel()
     {
         delete[] history;
     }
-    LoopingLogPixel(const LoopingLogPixel<Base>& b)
-        : history(new LastPixel<> [LoopingLogLength])
+    LoopingLogPixel(const LoopingLogPixel& b)
+        : history(new LastPixel[LoopingLogLength])
     {
         for(unsigned a=0; a<LoopingLogLength; ++a)
             history[a] = b.history[a];
     }
-    LoopingLogPixel& operator=(const LoopingLogPixel<Base> &b)
+    LoopingLogPixel& operator=(const LoopingLogPixel& b)
     {
         for(unsigned a=0; a<LoopingLogLength; ++a)
             history[a] = b.history[a];
@@ -32,7 +31,6 @@ public:
 
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        Base::set(p,timer);
         most_used.set(p);
 
         unsigned offs = timer % LoopingLogLength;
@@ -57,27 +55,32 @@ public:
     {
         return most_used.GetMostUsed();
     }
+
     inline uint32 GetLeastUsed(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetLeastUsed();
     }
+
     inline uint32 GetAverage(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetAverage();
     }
+
     inline uint32 GetTinyAverage(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetTinyAverage();
     }
+
     inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
     {
         return most_used.GetActionAvg();
     }
+
 /////////
     static const unsigned long Traits =
-        Base::Traits
-      | (1ul << pm_LoopingLogPixel)
-      | MostUsedPixel<>::Traits;
+        (1ul << pm_LoopingLogPixel)
+      | MostUsedPixel::Traits;
     static const unsigned SizePenalty =
-        Base::SizePenalty + MostUsedPixel<>::SizePenalty + 8;
+        MostUsedPixel::SizePenalty + 8;
 };
+

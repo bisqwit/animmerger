@@ -4,8 +4,7 @@
 
 #define CHANGELOG_USE_LASTTIMESTAMP 0
 
-template<typename Base=DummyPixel>
-class ChangeLogPixel: public Base
+class ChangeLogPixel
 {
 protected:
     MapType<unsigned, uint32> history;
@@ -22,7 +21,6 @@ public:
     }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        Base::set(p,timer);
         /*if(timer == 0)
         {
             // Ignore first frame. It's gray.
@@ -130,7 +128,7 @@ public:
 
         if(pix != most) return pix;
 
-        AveragePixel<>result;
+        AveragePixel result;
         unsigned remaining_blur = AnimationBlurLength;
         result.set_n(pix, 1);
 
@@ -148,7 +146,7 @@ public:
     {
         const uint32 most = GetMostUsed();
 
-        AveragePixel<>result;
+        AveragePixel result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -177,7 +175,7 @@ public:
         unsigned offs = timer % LoopingLogLength;
         const uint32 most = GetMostUsed();
 
-        AveragePixel<>result;
+        AveragePixel result;
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -263,19 +261,19 @@ public:
 
     inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
     {
-        return GetAggregate<MostUsedPixel<> > ();
+        return GetAggregate<MostUsedPixel> ();
     }
     inline uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
     {
-        return GetAggregate<LeastUsedPixel<> > ();
+        return GetAggregate<LeastUsedPixel> ();
     }
     inline uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
-        return GetAggregate<AveragePixel<> > ();
+        return GetAggregate<AveragePixel> ();
     }
     inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
     {
-        return GetAggregate<TinyAveragePixel<> > ();
+        return GetAggregate<TinyAveragePixel> ();
     }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
@@ -353,18 +351,18 @@ public:
     {
         if(FirstLastLength == 0) return GetFirstUncommon();
         if(FirstLastLength > 0)
-            return GetFirstNAggregate<MostUsedPixel<> >(FirstLastLength);
+            return GetFirstNAggregate<MostUsedPixel>(FirstLastLength);
         else
-            return GetFirstNAggregate<LeastUsedPixel<> >(-FirstLastLength);
+            return GetFirstNAggregate<LeastUsedPixel>(-FirstLastLength);
     }
 
     uint32 GetLastNMost(unsigned=0) const FastPixelMethod
     {
         if(FirstLastLength == 0) return GetLastUncommon();
         if(FirstLastLength > 0)
-            return GetLastNAggregate<MostUsedPixel<> >(FirstLastLength);
+            return GetLastNAggregate<MostUsedPixel>(FirstLastLength);
         else
-            return GetLastNAggregate<LeastUsedPixel<> >(-FirstLastLength);
+            return GetLastNAggregate<LeastUsedPixel>(-FirstLastLength);
     }
 
     uint32 GetFirstUncommon(unsigned=0) const FastPixelMethod
@@ -482,11 +480,11 @@ private:
         /* Anything else. Take the value. */
         return i->second;
     }
+
 public:
 /////////
     static const unsigned long Traits =
-      Base::Traits
-    | (1ul << pm_ChangeLogPixel)
+      (1ul << pm_ChangeLogPixel)
     | (1ul << pm_ActionAvgPixel)
     | (1ul << pm_LoopingAvgPixel)
     | (1ul << pm_LoopingLastPixel)
@@ -498,5 +496,5 @@ public:
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)
     | (1ul << pm_LastNMostPixel);
-    static const unsigned SizePenalty = Base::SizePenalty + 24;
+    static const unsigned SizePenalty = 24;
 };

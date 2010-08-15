@@ -25,30 +25,13 @@ enum PixelMethod bgmethod = pm_MostUsedPixel;
  * when multiple classes implement the same method.
  */
 #define DefinePixelClasses(callback) \
-    callback(0,LastPixel) \
-    callback(1,FirstPixel) \
-    callback(2,TinyAveragePixel) \
-    callback(3,AveragePixel) \
-    callback(4,MostUsedPixel) \
-    callback(5,LoopingLogPixel) \
-    callback(6,ChangeLogPixel)
-
-/* DummyPixel is a method that implements the interface
- * for all pixel methods but with no actual features
- * whatsoever. */
-struct DummyPixel
-{
-    //inline uint32 GetDummy(unsigned=0) const FasterPixelMethod { return 0; }
-    static inline void set(uint32,unsigned=0) FasterPixelMethod { }
-
-    #define CreateDummyAliases(o,f,name) \
-    static inline uint32 Get##name(unsigned=0) FasterPixelMethod { return 0; }
-    DefinePixelMethods(CreateDummyAliases)
-    #undef CreateDummyAliases
-/////////
-    static const unsigned long Traits = 0ul;
-    static const unsigned SizePenalty = 0ul;
-};
+    callback(0,Last) \
+    callback(1,First) \
+    callback(2,TinyAverage) \
+    callback(3,Average) \
+    callback(4,MostUsed) \
+    callback(5,LoopingLog) \
+    callback(6,ChangeLog)
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
@@ -74,6 +57,29 @@ namespace
     struct ChooseType { typedef T2 result; };
     template<typename T1, typename T2>
     struct ChooseType<T1,T2,true> { typedef T1 result; };
+
+    #define MakeMethodCaller(n,f,name) \
+    template<typename T, bool HasMethod = T::Traits & (1u << pm_##name##Pixel)> \
+    struct CallGet##name##Helper \
+    { \
+        static uint32 call(const T& obj, unsigned timer=0) FasterPixelMethod \
+            { return obj.Get##name(timer); } \
+    }; \
+    template<typename T> \
+    struct CallGet##name##Helper<T,false> \
+    { \
+        static uint32 call(const T&, unsigned=0) FasterPixelMethod \
+            { return DefaultPixel; } \
+    }; \
+    template<typename T> \
+    uint32 CallGet##name(const T& obj, unsigned timer=0) FasterPixelMethod; \
+    template<typename T> \
+    uint32 CallGet##name(const T& obj, unsigned timer=0) \
+    { \
+        return CallGet##name##Helper<T>::call(obj, timer); \
+    }
+    DefinePixelMethods(MakeMethodCaller)
+    #undef MakeMethodCaller
 }
 
 uint32 Array256x256of_Base::GetStatic(unsigned index) const
@@ -165,7 +171,7 @@ public:
                            target += target_stride-width, \
                            databegin += 256-width) \
                         for(unsigned x=width; x-->0; ) \
-                            *target++ = databegin++->Get##name(timer); \
+                            *target++ = CallGet##name(*databegin++, timer); \
                 break;
         switch(method)
         {
@@ -196,7 +202,7 @@ public:
                     for(; databegin<dataend; \
                            target += target_stride-256) \
                         for(unsigned x=256; x-->0; ) \
-                            *target++ = databegin++->Get##name(0); \
+                            *target++ = CallGet##name(*databegin++, 0); \
                 break;
         switch(bgmethod)
         {
@@ -232,6 +238,7 @@ public:
 };
 #endif
 
+
 template<typename T>
 struct Array256x256of: public Array256x256ofImpl<T>
 {
@@ -257,41 +264,37 @@ public:
 private:
     uint32 DoGetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
     {
-        if(PopCount<T::Traits>::result != 1)
-        {
-            // This switchcase is actually pretty optimal
-            // compared to the method pointer table, because
-            // those cases that are not implemented in T
-            // actually expand to inline code that results in 0.
-            // It could still be improved though, by somehow
-            // removing the check for those methods that never
-            // can occur here.
+        // This switchcase is actually pretty optimal
+        // compared to the method pointer table, because
+        // those cases that are not implemented in T
+        // actually expand to inline code that results in 0.
+        // It could still be improved though, by somehow
+        // removing the check for those methods that never
+        // can occur here.
 
-            #define MakeMethodCase(n,f,name) \
-                case pm_##name##Pixel: \
-                    if(!(T::Traits & (1u << pm_##name##Pixel))) break; \
-                case##name: \
-                    return rep::data[index].Get##name(timer);
-            switch(method)
-            {
-                DefinePixelMethods(MakeMethodCase);
-                default: break;
-            }
-            #undef MakeMethodCase
-            /* In case of invalid "method" parameter, jump to
-             * to the first _valid_ implementation. This code
-             * actually reduces the generated code size.
-             */
-            #define MakeDefaultCase(n,f,name) \
-                case pm_##name##Pixel: goto case##name;
-            switch((PixelMethod) GetLowestBit<T::Traits>::result)
-            {
-                DefinePixelMethods(MakeDefaultCase);
-                default: break;
-            }
-            #undef MakeDefaultCase
+        #define MakeMethodCase(n,f,name) \
+            case pm_##name##Pixel: \
+                if(!(T::Traits & (1u << pm_##name##Pixel))) break; \
+            case##name: \
+                return CallGet##name(rep::data[index], timer);
+        switch(method)
+        {
+            DefinePixelMethods(MakeMethodCase);
+            default: break;
         }
-        return rep::data[index].get(index);
+        #undef MakeMethodCase
+        /* In case of invalid "method" parameter, jump to
+         * to the first _valid_ implementation. This code
+         * actually reduces the generated code size.
+         */
+        #define MakeDefaultCase(n,f,name) \
+            case pm_##name##Pixel: goto case##name;
+        switch((PixelMethod) GetLowestBit<T::Traits>::result)
+        {
+            DefinePixelMethods(MakeDefaultCase);
+            default: return DefaultPixel;
+        }
+        #undef MakeDefaultCase
     }
 };
 
@@ -299,7 +302,7 @@ namespace
 {
     /* This converts an implementation index into a type. */
     template<unsigned id, typename Base>
-    struct PixelMethodImpl { typedef void result; };
+    struct PixelMethodImpl { typedef void result; enum { Traits = 0 }; };
 
     /* This converts a type into a name (string). */
     template<typename T>
@@ -311,14 +314,52 @@ namespace
         }
     };
 
+    template<typename T1,typename T2, bool force=false>
+    struct CombinePixels: public T1, public T2
+    {
+        void set(uint32 p, unsigned timer=0) FastPixelMethod
+        {
+            T1::set(p,timer);
+            T2::set(p,timer);
+        }
+        static const unsigned long Traits = T1::Traits | T2::Traits;
+        static const unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
+    };
+    template<typename T1>
+    class CombinePixels<T1, LoopingLogPixel, false>
+        : public CombinePixels<T1, LoopingLogPixel, true>
+    {
+    public:
+        /* LoopingLogPixel<ChangeLogPixel> has visibility
+         * ambiguity on these methods. Make the order explicit.
+         */
+        using LoopingLogPixel::GetLoopingLog;
+        using LoopingLogPixel::GetActionAvg;
+        using LoopingLogPixel::GetMostUsed;
+        using LoopingLogPixel::GetLeastUsed;
+        using LoopingLogPixel::GetAverage;
+        using LoopingLogPixel::GetTinyAverage;
+    };
+
     #define MakePixelMethodImpl(id,name) \
+        template<typename Base> \
+        struct name: public CombinePixels<Base,name##Pixel> \
+        { \
+        }; \
         template<typename Base> \
         struct PixelMethodImpl<id, Base> \
         { \
             typedef name<Base> result; \
+            static const unsigned long Traits = result::Traits; \
+        }; \
+        template<> \
+        struct PixelMethodImpl<id, void> \
+        { \
+            typedef name##Pixel result; \
+            static const unsigned long Traits = result::Traits; \
         }; \
         template<typename Base> \
-        struct PixelMethodImplName< name<Base> > \
+        struct PixelMethodImplName<name<Base> > \
         { \
             static const char* getname() \
             { \
@@ -328,14 +369,14 @@ namespace
             } \
         }; \
         template<> \
-        struct PixelMethodImplName< name<DummyPixel> > \
+        struct PixelMethodImplName<name##Pixel> \
         { \
             static inline const char* getname() { return #name; } \
         };
     DefinePixelClasses(MakePixelMethodImpl)
     #undef MakePixelMethodImpl
 
-    template<unsigned n=0, typename Obj = typename PixelMethodImpl<n,DummyPixel>::result>
+    template<unsigned n=0, typename Obj = typename PixelMethodImpl<n,void>::result>
     struct GetMethodImplCount : public GetMethodImplCount<n+1> { };
     template<unsigned n>
     struct GetMethodImplCount<n,void> { enum { result = n }; };
@@ -404,8 +445,8 @@ namespace
     template<>
     struct PixelMethodImplComb<0>
     {
-        typedef DummyPixel result;
-        enum { nextbitmask = 0 };
+        typedef void result;
+        enum { nextbitmask = 0, Traits = 0 };
     };
 
     /* Same as PixelMethodImplComb, but given a Traits value,
@@ -416,7 +457,7 @@ namespace
     template
         <unsigned long Traits,unsigned bitmask=1,
          bool traits_ok =
-          (!(Traits & ~PixelMethodImplComb<bitmask>::result::Traits) || !bitmask)>
+          (!(Traits & ~PixelMethodImplComb<bitmask>::Traits) || !bitmask)>
     struct NextPixelMethodImplComb_WithTraits: public PixelMethodImplComb<bitmask>
     { // Traits match = pick the implementation
     };
@@ -433,7 +474,8 @@ namespace
              typename cand1 = typename cand1info::result>
     struct BestPixelMethodImplComb_ForTraits
     {
-        typedef NextPixelMethodImplComb_WithTraits<Traits, cand1info::nextbitmask> cand2info;
+        static const unsigned nb = cand1info::nextbitmask;
+        typedef NextPixelMethodImplComb_WithTraits<Traits, nb> cand2info;
         typedef BestPixelMethodImplComb_ForTraits<Traits, cand2info> next;
         typedef typename next::result cand2;
         static const unsigned long cost = sizeof(cand1) + cand1::SizePenalty;
@@ -450,17 +492,11 @@ namespace
         typedef typename ChooseType<cand1, cand2, is_better>::result result;
     };
     template<unsigned long T, typename c>
-    struct BestPixelMethodImplComb_ForTraits<T,c, DummyPixel>
+    struct BestPixelMethodImplComb_ForTraits<T,c, void>
     {
-        // DummyPixel is our fallback: It implements everything,
-        // but we'll make it the worst possible choice, so it
-        // never gets chosen unless there's really no "real" solution.
-        typedef DummyPixel result;
+        typedef void result;
         static const unsigned long cost = 0xfffffful;
         static const unsigned overqualification = 0;
-        // Even then, it never gets instantiated, because of
-        // PixelImplCombFactory<void>, so we could really use
-        // any type here.
     };
 
     template<unsigned bitmask>
@@ -471,10 +507,10 @@ namespace
         if(!bitmask) return &PixelImplCombFactory<void>::data;
         typedef PixelMethodImplComb<bitmask> implfinder;
         typedef typename implfinder::result thistype;
-        typedef typename BestPixelMethodImplComb_ForTraits<thistype::Traits>::result improvedtype;
-        //if( (thistype::Traits & Traits) == Traits)
-        if(!( (thistype::Traits ^ Traits) & Traits) )
-        //if (! (~thistype::Traits & Traits))
+        typedef typename BestPixelMethodImplComb_ForTraits<implfinder::Traits>::result improvedtype;
+        //if( (implfinder::Traits & Traits) == Traits)
+        if(!( (implfinder::Traits ^ Traits) & Traits) )
+        //if (! (~implfinder::Traits & Traits))
             return &PixelImplCombFactory<improvedtype>::data;
         return FindFactoryForTraits<implfinder::nextbitmask>(Traits);
     };
