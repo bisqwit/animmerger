@@ -80,9 +80,23 @@ struct Array256x256of_Base
 
     virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod = 0;
 
-    virtual uint32 GetStatic(unsigned index) const = 0;
+    virtual uint32 GetStatic(unsigned index) const;
 
     virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
+
+    virtual void GetStaticInto(uint32* target, unsigned target_stride) const;
+
+    virtual void GetLiveSectionInto
+        (PixelMethod method, unsigned timer,
+        uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const;
+
+    virtual void PutSectionInto
+        (unsigned timer,
+        const uint32* source, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height);
 };
 class UncertainPixelVector256x256
 {
@@ -117,8 +131,11 @@ public:
     template<typename F>
     inline void Visit(F func) const
     {
-        if(data) func(*data);
+        if(data) func(const_cast<const Array256x256of_Base&>(*data));
     }
+
+    const Array256x256of_Base* operator->() const { return data; }
+    Array256x256of_Base* operator->() { return data; }
 
     // Test whether vector is empty (uninitialized)
     bool empty() const { return !data; }

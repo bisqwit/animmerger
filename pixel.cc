@@ -10,6 +10,14 @@ int      FirstLastLength     = 16;
 unsigned long pixelmethods_result = 1ul << pm_MostUsedPixel;
 enum PixelMethod bgmethod = pm_MostUsedPixel;
 
+#define DO_VERY_SPECIALIZED -1
+/* Specialization values:
+ *   1 = Specialized implementations for all Array256x256 methods
+ *   0 = Specialized implementations only for those pixelmethods
+ *       that have one feature
+ *  -1 = Minimal set of virtual functions that still does the work
+ *  -2 = Use GetLive to implement GetStatic, further reducing code size
+ */
 
 /* List of pixel classes. Only list those pixel
  * classes that have an unique set of Traits.
@@ -50,63 +58,240 @@ struct DummyPixel
 #include "pixels/loopinglogpixel.hh"
 #include "pixels/changelogpixel.hh"
 
+namespace
+{
+    template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
+    struct GetLowestBit : public GetLowestBit<Value/2, Basevalue+1> { };
+    template<unsigned Value, unsigned Basevalue>
+    struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
 
-template<typename T>
-struct Array256x256of: public Array256x256of_Base
+    template<unsigned value, unsigned alreadycounted = 0>
+    struct PopCount : public PopCount< value/2, (alreadycounted + (value&1)) > { };
+    template<unsigned alreadycounted>
+    struct PopCount<0, alreadycounted> { enum { result = alreadycounted }; };
+
+    template<typename T1, typename T2, bool select1st>
+    struct ChooseType { typedef T2 result; };
+    template<typename T1, typename T2>
+    struct ChooseType<T1,T2,true> { typedef T1 result; };
+}
+
+uint32 Array256x256of_Base::GetStatic(unsigned index) const
+{
+    return GetLive(bgmethod, index, 0);
+}
+
+void Array256x256of_Base::GetStaticInto
+    (uint32* target, unsigned target_stride) const
+{
+    unsigned index    = 0;
+    unsigned endindex = 256*256;
+    for(unsigned p=0; index<endindex;
+            index += 256,
+            p += target_stride-256)
+    {
+        for(unsigned x=0; x<256; ++x)
+            target[p++] = GetStatic(index+x);
+    }
+}
+
+void Array256x256of_Base::GetLiveSectionInto
+    (PixelMethod method, unsigned timer,
+    uint32* target, unsigned target_stride,
+    unsigned x1, unsigned y1,
+    unsigned width, unsigned height) const
+{
+    unsigned index    = y1*256+x1;
+    unsigned endindex = index + height*256;
+    for(unsigned p=0; index<endindex;
+            index += 256,
+            p += target_stride-width)
+    {
+        for(unsigned x=0; x<width; ++x)
+            target[p++] = GetLive(method, index+x, timer);
+    }
+}
+
+void Array256x256of_Base::PutSectionInto
+    (unsigned timer,
+    const uint32* source, unsigned target_stride,
+    unsigned x1, unsigned y1,
+    unsigned width, unsigned height)
+{
+    unsigned p=0, index=y1*256+x1, maxindex=index+height*256;
+    for(; index<maxindex; p+=target_stride, index+=256)
+        for(unsigned x=0; x<width; ++x)
+        {
+            uint32 pix = source[p+x];
+            if(pix & 0xFF000000u) continue;
+            /* Do not plot transparent pixels */
+            Set(index+x, pix, timer);
+        }
+}
+
+template<typename T,
+    bool ManyImpl =
+#if DO_VERY_SPECIALIZED == 0
+(PopCount<T::Traits>::result > 1)
+#else
+    false
+#endif
+>
+struct Array256x256ofImpl: public Array256x256of_Base
 {
 public:
     T data[256*256];
+};
+
+#if DO_VERY_SPECIALIZED >= 0
+template<typename T>
+struct Array256x256ofImpl<T,false>: public Array256x256of_Base
+{
 public:
-    Array256x256of() { }
-    virtual ~Array256x256of() { }
-public:
-    virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
+    T data[256*256];
+
+    virtual void GetLiveSectionInto(PixelMethod method, unsigned timer,
+        uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const
     {
+        const T* databegin = data      + (y1*256+x1);
+        const T* dataend   = databegin + height*256;
+    #if DO_VERY_SPECIALIZED>0
         #define MakeMethodCase(n,f,name) \
-        if(T::Traits == (1ul << pm_##name##Pixel)) \
-            return data[index].Get##name(0);
-        DefinePixelMethods(MakeMethodCase);
-        #undef MakeMethodCase
-
-        // This switchcase is actually pretty optimal
-        // compared to the method pointer table, because
-        // those cases that are not implemented in T
-        // actually expand to inline code that results in 0.
-        // It could still be improved though, by somehow
-        // removing the check for those methods that never
-        // can occur here.
-
-        #define MakeMethodCase(n,f,name) \
-            case pm_##name##Pixel: return data[index].Get##name(timer);
+            case pm_##name##Pixel: \
+                if(T::Traits & (1<<pm_##name##Pixel)) \
+                    for(; databegin<dataend; \
+                           target += target_stride-width, \
+                           databegin += 256-width) \
+                        for(unsigned x=width; x-->0; ) \
+                            *target++ = databegin++->Get##name(timer); \
+                break;
         switch(method)
         {
             DefinePixelMethods(MakeMethodCase);
-            default: return 0;
+            default: break;
         }
         #undef MakeMethodCase
+    #else
+        // This implementation works when T only has one feature
+        method=method;
+        for(; databegin<dataend;
+               target += target_stride-width,
+               databegin += 256-width)
+            for(unsigned x=width; x-->0; )
+                *target++ = databegin++->get(timer);
+    #endif
     }
 
-    virtual uint32 GetStatic(unsigned index) const
+    virtual void GetStaticInto(
+        uint32* target, unsigned target_stride) const
     {
+        const T* databegin = data;
+        const T* dataend   = databegin + 256*256;
+    #if DO_VERY_SPECIALIZED>0
         #define MakeMethodCase(n,f,name) \
-        if(T::Traits == (1ul << pm_##name##Pixel)) \
-            return data[index].Get##name(0);
-        DefinePixelMethods(MakeMethodCase);
-        #undef MakeMethodCase
-
-        #define MakeMethodCase(n,f,name) \
-            case pm_##name##Pixel: return data[index].Get##name(0);
+            case pm_##name##Pixel: \
+                if(T::Traits & (1<<pm_##name##Pixel)) \
+                    for(; databegin<dataend; \
+                           target += target_stride-256) \
+                        for(unsigned x=256; x-->0; ) \
+                            *target++ = databegin++->Get##name(0); \
+                break;
         switch(bgmethod)
         {
             DefinePixelMethods(MakeMethodCase);
-            default: return 0;
+            default: break;
         }
         #undef MakeMethodCase
+    #else
+        // This implementation works when T only has one feature
+        for(; databegin<dataend;
+               target += target_stride-256)
+            for(unsigned x=256; x-->0; )
+                *target++ = databegin++->get(0);
+    #endif
+    }
+
+    virtual void PutSectionInto
+        (unsigned timer,
+        const uint32* source, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height)
+    {
+        unsigned p=0, index=y1*256+x1, maxindex=(y1+height)*256+x1;
+        for(; index<maxindex; p+=target_stride, index+=256)
+            for(unsigned x=0; x<width; ++x)
+            {
+                uint32 pix = source[p+x];
+                if(pix & 0xFF000000u) continue;
+                /* Do not plot transparent pixels */
+                data[index+x].set(pix, timer);
+            }
+    }
+};
+#endif
+
+template<typename T>
+struct Array256x256of: public Array256x256ofImpl<T>
+{
+    typedef Array256x256ofImpl<T> rep;
+public:
+#if DO_VERY_SPECIALIZED >= -1
+    virtual uint32 GetStatic(unsigned index) const
+    {
+        return DoGetLive(bgmethod, index, 0);
+    }
+#endif
+
+    virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
+    {
+        return DoGetLive(method, index, timer);
     }
 
     virtual void Set(unsigned index, uint32 p, unsigned timer)
     {
-        data[index].set(p, timer);
+        rep::data[index].set(p, timer);
+    }
+
+private:
+    uint32 DoGetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod
+    {
+        if(PopCount<T::Traits>::result != 1)
+        {
+            // This switchcase is actually pretty optimal
+            // compared to the method pointer table, because
+            // those cases that are not implemented in T
+            // actually expand to inline code that results in 0.
+            // It could still be improved though, by somehow
+            // removing the check for those methods that never
+            // can occur here.
+
+            #define MakeMethodCase(n,f,name) \
+                case pm_##name##Pixel: \
+                    if(!(T::Traits & (1u << pm_##name##Pixel))) break; \
+                case##name: \
+                    return rep::data[index].Get##name(timer);
+            switch(method)
+            {
+                DefinePixelMethods(MakeMethodCase);
+                default: break;
+            }
+            #undef MakeMethodCase
+            /* In case of invalid "method" parameter, jump to
+             * to the first _valid_ implementation. This code
+             * actually reduces the generated code size.
+             */
+            #define MakeDefaultCase(n,f,name) \
+                case pm_##name##Pixel: goto case##name;
+            switch((PixelMethod) GetLowestBit<T::Traits>::result)
+            {
+                DefinePixelMethods(MakeDefaultCase);
+                default: break;
+            }
+            #undef MakeDefaultCase
+        }
+        return rep::data[index].get(index);
     }
 };
 
@@ -154,21 +339,6 @@ namespace
     struct GetMethodImplCount : public GetMethodImplCount<n+1> { };
     template<unsigned n>
     struct GetMethodImplCount<n,void> { enum { result = n }; };
-
-    template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
-    struct GetLowestBit : public GetLowestBit<Value/2, Basevalue+1> { };
-    template<unsigned Value, unsigned Basevalue>
-    struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
-
-    template<unsigned value, unsigned alreadycounted = 0>
-    struct PopCount : public PopCount< value/2, (alreadycounted + (value&1)) > { };
-    template<unsigned alreadycounted>
-    struct PopCount<0, alreadycounted> { enum { result = alreadycounted }; };
-
-    template<typename T1, typename T2, bool select1st>
-    struct ChooseType { typedef T2 result; };
-    template<typename T1, typename T2>
-    struct ChooseType<T1,T2,true> { typedef T1 result; };
 
     struct FactoryType
     {

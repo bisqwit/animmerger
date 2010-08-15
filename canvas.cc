@@ -15,60 +15,6 @@ static inline bool veq
     return std::memcmp(&a[0], &b[0], a.size() * sizeof(uint32)) == 0;
 }
 
-struct LoadCubeHelper
-{
-    VecType<uint32>& result;
-    unsigned this_cube_ystart, this_cube_yend;
-    unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx, targetpos, timer;
-    PixelMethod method;
-
-    LoadCubeHelper( VecType<uint32>& r, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f,unsigned g,PixelMethod h)
-        : result(r), this_cube_ystart(a), this_cube_yend(b),
-          this_cube_xstart(c), this_cube_xend(d),
-          sx(e), targetpos(f), timer(g), method(h) { }
-
-    template<typename Cube>
-    void operator() (const Cube& cube) const
-    {
-        /* Load this particular cube */
-        for(unsigned yp=this_cube_ystart; yp<=this_cube_yend; ++yp)
-        {
-            unsigned y = (yp-this_cube_ystart);
-            unsigned srcp  = 256*yp + this_cube_xstart - this_cube_xstart;
-            unsigned destp =   sx*y + targetpos        - this_cube_xstart;
-            for(unsigned xp=this_cube_xstart; xp<=this_cube_xend; ++xp)
-                result[destp + xp] = cube.GetLive(method, srcp + xp, timer);
-        }
-    }
-};
-
-struct UpdateCubeHelper
-{
-    const uint32* input;
-    unsigned this_cube_ystart, this_cube_yend;
-    unsigned this_cube_xstart, this_cube_xend;
-    unsigned sx, timer;
-
-    UpdateCubeHelper( const uint32* i, unsigned a,unsigned b,unsigned c,unsigned d,unsigned e,unsigned f)
-        : input(i), this_cube_ystart(a), this_cube_yend(b),
-          this_cube_xstart(c), this_cube_xend(d),
-          sx(e), timer(f) { }
-
-    template<typename Cube>
-    void operator() (Cube& cube) const
-    {
-        /* Write this particular cube */
-        for(unsigned yp=this_cube_ystart, y=0; yp<=this_cube_yend; ++y, ++yp)
-            for(unsigned xp=this_cube_xstart, x=0; xp<=this_cube_xend; ++x, ++xp)
-            {
-                uint32 pix = input[/*targetpos +*/ x + y*sx];
-                if(pix & 0xFF000000u) continue; // Do not plot transparent pixels
-                cube.Set( xp + 256*yp, pix, timer );
-            }
-    }
-};
-
 const VecType<uint32>
 TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                          unsigned timer,
@@ -102,6 +48,7 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
     for(int yscreen=yscreen_begin; yscreen<=yscreen_end; ++yscreen)
     {
         unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
+        unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
 
         ymaptype::const_iterator yi = screens.find(yscreen);
         if(yi != screens.end())
@@ -112,6 +59,7 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
             for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
             {
                 unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
+                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
     /*
                 std::fprintf(stderr, " Cube(%u,%u)-(%u,%u)\n",
                     this_cube_xstart,this_cube_xend,
@@ -120,32 +68,28 @@ TILE_Tracker::LoadScreen(int ox,int oy, unsigned sx,unsigned sy,
                 xmaptype::const_iterator xi = xmap.find(xscreen);
                 if(xi != xmap.end())
                 {
-                    const vectype& cube = xi->second.pixels;
+                    const cubetype& cube = xi->second;
                     /* If this screen is not yet initialized, we'll skip over
                      * it, since there's no real reason to initialize it at
                      * this point. */
 
-                    cube.Visit( /* lambdas would be SO useful now */
-                        LoadCubeHelper(result,
-                            this_cube_ystart,
-                            this_cube_yend,
-                            this_cube_xstart,
-                            this_cube_xend,
-                            sx, targetpos,
-                            timer, method) );
+                    cube.pixels->GetLiveSectionInto(
+                        method,timer,
+                        &result[targetpos], sx,
+                        this_cube_xstart,
+                        this_cube_ystart,
+                        this_cube_xsize,
+                        this_cube_ysize);
                 }
-
-                unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
 
                 targetpos+= this_cube_xsize;
 
                 this_cube_xstart=0;
             }
+            targetpos += sx * (this_cube_ysize-1);
         }
-
-        unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
-
-        targetpos += sx * (this_cube_ysize-1);
+        else
+            targetpos += sx * this_cube_ysize;
 
         this_cube_ystart=0;
     }
@@ -184,11 +128,13 @@ TILE_Tracker::PutScreen
         xmaptype& xmap = screens[yscreen];
 
         unsigned this_cube_yend = yscreen==yscreen_end ? ((oy+sy-1)&255) : 255;
+        unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
 
         unsigned this_cube_xstart = ox&255;
         for(int xscreen=xscreen_begin; xscreen<=xscreen_end; ++xscreen)
         {
             unsigned this_cube_xend = xscreen==xscreen_end ? ((ox+sx-1)&255) : 255;
+            unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
 
             cubetype& cube = xmap[xscreen];
 
@@ -205,22 +151,18 @@ TILE_Tracker::PutScreen
                 this_cube_xstart,this_cube_xend,
                 this_cube_ystart,this_cube_yend);
 */
-            cube.pixels.Visit( /* lambdas would be SO useful now */
-                UpdateCubeHelper(input+targetpos,
-                    this_cube_ystart,
-                    this_cube_yend,
-                    this_cube_xstart,
-                    this_cube_xend,
-                    sx, timer) );
-
-            unsigned this_cube_xsize = (this_cube_xend-this_cube_xstart)+1;
+            cube.pixels->PutSectionInto(
+                timer,
+                &input[targetpos], sx,
+                this_cube_xstart,
+                this_cube_ystart,
+                this_cube_xsize,
+                this_cube_ysize);
 
             targetpos+= this_cube_xsize;
 
             this_cube_xstart=0;
         }
-
-        unsigned this_cube_ysize = (this_cube_yend-this_cube_ystart)+1;
 
         targetpos += sx * (this_cube_ysize-1);
 
@@ -366,21 +308,6 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     gdImageDestroy(im);
 }
 
-struct BackgroundLoader
-{
-    uint32* result;
-    BackgroundLoader(uint32*r) : result(r)
-    {
-    }
-
-    template<typename Cube>
-    void operator() (Cube& cube) const
-    {
-        for(unsigned p=0; p<256*256; ++p)
-            result[p] = cube.GetStatic(p);
-    }
-};
-
 void
 TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
 {
@@ -424,8 +351,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
             if(cube.changed)
             {
                 uint32 result[256*256];
-                cube.pixels.Visit( /* lambdas would be SO useful now */
-                    BackgroundLoader(result) );
+
+                cube.pixels->GetStaticInto(result, 256);
 
                 size_t prev_size = reference_spots.size();
                 FindInterestingSpots(reference_spots, result,
