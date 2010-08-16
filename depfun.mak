@@ -59,7 +59,7 @@ git_release: ${ARCHFILES} ;
 	# Create the release commit
 	git commit --allow-empty -a -m 'Release version ${VERSION} (dev)' # commit in dev brach
 	git rev-parse HEAD > .git/PUSHED_HEAD
-	git checkout release || git checkout -b release
+	git checkout -f release || git checkout -b release
 	 #
 	 # Set the cache & index to exact copy of the original branch
 	 #

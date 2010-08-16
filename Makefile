@@ -1,4 +1,4 @@
-VERSION=1.4.0
+VERSION=1.4.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -10,14 +10,15 @@ ARCHFILES=\
 	maptype.hh \
 	vectype.hh \
 	untreetype.hh \
+	openmp.hh \
 	pixel.cc pixel.hh \
+	pixels/firstpixel.hh \
+	pixels/lastpixel.hh \
 	pixels/averagepixel.hh \
 	pixels/tinyaveragepixel.hh \
-	pixels/changelogpixel.hh \
-	pixels/lastpixel.hh \
-	pixels/loopinglogpixel.hh \
 	pixels/mostusedpixel.hh \
-	pixelfactory.inc \
+	pixels/changelogpixel.hh \
+	pixels/loopinglogpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \
