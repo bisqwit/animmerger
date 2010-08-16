@@ -9,11 +9,6 @@ public:
     {
     }
 
-    void set(unsigned R,unsigned G,unsigned B, unsigned=0) FasterPixelMethod
-    {
-        uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p);
-    }
     void set(uint32 p, unsigned=0) FastPixelMethod
     {
         vmap::iterator i = values.lower_bound(p);
@@ -62,6 +57,14 @@ public:
         return result.get();
     }
 
+    uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        TinyAveragePixel result;
+        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
+            result.set_n(i->first, i->second);
+        return result.get();
+    }
+
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
     {
         const uint32 most = GetMostUsed();
@@ -77,22 +80,26 @@ public:
         (1ul << pm_MostUsedPixel)
       | (1ul << pm_LeastUsedPixel)
       | (1ul << pm_AveragePixel)
+      | (1ul << pm_TinyAveragePixel)
       | (1ul << pm_ActionAvgPixel);
+    static const unsigned SizePenalty = 16;
+
+    static const unsigned Components =
+        (1ul << impl_MostUsed);
 };
 
-
 // These variants are needed by ChangeLog to simplify templates
-struct ActionAvgPixel: public MostUsedPixel
+/*struct ActionAvgPixel: public MostUsedPixel
 {
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetActionAvg();
+        return MostUsedPixel::GetActionAvg();
     }
-};
+};*/
 struct LeastUsedPixel: public MostUsedPixel
 {
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return GetLeastUsed();
+        return MostUsedPixel::GetLeastUsed();
     }
 };

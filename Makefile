@@ -1,4 +1,4 @@
-VERSION=1.4.0
+VERSION=1.4.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -10,14 +10,15 @@ ARCHFILES=\
 	maptype.hh \
 	vectype.hh \
 	untreetype.hh \
-	makepixels.cc \
-	pixel.cc pixel.hh pixels.hh \
-	pixels/averagepixel.hh \
-	pixels/changelogpixel.hh \
+	openmp.hh \
+	pixel.cc pixel.hh \
+	pixels/firstpixel.hh \
 	pixels/lastpixel.hh \
-	pixels/loopinglogpixel.hh \
+	pixels/averagepixel.hh \
+	pixels/tinyaveragepixel.hh \
 	pixels/mostusedpixel.hh \
-	pixelfactory.inc \
+	pixels/changelogpixel.hh \
+	pixels/loopinglogpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \
@@ -44,18 +45,17 @@ LDLIBS += -lgd
 CXXFLAGS += -std=c++0x -fopenmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 
+#CXXFLAGS += -m32
+#CXXFLAGS += -fomit-frame-pointer
 #OPTIM=-O2 -fno-inline
+
+#CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
+# ^ Apparently, cannot be helped
 
 all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
-
-makepixels: makepixels.o
-	$(CXX) $(CXXFLAGS) -o $@ makepixels.o $(LDFLAGS) $(LDLIBS)
-
-#pixelfactory.inc: makepixels
-#	./makepixels > $@
 
 doc/README.html: doc/docmaker.php progdesc.php Makefile
 	php -q "$<" "$(ARCHNAME)" > "$@"

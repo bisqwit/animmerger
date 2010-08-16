@@ -4,8 +4,7 @@
 #include "types.hh"
 
 /* This is the definite list of available pixel methods. */
-/* The order is arbitrary, but chosen so as to minimize
- * the size of the operator[] function in PixelFactory.
+/* The order is completely arbitrary and irrelevant.
  * Params: option flag, animation flags, name
  * animation flags & 1 = animated
  * animation flags & 2 = obeys looplength
@@ -15,25 +14,27 @@
 #define DefinePixelMethods(callback) \
     callback(f,0,First) \
     callback(l,0,Last) \
-    callback(o,3,LoopingLog) \
+    callback(F,8,FirstNMost) \
+    callback(L,8,LastNMost) \
     callback(a,0,Average) \
-    callback(m,0,MostUsed) \
+    callback(A,0,TinyAverage) \
     callback(t,0,ActionAvg) \
+    callback(m,0,MostUsed) \
     callback(e,0,LeastUsed) \
     callback(c,5,ChangeLog) \
+    callback(o,3,LoopingLog) \
     callback(v,3,LoopingAvg) \
-    callback(s,3,LoopingLast) \
-    callback(F,8,FirstNMost) \
-    callback(L,8,LastNMost)
+    callback(s,3,LoopingLast)
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,
-enum PixelMethod
-{
-    DefinePixelMethods(MakeEnum)
-    NPixelMethods
-};
+enum PixelMethod { DefinePixelMethods(MakeEnum) };
 #undef MakeEnum
+
+/* Count them into NPixelMethods */
+#define CountMethods(o,f,name) +1
+enum { NPixelMethods = 0 DefinePixelMethods(CountMethods) };
+#undef CountMethods
 
 
 extern bool OptimizeChangeLog;
@@ -45,31 +46,23 @@ extern int FirstLastLength;
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;
 
-#define MakeMask(o,flags,name) ((flags&1) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long AnimatedPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+#define MakeMask(o,flags,name) | ((flags&1) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long AnimatedPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&2) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long LoopingPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+#define MakeMask(o,flags,name) | ((flags&2) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long LoopingPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&4) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long BlurCapablePixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+#define MakeMask(o,flags,name) | ((flags&4) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long BlurCapablePixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
-#define MakeMask(o,flags,name) ((flags&8) ? (1ul << pm_##name##Pixel) : 0) |
-static const unsigned long FirstLastPixelMethodsMask =
-    DefinePixelMethods(MakeMask)
-0;
+#define MakeMask(o,flags,name) | ((flags&8) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long FirstLastPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
 
 
 #ifdef __GNUC__
-# define FastPixelMethod __attribute__((regparm(6)))
-# define FasterPixelMethod __attribute__((regparm(6),always_inline))
+# define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+# define FasterPixelMethod FastPixelMethod __attribute__((always_inline))
 #else
 # define FastPixelMethod
 # define FasterPixelMethod
@@ -85,14 +78,25 @@ struct Array256x256of_Base
 {
     virtual ~Array256x256of_Base() { }
 
-    virtual uint32 GetLive(unsigned method, unsigned index, unsigned timer) const FastPixelMethod = 0;
+    virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod = 0;
 
-    virtual uint32 GetStatic(unsigned index) const = 0;
+    virtual uint32 GetStatic(unsigned index) const FastPixelMethod;
 
-    virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
+    virtual void Set(unsigned index, uint32 p, unsigned timer) FastPixelMethod = 0;
 
-    virtual unsigned GetPixelSize() const = 0;
-    virtual const char* GetPixelSetupName() const = 0;
+    virtual void GetStaticInto(uint32* target, unsigned target_stride) const FastPixelMethod;
+
+    virtual void GetLiveSectionInto
+        (PixelMethod method, unsigned timer,
+        uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const FastPixelMethod;
+
+    virtual void PutSectionInto
+        (unsigned timer,
+        const uint32* source, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) FastPixelMethod;
 };
 class UncertainPixelVector256x256
 {
@@ -127,8 +131,11 @@ public:
     template<typename F>
     inline void Visit(F func) const
     {
-        if(data) func(*data);
+        if(data) func(const_cast<const Array256x256of_Base&>(*data));
     }
+
+    const Array256x256of_Base* operator->() const { return data; }
+    Array256x256of_Base* operator->() { return data; }
 
     // Test whether vector is empty (uninitialized)
     bool empty() const { return !data; }
@@ -138,6 +145,7 @@ private:
 };
 
 unsigned GetPixelSizeInBytes();
+unsigned GetPixelSizePenaltyInBytes();
 const char* GetPixelSetupName();
 
 #endif

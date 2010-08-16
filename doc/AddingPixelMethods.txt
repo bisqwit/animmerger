@@ -8,9 +8,16 @@ To add a new pixel method, do these steps:
 	
 	Remember to update the traits in whatever class you modify.
 
-3. If you added a new class, update pixels.hh by
+3. If you added a new class, update pixel.cc by
 	adding the relevant include file there, and
 	by updating the #define DefinePixelClasses.
 
-4. Update pixelfactory.inc by running makepixels. 
-	(Recompile makepixels if needed.)
+
+If you get this error:
+
+pixel.cc: In instantiation of 'const<unnamed>::FactoryType <unnamed>::PixelImplCombFactory<void>::data':
+pixel.cc:333:   instantiated from here
+pixel.cc:312: error: 'getname' is not a member of '<unnamed>::PixelMethodImplName<void>'
+pixel.cc:312: error: too many initializers for 'const<unnamed>::FactoryType'
+
+It means that you have some PixelMethod that no PixelImpl implements.

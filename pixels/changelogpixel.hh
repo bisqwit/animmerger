@@ -19,11 +19,6 @@ public:
 #endif
     {
     }
-    void set(unsigned R,unsigned G,unsigned B, unsigned timer) FastPixelMethod
-    {
-        uint32 p = (((R) << 16) + ((G) << 8) + (B));
-        set(p, timer);
-    }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
         /*if(timer == 0)
@@ -276,6 +271,10 @@ public:
     {
         return GetAggregate<AveragePixel> ();
     }
+    inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<TinyAveragePixel> ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
@@ -481,6 +480,7 @@ private:
         /* Anything else. Take the value. */
         return i->second;
     }
+
 public:
 /////////
     static const unsigned long Traits =
@@ -491,8 +491,12 @@ public:
     | (1ul << pm_MostUsedPixel)
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)
+    | (1ul << pm_TinyAveragePixel)
     | (1ul << pm_LastPixel)
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)
     | (1ul << pm_LastNMostPixel);
+    static const unsigned SizePenalty = 32;
+    static const unsigned Components =
+        (1ul << impl_ChangeLog);
 };

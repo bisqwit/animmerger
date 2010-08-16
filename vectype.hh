@@ -26,7 +26,7 @@ public:
 
 public:
     VecType() : data(0),len(0),cap(0) { }
-    ~VecType() { clear(); if(cap) alloc.deallocate(data,cap); }
+    ~VecType() { clear(); if(cap) getalloc().deallocate(data,cap); }
 
     VecType(size_type length) : data(0),len(0),cap(0)
     {
@@ -41,7 +41,7 @@ public:
     {
         if(len)
         {
-            data = alloc.allocate(len);
+            data = getalloc().allocate(len);
             copy_construct(&data[0], &b.data[0], len);
         }
     }
@@ -85,8 +85,8 @@ public:
         if(cap < newlen)
         {
             destroy(&data[0], len);
-            alloc.deallocate(data, cap);
-            data = alloc.allocate(cap = newlen);
+            getalloc().deallocate(data, cap);
+            data = getalloc().allocate(cap = newlen);
             copy_construct(&data[0], first, newlen);
         }
         else if(len < newlen)
@@ -152,12 +152,12 @@ public:
             ++len;
             return data+ins_pos;
         }
-        T* newdata = alloc.allocate(newcap);
+        T* newdata = getalloc().allocate(newcap);
         move_construct(&newdata[0], &data[0], ins_pos);
         new(&newdata[ins_pos]) T( value );
         move_construct(&newdata[ins_pos+1], &data[ins_pos], len-ins_pos);
         destroy(&data[0], len);
-        alloc.deallocate(data, cap);
+        getalloc().deallocate(data, cap);
         ++len;
         data = newdata;
         cap  = newcap;
@@ -191,12 +191,12 @@ public:
             len += count;
             return;
         }
-        T* newdata = alloc.allocate(newcap);
+        T* newdata = getalloc().allocate(newcap);
         move_construct(&newdata[0], &data[0], ins_pos);
         copy_construct(&newdata[ins_pos], first, count);
         move_construct(&newdata[ins_pos+count], &data[ins_pos], len-ins_pos);
         destroy(&data[0], len);
-        alloc.deallocate(data, cap);
+        getalloc().deallocate(data, cap);
         len += count;
         data = newdata;
         cap  = newcap;
@@ -222,10 +222,10 @@ public:
     {
         if(cap < newcap)
         {
-            T* newdata = alloc.allocate(newcap);
+            T* newdata = getalloc().allocate(newcap);
             move_construct(&newdata[0], &data[0], len);
             destroy(&data[0], len);
-            alloc.deallocate(data, cap);
+            getalloc().deallocate(data, cap);
             data = newdata;
             cap  = newcap;
         }
@@ -254,10 +254,10 @@ public:
         {
             // reallocation required
             size_type newcap = newlen;
-            T* newdata = alloc.allocate(newcap);
+            T* newdata = getalloc().allocate(newcap);
             move_construct(&newdata[0], &data[0], len);
             destroy(&data[0], len);
-            alloc.deallocate(data, cap);
+            getalloc().deallocate(data, cap);
             construct(&newdata[len], newlen-len);
             data = newdata;
             len  = newlen;
@@ -284,10 +284,10 @@ public:
         {
             // reallocation required
             size_type newcap = newlen;
-            T* newdata = alloc.allocate(newcap);
+            T* newdata = getalloc().allocate(newcap);
             move_construct(&newdata[0], &data[0], len);
             destroy(&data[0], len);
-            alloc.deallocate(data, cap);
+            getalloc().deallocate(data, cap);
             construct(&newdata[len], newlen-len, value);
             data = newdata;
             len  = newlen;
@@ -308,7 +308,7 @@ public:
         if(!cap) return;
         destroy(&data[0], len);
         len = 0;
-        alloc.deallocate(data, cap);
+        getalloc().deallocate(data, cap);
         data = 0;
         cap = 0;
     }
@@ -386,12 +386,16 @@ private:
         return 1; //sizeof(T) < 16 ? 2 : (sizeof(T) < 256 ? 2 : 1);
     }
 
+    static std::allocator<T>& getalloc()
+    {
+        static std::allocator<T> alloc;
+        return alloc;
+    }
+
 private:
     T* data;
     size_type len, cap;
-
     //__gnu_cxx::__mt_alloc<T> alloc;
-    std::allocator<T> alloc;
 };
 #endif
 
