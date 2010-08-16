@@ -61,8 +61,8 @@ static const unsigned long FirstLastPixelMethodsMask = 0 DefinePixelMethods(Make
 
 
 #ifdef __GNUC__
-# define FastPixelMethod __attribute__((regparm(3)))
-# define FasterPixelMethod __attribute__((regparm(3),always_inline))
+# define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+# define FasterPixelMethod FastPixelMethod __attribute__((always_inline))
 #else
 # define FastPixelMethod
 # define FasterPixelMethod
@@ -80,23 +80,23 @@ struct Array256x256of_Base
 
     virtual uint32 GetLive(PixelMethod method, unsigned index, unsigned timer) const FastPixelMethod = 0;
 
-    virtual uint32 GetStatic(unsigned index) const;
+    virtual uint32 GetStatic(unsigned index) const FastPixelMethod;
 
-    virtual void Set(unsigned index, uint32 p, unsigned timer) = 0;
+    virtual void Set(unsigned index, uint32 p, unsigned timer) FastPixelMethod = 0;
 
-    virtual void GetStaticInto(uint32* target, unsigned target_stride) const;
+    virtual void GetStaticInto(uint32* target, unsigned target_stride) const FastPixelMethod;
 
     virtual void GetLiveSectionInto
         (PixelMethod method, unsigned timer,
         uint32* target, unsigned target_stride,
         unsigned x1, unsigned y1,
-        unsigned width, unsigned height) const;
+        unsigned width, unsigned height) const FastPixelMethod;
 
     virtual void PutSectionInto
         (unsigned timer,
         const uint32* source, unsigned target_stride,
         unsigned x1, unsigned y1,
-        unsigned width, unsigned height);
+        unsigned width, unsigned height) FastPixelMethod;
 };
 class UncertainPixelVector256x256
 {

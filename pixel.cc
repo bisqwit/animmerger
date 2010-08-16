@@ -159,7 +159,7 @@ public:
     virtual void GetLiveSectionInto(PixelMethod method, unsigned timer,
         uint32* target, unsigned target_stride,
         unsigned x1, unsigned y1,
-        unsigned width, unsigned height) const
+        unsigned width, unsigned height) const FastPixelMethod
     {
         const T* databegin = data      + (y1*256+x1);
         const T* dataend   = databegin + height*256;
@@ -191,7 +191,7 @@ public:
     }
 
     virtual void GetStaticInto(
-        uint32* target, unsigned target_stride) const
+        uint32* target, unsigned target_stride) const FastPixelMethod
     {
         const T* databegin = data;
         const T* dataend   = databegin + 256*256;
@@ -223,7 +223,7 @@ public:
         (unsigned timer,
         const uint32* source, unsigned target_stride,
         unsigned x1, unsigned y1,
-        unsigned width, unsigned height)
+        unsigned width, unsigned height) FastPixelMethod
     {
         unsigned p=0, index=y1*256+x1, maxindex=(y1+height)*256+x1;
         for(; index<maxindex; p+=target_stride, index+=256)
@@ -245,7 +245,7 @@ struct Array256x256of: public Array256x256ofImpl<T>
     typedef Array256x256ofImpl<T> rep;
 public:
 #if DO_VERY_SPECIALIZED >= -1
-    virtual uint32 GetStatic(unsigned index) const
+    virtual uint32 GetStatic(unsigned index) const FastPixelMethod
     {
         return DoGetLive(bgmethod, index, 0);
     }
@@ -256,7 +256,7 @@ public:
         return DoGetLive(method, index, timer);
     }
 
-    virtual void Set(unsigned index, uint32 p, unsigned timer)
+    virtual void Set(unsigned index, uint32 p, unsigned timer) FastPixelMethod
     {
         rep::data[index].set(p, timer);
     }

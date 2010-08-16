@@ -44,6 +44,8 @@ LDLIBS += -lgd
 CXXFLAGS += -std=c++0x -fopenmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 
+#CXXFLAGS += -m32
+#CXXFLAGS += -fomit-frame-pointer
 #OPTIM=-O2 -fno-inline
 
 all: $(PROGS) doc/README.html
