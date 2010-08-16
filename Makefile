@@ -48,6 +48,9 @@ CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 #CXXFLAGS += -fomit-frame-pointer
 #OPTIM=-O2 -fno-inline
 
+#CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
+# ^ Apparently, cannot be helped
+
 all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)

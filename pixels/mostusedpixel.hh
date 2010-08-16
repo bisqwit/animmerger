@@ -83,6 +83,9 @@ public:
       | (1ul << pm_TinyAveragePixel)
       | (1ul << pm_ActionAvgPixel);
     static const unsigned SizePenalty = 16;
+
+    static const unsigned Components =
+        (1ul << impl_MostUsed);
 };
 
 // These variants are needed by ChangeLog to simplify templates

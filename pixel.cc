@@ -18,45 +18,86 @@ enum PixelMethod bgmethod = pm_MostUsedPixel;
  *  -1 = Minimal set of virtual functions that still does the work
  *  -2 = Use GetLive to implement GetStatic, further reducing code size
  */
+template<typename T>
+struct Array256x256of;
 
 /* List of pixel classes. Only list those pixel
  * classes that have an unique set of Traits.
  * Sort them in the order of preference-of-use
  * when multiple classes implement the same method.
  */
-#define DefinePixelClasses(callback) \
-    callback(0,Last) \
-    callback(1,First) \
-    callback(2,TinyAverage) \
-    callback(3,Average) \
-    callback(4,MostUsed) \
-    callback(5,LoopingLog) \
-    callback(6,ChangeLog)
+#define DefinePixelImpls(callback) \
+    callback(Last) \
+    callback(First) \
+    callback(TinyAverage) \
+    callback(Average) \
+    callback(MostUsed) \
+    callback(ChangeLog) \
+    callback(LoopingLogAndMostUsed) \
+    callback(LoopingLogAndChangeLog)
+
+#define MakeEnum(name) impl_##name,
+enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
+#undef MakeEnum
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
 #include "pixels/averagepixel.hh"
 #include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"
-#include "pixels/loopinglogpixel.hh"
 #include "pixels/changelogpixel.hh"
+#include "pixels/loopinglogpixel.hh"
+
+/* Count them into NPixelImpls */
+#define CountImpls(name) +1
+enum { NPixelImpls = 0 DefinePixelImpls(CountImpls) };
+#undef CountImpls
 
 namespace
 {
-    template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
-    struct GetLowestBit : public GetLowestBit<Value/2, Basevalue+1> { };
-    template<unsigned Value, unsigned Basevalue>
-    struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
+    /* Translate PixelMethodImpl into a type and a string */
 
-    template<unsigned value, unsigned alreadycounted = 0>
-    struct PopCount : public PopCount< value/2, (alreadycounted + (value&1)) > { };
-    template<unsigned alreadycounted>
-    struct PopCount<0, alreadycounted> { enum { result = alreadycounted }; };
+    template<unsigned id> struct PixelMethodClass
+    {
+        typedef void result;
+    };
+    template<typename T> struct PixelMethodImplName
+    {
+        /*static const char* getname()
+        #ifdef __GNUC__
+            __attribute__((error("You have a PixelMethod that no MethodImpl implements!")))
+        #endif
+        ;{
+            return "ERROR: NO IMPLEMENTATION FOUND FOR THIS SET OF FEATURES";
+        }*/
+    };
+    template<typename T>
+    struct PixelMetaInfo
+    {
+        typedef T result;
+        static const unsigned long Traits = T::Traits;
+        static const unsigned Size        = sizeof(T);
+        static const unsigned Cost        = Size + T::SizePenalty;
+        static const unsigned Components  = T::Components;
+    };
+    template<>
+    struct PixelMetaInfo<void>
+    {
+        typedef void result;
+        static const unsigned long Traits = 0ul;
+        static const unsigned Size        = 0xffffu;
+        static const unsigned Cost        = 0xffffu;
+        static const unsigned Components  = ~0u;
+    };
+    #define MakeImpl(name) \
+        template<> struct PixelMethodClass<impl_##name>\
+                : public PixelMetaInfo<name##Pixel> { };\
+        template<> struct PixelMethodImplName<name##Pixel> \
+            {  static const char* getname() { return #name; } };
+    DefinePixelImpls(MakeImpl)
+    #undef MakeImpl
 
-    template<typename T1, typename T2, bool select1st>
-    struct ChooseType { typedef T2 result; };
-    template<typename T1, typename T2>
-    struct ChooseType<T1,T2,true> { typedef T1 result; };
+    /* Function to call a method if it is exists */
 
     #define MakeMethodCaller(n,f,name) \
     template<typename T, bool HasMethod = T::Traits & (1u << pm_##name##Pixel)> \
@@ -80,6 +121,263 @@ namespace
     }
     DefinePixelMethods(MakeMethodCaller)
     #undef MakeMethodCaller
+
+    /* Utility */
+
+    template<unsigned Value, unsigned Basevalue=0, bool found = !Value || (Value&1)>
+    struct GetLowestBit : public GetLowestBit<Value/2, Basevalue+1> { };
+    template<unsigned Value, unsigned Basevalue>
+    struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
+
+    template<unsigned value, unsigned alreadycounted = 0>
+    struct PopCount : public PopCount< value/2, alreadycounted+(value&1) > { };
+    template<unsigned alreadycounted>
+    struct PopCount<0, alreadycounted> { static const unsigned result = alreadycounted; };
+
+    template<typename T1, typename T2, bool select1st>
+    struct ChooseType { typedef T2 result; };
+    template<typename T1, typename T2>
+    struct ChooseType<T1,T2,true> { typedef T1 result; };
+
+    template<typename T1,typename T2>
+    struct HaveCommonComponents
+        { static const bool result = (T1::Components & T2::Components) != 0; };
+
+    /* Combine implementations */
+    template<typename T1,typename T2>
+    struct And: public T1, public T2
+    {
+        void set(uint32 p, unsigned timer=0) FastPixelMethod
+        {
+            T1::set(p,timer);
+            T2::set(p,timer);
+        }
+        /* Legal combination of two classes */
+        static const unsigned long Traits = T1::Traits | T2::Traits;
+        static const unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
+        static const unsigned Components  = T1::Components | T2::Components;
+    };
+
+    template<typename T1,typename T2, bool=HaveCommonComponents<T1,T2>::result>
+    struct MakeAnd: PixelMetaInfo<And<T1,T2> >
+    {
+    };
+    template<typename T1,typename T2>
+    struct MakeAnd<T1,T2,true>: public PixelMetaInfo<void>
+    {
+        // Special case: Don't combine T1 and T2,
+        // when T1 already inherits T2 or any of T2's ancestors,
+        //   or T2 already inherits T1 or any of T1's ancestors.
+        // This avoids gcc warning about
+        // "direct base inaccessible due to ambiguity".
+        /* Illegal combination of two classes: metainfo */
+    };
+
+    /* This converts an implementation index into a type. */
+    template<unsigned id, typename Base> // Two or more classes
+    struct PixelMethodImpl: public MakeAnd<Base, typename PixelMethodClass<id>::result>
+    {
+    };
+    template<unsigned id> // Single class
+    struct PixelMethodImpl<id, void>: public PixelMethodClass<id>
+    {
+    };
+    template<> // Invalid class
+    struct PixelMethodImpl<NPixelImpls,void>: public MakeAnd<void,void,true>
+    {
+    };
+
+    /* Creates a combination class of pixel methods matching the requested bitmask. */
+    /* The combination is created through chain-inheritance. */
+    /* "PixelMethodImplementationCombination" would be somewhat wordy.
+     * Hence abbreviated.
+     */
+    template<unsigned bitmask = 1>
+    struct PixelMethodImplComb: public
+        PixelMethodImpl<
+            GetLowestBit<bitmask>::result,
+            typename PixelMethodImplComb<bitmask & (bitmask-1)>::result>
+            // bitmask & (bitmask-1) clears the
+            // least significant bit of the mask.
+    {
+    };
+    template<>
+    struct PixelMethodImplComb<0>: public PixelMethodImpl<NPixelImpls,void>
+    {
+    };
+
+    /* This converts a composite type into a name (string). */
+    template<typename T1, typename T2>
+    struct PixelMethodImplName< And<T1,T2> >
+    {
+        static const char* getname()
+        {
+            static std::string name (
+                PixelMethodImplName<T1>::getname()
+                + std::string("+") +
+                PixelMethodImplName<T2>::getname() );
+            return name.c_str();
+        }
+    };
+
+    /* Same as PixelMethodImplComb, but given a Traits value,
+     * either picks the PixelMethodImplComb matching given bitmask,
+     * or escalates to next bitmask, until an implementation
+     * that has the requested Traits is found.
+     * Using this class in BestPixelMethodImplComb_ForTraits
+     * speeds up the compilation by some 50%.
+     */
+    template<unsigned long Traits,unsigned bm=1>
+    struct NextPixelMethodImplComb_WithTraits
+    {
+        static const unsigned bitmask =
+            (Traits & ~PixelMethodImplComb<bm>::Traits)
+            ? // Escalate
+              NextPixelMethodImplComb_WithTraits<Traits, bm+1>::bitmask
+            : // Found
+              bm; // matched traits.
+    };
+    template<unsigned long Traits>
+    struct NextPixelMethodImplComb_WithTraits<Traits, (1ul<<NPixelImpls)>
+    {   // Default case, ensures termination
+        static const unsigned bitmask = 0;
+    };
+
+    /* Picks the smallest PixelMethodImplComb that fulfills the requested Traits. */
+    template<unsigned long Traits,
+             typename DType = PixelMethodImplComb<0>,
+             unsigned bitmask = NextPixelMethodImplComb_WithTraits<Traits>::bitmask
+            >
+    struct BestPixelMethodImplComb_ForTraits
+    {
+        typedef PixelMethodImplComb<bitmask> CType;
+        static const bool ChooseC =
+           // !(Traits & ~CType::Traits) && // ensured by NextPixelMethod
+           ((CType::Cost < DType::Cost
+             // Because users may complain if First+MostUsed gives
+             // a type of First+Last+MostUsed, even though both are
+             // 24 bytes on x86_64, do extra work to get the type that
+             // is more fundamental (shorter chain of inheritances).
+             // Also, it will give a faster set() method.
+          || (CType::Cost == DType::Cost && PopCount<CType::Components>::result
+                                          < PopCount<DType::Components>::result)
+           ));
+        // Escalate.
+        typedef typename BestPixelMethodImplComb_ForTraits<
+            Traits,
+            typename ChooseType<CType, DType, ChooseC>::result,
+            NextPixelMethodImplComb_WithTraits<Traits, bitmask+1>::bitmask
+            >::result result;
+    };
+    template<unsigned long Traits,typename T>
+    struct BestPixelMethodImplComb_ForTraits<Traits,T, 0>
+    {
+        typedef T result;
+    };
+
+    /* Actual framework for constructing the pixels */
+
+    struct FactoryType
+    {
+        typedef Array256x256of_Base ObjT;
+        ObjT* (*Construct)();
+        ObjT* (*Copy)(const ObjT& b);
+        void  (*Assign)(ObjT& tgt, const ObjT& b);
+        const char* (*GetName)();
+        unsigned short Size;
+        unsigned short SizePenalty;
+    };
+    template<typename T>
+    struct FactoryMethods
+    {
+        typedef Array256x256of_Base ObjT;
+        typedef Array256x256of<T> ResT;
+        static ObjT* Construct()         { return new ResT; }
+        static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
+        static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b; }
+    };
+    template<>
+    struct FactoryMethods<void>
+    {
+        static Array256x256of_Base* Construct() { return 0; }
+        static Array256x256of_Base* Copy(const Array256x256of_Base&) { return 0; }
+        static void Assign(Array256x256of_Base&, const Array256x256of_Base&) { }
+    };
+    template<typename T>
+    struct PixelImplCombFactory
+    {
+        static const FactoryType data;
+    };
+    template<typename T>
+    const FactoryType PixelImplCombFactory<T>::data =
+    {
+        FactoryMethods<T>::Construct,
+        FactoryMethods<T>::Copy,
+        FactoryMethods<T>::Assign,
+        PixelMethodImplName<T>::getname,
+        PixelMetaInfo<T>::Size,
+        PixelMetaInfo<T>::Cost - PixelMetaInfo<T>::Size
+    };
+
+    typedef
+        BestPixelMethodImplComb_ForTraits< ((1ul<<NPixelMethods)-1) >
+        ::result::result EverythingImplementer;
+
+    template<unsigned bitmask=1u>
+    struct FactoryFinder
+    {
+        static inline const FactoryType* FindForTraits
+            (unsigned long req_traits,
+             unsigned result_cost = PixelMetaInfo<EverythingImplementer>::Cost,
+             const FactoryType* result =
+                &PixelImplCombFactory<EverythingImplementer>::data
+            ) FastPixelMethod
+        {
+            typedef typename BestPixelMethodImplComb_ForTraits
+                <PixelMethodImplComb<bitmask>::Traits>::result imprfinder;
+
+            /* Using BestPixelMethodImplComb_ForTraits here avoids
+             * having to _instantiate_ all the different types.
+             * Only those types that end up being returned here, are
+             * instantiated. If it weren't for this, this duplicate
+             * functionality would be redundant.
+             */
+
+            //if(  (imprfinder::Traits & req_traits) == req_traits)
+            if( !( (imprfinder::Traits ^ req_traits) & req_traits))
+            //if( ! (req_traits & ~imprfinder::Traits))
+            {
+                if(imprfinder::Cost < result_cost)
+                {
+                    result      = &PixelImplCombFactory
+                        <typename imprfinder::result>::data;
+                    result_cost = imprfinder::Cost;
+                }
+            }
+            return FactoryFinder<bitmask+1>::FindForTraits(req_traits, result_cost, result);
+        }
+    };
+
+    template<>
+    struct FactoryFinder< (1u<<NPixelImpls) >
+    {
+        static inline const FactoryType* FindForTraits
+            (unsigned long,unsigned, const FactoryType* result) FasterPixelMethod
+        {
+            return result;
+        }
+    };
+
+    const FactoryType* Get256x256pixelFactory()
+    {
+        unsigned long Traits = pixelmethods_result | (1ul << bgmethod);
+
+        static unsigned long Prev = ~0ul;
+        static const FactoryType* cache = 0;
+
+        if(Prev == Traits) return cache;
+        return cache = FactoryFinder<>::FindForTraits(Prev = Traits);
+    };
 }
 
 uint32 Array256x256of_Base::GetStatic(unsigned index) const
@@ -166,7 +464,7 @@ public:
     #if DO_VERY_SPECIALIZED>0
         #define MakeMethodCase(n,f,name) \
             case pm_##name##Pixel: \
-                if(T::Traits & (1<<pm_##name##Pixel)) \
+                if(T::Traits & (1ul<<pm_##name##Pixel)) \
                     for(; databegin<dataend; \
                            target += target_stride-width, \
                            databegin += 256-width) \
@@ -198,7 +496,7 @@ public:
     #if DO_VERY_SPECIALIZED>0
         #define MakeMethodCase(n,f,name) \
             case pm_##name##Pixel: \
-                if(T::Traits & (1<<pm_##name##Pixel)) \
+                if(T::Traits & (1ul<<pm_##name##Pixel)) \
                     for(; databegin<dataend; \
                            target += target_stride-256) \
                         for(unsigned x=256; x-->0; ) \
@@ -237,7 +535,6 @@ public:
     }
 };
 #endif
-
 
 template<typename T>
 struct Array256x256of: public Array256x256ofImpl<T>
@@ -297,235 +594,6 @@ private:
         #undef MakeDefaultCase
     }
 };
-
-namespace
-{
-    /* This converts an implementation index into a type. */
-    template<unsigned id, typename Base>
-    struct PixelMethodImpl { typedef void result; enum { Traits = 0 }; };
-
-    /* This converts a type into a name (string). */
-    template<typename T>
-    struct PixelMethodImplName
-    {
-        static inline const char* getname()
-        {
-            return "ERROR: NO IMPLEMENTATION FOUND FOR THIS SET OF FEATURES";
-        }
-    };
-
-    template<typename T1,typename T2, bool force=false>
-    struct CombinePixels: public T1, public T2
-    {
-        void set(uint32 p, unsigned timer=0) FastPixelMethod
-        {
-            T1::set(p,timer);
-            T2::set(p,timer);
-        }
-        static const unsigned long Traits = T1::Traits | T2::Traits;
-        static const unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
-    };
-    template<typename T1>
-    class CombinePixels<T1, LoopingLogPixel, false>
-        : public CombinePixels<T1, LoopingLogPixel, true>
-    {
-    public:
-        /* LoopingLogPixel<ChangeLogPixel> has visibility
-         * ambiguity on these methods. Make the order explicit.
-         */
-        using LoopingLogPixel::GetLoopingLog;
-        using LoopingLogPixel::GetActionAvg;
-        using LoopingLogPixel::GetMostUsed;
-        using LoopingLogPixel::GetLeastUsed;
-        using LoopingLogPixel::GetAverage;
-        using LoopingLogPixel::GetTinyAverage;
-    };
-
-    #define MakePixelMethodImpl(id,name) \
-        template<typename Base> \
-        struct name: public CombinePixels<Base,name##Pixel> \
-        { \
-        }; \
-        template<typename Base> \
-        struct PixelMethodImpl<id, Base> \
-        { \
-            typedef name<Base> result; \
-            static const unsigned long Traits = result::Traits; \
-        }; \
-        template<> \
-        struct PixelMethodImpl<id, void> \
-        { \
-            typedef name##Pixel result; \
-            static const unsigned long Traits = result::Traits; \
-        }; \
-        template<typename Base> \
-        struct PixelMethodImplName<name<Base> > \
-        { \
-            static const char* getname() \
-            { \
-                static const std::string n = \
-                    #name + std::string("+") + PixelMethodImplName<Base>::getname(); \
-                return n.c_str(); \
-            } \
-        }; \
-        template<> \
-        struct PixelMethodImplName<name##Pixel> \
-        { \
-            static inline const char* getname() { return #name; } \
-        };
-    DefinePixelClasses(MakePixelMethodImpl)
-    #undef MakePixelMethodImpl
-
-    template<unsigned n=0, typename Obj = typename PixelMethodImpl<n,void>::result>
-    struct GetMethodImplCount : public GetMethodImplCount<n+1> { };
-    template<unsigned n>
-    struct GetMethodImplCount<n,void> { enum { result = n }; };
-
-    struct FactoryType
-    {
-        typedef Array256x256of_Base ObjT;
-        ObjT* (*Construct)();
-        ObjT* (*Copy)(const ObjT& b);
-        void  (*Assign)(ObjT& tgt, const ObjT& b);
-        const char* (*GetName)();
-        unsigned short Size;
-        unsigned short SizePenalty;
-    };
-    template<typename T>
-    struct FactoryMethods: public T
-    {
-        typedef Array256x256of_Base ObjT;
-        typedef Array256x256of<T> ResT;
-        static ObjT* Construct()         { return new ResT; }
-        static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
-        static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b; }
-        static const unsigned long Size = sizeof(T);
-    };
-    template<>
-    struct FactoryMethods<void>
-    {
-        static Array256x256of_Base* Construct() { return 0; }
-        static Array256x256of_Base* Copy(const Array256x256of_Base&) { return 0; }
-        static void Assign(Array256x256of_Base&, const Array256x256of_Base&) { }
-        static const unsigned long Size = 0xffffu, SizePenalty = 0;
-    };
-    template<typename T>
-    struct PixelImplCombFactory
-    {
-        static const FactoryType data;
-    };
-    template<typename T>
-    const FactoryType PixelImplCombFactory<T>::data =
-    {
-        FactoryMethods<T>::Construct,
-        FactoryMethods<T>::Copy,
-        FactoryMethods<T>::Assign,
-        PixelMethodImplName<T>::getname,
-        FactoryMethods<T>::Size,
-        FactoryMethods<T>::SizePenalty
-    };
-
-    /* Creates a combination class of pixel methods matching the requested bitmask. */
-    /* The combination is created through chain-inheritance. */
-    /* "PixelMethodImplementationCombination" would be somewhat wordy.
-     * Hence abbreviated.
-     */
-    template<unsigned bitmask = 1,
-             unsigned lowestbit = GetLowestBit<bitmask>::result,
-             unsigned remainingbits = bitmask & ~(1ul << lowestbit)
-            >
-    struct PixelMethodImplComb: public
-        PixelMethodImpl<lowestbit, typename PixelMethodImplComb<remainingbits>::result>
-    {
-        enum {
-            nmasks = 1ul << GetMethodImplCount<>::result,
-            nextbitmask = (bitmask+1) & (nmasks-1)
-        };
-    };
-    template<>
-    struct PixelMethodImplComb<0>
-    {
-        typedef void result;
-        enum { nextbitmask = 0, Traits = 0 };
-    };
-
-    /* Same as PixelMethodImplComb, but given a Traits value,
-     * either picks the PixelMethodImplComb matching given bitmask,
-     * or escalates to next bitmask, until an implementation
-     * that has the requested Traits is found.
-     */
-    template
-        <unsigned long Traits,unsigned bitmask=1,
-         bool traits_ok =
-          (!(Traits & ~PixelMethodImplComb<bitmask>::Traits) || !bitmask)>
-    struct NextPixelMethodImplComb_WithTraits: public PixelMethodImplComb<bitmask>
-    { // Traits match = pick the implementation
-    };
-    template<unsigned long Traits,unsigned bitmask>
-    struct NextPixelMethodImplComb_WithTraits<Traits,bitmask,false>
-        : public NextPixelMethodImplComb_WithTraits
-            <Traits, PixelMethodImplComb<bitmask>::nextbitmask>
-    { // Traits mismatch = try next implementation
-    };
-
-    /* Picks the smallest PixelMethodImplComb that fulfills the requested Traits. */
-    template<unsigned long Traits,
-             typename cand1info = NextPixelMethodImplComb_WithTraits<Traits>,
-             typename cand1 = typename cand1info::result>
-    struct BestPixelMethodImplComb_ForTraits
-    {
-        static const unsigned nb = cand1info::nextbitmask;
-        typedef NextPixelMethodImplComb_WithTraits<Traits, nb> cand2info;
-        typedef BestPixelMethodImplComb_ForTraits<Traits, cand2info> next;
-        typedef typename next::result cand2;
-        static const unsigned long cost = sizeof(cand1) + cand1::SizePenalty;
-        static const unsigned overqualification = PopCount<cand1::Traits &~Traits>::result;
-        static const bool is_better =
-             (cost < next::cost)
-             /* Because users may complain if First+MostUsed gives
-              * a type of First+Last+MostUsed, even though both are
-              * 24 bytes on x86_64, do extra work to get the type
-              * that contains the minimal feature set required.
-              * Also, it will give a faster set() method.
-              */
-          || (cost == next::cost && overqualification < next::overqualification);
-        typedef typename ChooseType<cand1, cand2, is_better>::result result;
-    };
-    template<unsigned long T, typename c>
-    struct BestPixelMethodImplComb_ForTraits<T,c, void>
-    {
-        typedef void result;
-        static const unsigned long cost = 0xfffffful;
-        static const unsigned overqualification = 0;
-    };
-
-    template<unsigned bitmask>
-    static inline const FactoryType* FindFactoryForTraits(unsigned) FasterPixelMethod;
-    template<unsigned bitmask>
-    static inline const FactoryType* FindFactoryForTraits(unsigned Traits)
-    {
-        if(!bitmask) return &PixelImplCombFactory<void>::data;
-        typedef PixelMethodImplComb<bitmask> implfinder;
-        typedef typename implfinder::result thistype;
-        typedef typename BestPixelMethodImplComb_ForTraits<implfinder::Traits>::result improvedtype;
-        //if( (implfinder::Traits & Traits) == Traits)
-        if(!( (implfinder::Traits ^ Traits) & Traits) )
-        //if (! (~implfinder::Traits & Traits))
-            return &PixelImplCombFactory<improvedtype>::data;
-        return FindFactoryForTraits<implfinder::nextbitmask>(Traits);
-    };
-
-    const FactoryType* Get256x256pixelFactory()
-    {
-        unsigned long Traits = pixelmethods_result | (1ul << bgmethod);
-
-        static unsigned long Prev = ~0ul;
-        static const FactoryType* cache = 0;
-
-        if(Prev == Traits) return cache;
-        return cache = FindFactoryForTraits<1>(Prev = Traits);
-    };
-}
 
 void UncertainPixelVector256x256::init()
 {

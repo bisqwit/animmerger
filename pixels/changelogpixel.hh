@@ -496,5 +496,7 @@ public:
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)
     | (1ul << pm_LastNMostPixel);
-    static const unsigned SizePenalty = 24;
+    static const unsigned SizePenalty = 32;
+    static const unsigned Components =
+        (1ul << impl_ChangeLog);
 };

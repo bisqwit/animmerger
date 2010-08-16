@@ -42,4 +42,7 @@ public:
     static const unsigned long Traits =
         (1ul << pm_AveragePixel);
     static const unsigned SizePenalty = 0;
+
+    static const unsigned Components =
+        (1ul << impl_Average);
 };

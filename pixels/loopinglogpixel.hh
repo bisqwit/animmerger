@@ -3,26 +3,49 @@
 
 #include "vectype.hh"
 
-class LoopingLogPixel
+/*
+The difference between LoopingLog, and the LoopingLast method in ChangeLog
+is that this samples MostUsed at *every* set() call and compares to
+that *current* value, whereas loopingLast compares to the MostUsed
+value _after_ all animation has been created.
+The latter is more reliable. LoopingLog has been preserved for posterity.
+*/
+
+
+/*
+LoopingLog requires an instance of MostUsedPixel to work.
+However, MostUsedPixel can be provided by MostUsedPixel or ChangeLogPixel.
+When both ChangeLogPixel and LoopingLogPixel are required,
+it makes more sense to use ChangeLogPixel instead of MostUsedPixel.
+Hence, complicated template trickery here.
+
+The Components feature is required to prevent compiler from
+spamming the console with warning messages when it tries to
+use MostUsedPixel<LoopingLogPixel>. With Components, we can
+explicitly avoid overlapping feature sets in the inheritance
+chain.
+*/
+
+
+template<typename Slave>
+class LoopingLogPixelBase: public Slave
 {
-    MostUsedPixel most_used;
     LastPixel* history;
 public:
-    LoopingLogPixel()
-        : history(new LastPixel [LoopingLogLength])
+    LoopingLogPixelBase() : history(new LastPixel [LoopingLogLength])
     {
     }
-    ~LoopingLogPixel()
+    ~LoopingLogPixelBase()
     {
         delete[] history;
     }
-    LoopingLogPixel(const LoopingLogPixel& b)
+    LoopingLogPixelBase(const LoopingLogPixelBase<Slave>& b)
         : history(new LastPixel[LoopingLogLength])
     {
         for(unsigned a=0; a<LoopingLogLength; ++a)
             history[a] = b.history[a];
     }
-    LoopingLogPixel& operator=(const LoopingLogPixel& b)
+    LoopingLogPixelBase& operator=(const LoopingLogPixelBase<Slave>& b)
     {
         for(unsigned a=0; a<LoopingLogLength; ++a)
             history[a] = b.history[a];
@@ -31,10 +54,10 @@ public:
 
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        most_used.set(p);
+        Slave::set(p, timer);
 
         unsigned offs = timer % LoopingLogLength;
-        if(history[offs].get() == DefaultPixel || p != GetMostUsed())
+        if(history[offs].get() == DefaultPixel || p != Slave::GetMostUsed())
             history[offs].set(p);
     }
 
@@ -47,40 +70,24 @@ public:
     {
         unsigned offs = timer % LoopingLogLength;
         uint32 result = history[offs].get();//.value_ignore(most_used);
-        if(result == DefaultPixel) return GetMostUsed();
+        if(result == DefaultPixel) return Slave::GetMostUsed();
         return result;
     }
-
-    inline uint32 GetMostUsed(unsigned=0) const FasterPixelMethod
-    {
-        return most_used.GetMostUsed();
-    }
-
-    inline uint32 GetLeastUsed(unsigned=0) const FasterPixelMethod
-    {
-        return most_used.GetLeastUsed();
-    }
-
-    inline uint32 GetAverage(unsigned=0) const FasterPixelMethod
-    {
-        return most_used.GetAverage();
-    }
-
-    inline uint32 GetTinyAverage(unsigned=0) const FasterPixelMethod
-    {
-        return most_used.GetTinyAverage();
-    }
-
-    inline uint32 GetActionAvg(unsigned=0) const FasterPixelMethod
-    {
-        return most_used.GetActionAvg();
-    }
-
 /////////
     static const unsigned long Traits =
         (1ul << pm_LoopingLogPixel)
-      | MostUsedPixel::Traits;
+      | Slave::Traits;
     static const unsigned SizePenalty =
-        MostUsedPixel::SizePenalty + 8;
+        Slave::SizePenalty + 8;
 };
 
+struct LoopingLogAndMostUsedPixel: public LoopingLogPixelBase<MostUsedPixel>
+{
+    static const unsigned Components =
+        (1ul << impl_LoopingLogAndMostUsed) | MostUsedPixel::Components;
+};
+struct LoopingLogAndChangeLogPixel: public LoopingLogPixelBase<ChangeLogPixel>
+{
+    static const unsigned Components =
+        (1ul << impl_LoopingLogAndChangeLog) | ChangeLogPixel::Components;
+};
