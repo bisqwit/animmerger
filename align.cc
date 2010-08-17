@@ -332,7 +332,7 @@ AlignResult Align(
         i != offset_suggestions.end();
         ++i)
     {
-        if(i->second < 8) continue; // Not confident enough
+        //if(i->second < 8) continue; // Not confident enough
         if(i->first.x < mv_xmin
         || i->first.x > mv_xmax
         || i->first.y < mv_ymin
