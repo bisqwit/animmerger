@@ -18,7 +18,6 @@ ARCHFILES=\
 	pixels/tinyaveragepixel.hh \
 	pixels/mostusedpixel.hh \
 	pixels/changelogpixel.hh \
-	pixels/loopinglogpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \

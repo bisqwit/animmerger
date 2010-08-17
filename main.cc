@@ -126,8 +126,6 @@ int main(int argc, char** argv)
                     "     Produces a time-restricted animation.\n"
                     "     Also called, \"lemmings mode\".\n"
                     "     Use the -l option to set loop length in frames.\n"
-                    "  LOOPINGLAST, long option: --methods=loopinglast, short option: -ps\n"
-                    "     Higher quality version of loopinglog.\n"
                     "  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n"
                     "     A combination of loopinglog and actionavg.\n"
                     "\n"
@@ -274,6 +272,8 @@ int main(int argc, char** argv)
                     #define TestMethod(optchar,f,name) \
                         else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
                             pixelmethods_result |= 1ul << pm_##name##Pixel;
+                    else if(strcmp(arg, "s") == 0 || strcasecmp(arg, "loopinglast") == 0)
+                        pixelmethods_result |= 1ul << pm_LoopingLogPixel;
                     DefinePixelMethods(TestMethod)
                     #undef TestMethod
                     else

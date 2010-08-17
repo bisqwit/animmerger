@@ -22,9 +22,8 @@
     callback(m,0,MostUsed) \
     callback(e,0,LeastUsed) \
     callback(c,5,ChangeLog) \
-    callback(o,3,LoopingLog) \
     callback(v,3,LoopingAvg) \
-    callback(s,3,LoopingLast)
+    callback(o,3,LoopingLog)
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,

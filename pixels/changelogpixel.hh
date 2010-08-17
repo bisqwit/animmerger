@@ -263,6 +263,10 @@ public:
     {
         return GetTimerAggregate<LoopingLastSlave> (timer);
     }
+    inline uint32 GetLoopingLog(unsigned timer) const FasterPixelMethod
+    {
+        return GetLoopingLast(timer);
+    }
     inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
     {
         return GetAggregate<MostUsedPixel> ();
@@ -491,7 +495,7 @@ public:
       (1ul << pm_ChangeLogPixel)
     | (1ul << pm_ActionAvgPixel)
     | (1ul << pm_LoopingAvgPixel)
-    | (1ul << pm_LoopingLastPixel)
+    | (1ul << pm_LoopingLogPixel)
     | (1ul << pm_MostUsedPixel)
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)

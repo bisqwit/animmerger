@@ -287,27 +287,6 @@ The smaller value you use, the shorter the animation
 is in the number of frames, but the more pronounced
 is the \"lemmings\" effect.
 <p>
-30 frames (99755 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol30.gif\"
-     alt=\"Loop, 30 frames\">
-<p>
-Produced with commandline:<br>
-<code>
-# for l in 4 10 30; do <br>
-# &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
-# done</code>
-
-", 'loopinglast:1.1.1. LOOPINGLAST' => "
-
-The \"loopinglast\" method is a slightly higher quality
-version of \"loopinglog\". It uses the same amount of memory
-as \"changelog\" method.<br>
-In the example below, a difference can be observed in
-the face of the flying cloud when compared to the 30 frame
-animation in \"loopinglog\" section.
-<p>
 30 frames (94895 bytes):<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
      alt=\"Loop, 30 frames\">
@@ -324,9 +303,12 @@ Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l\$l -ps snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-sl\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+<p>
+It is also called \"loopinglast\" mode (option -s)
+to differentiate from \"loopingavg\".
 
 ", 'loopingavg:1.1.1. LOOPINGAVG' => "
 

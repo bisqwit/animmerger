@@ -32,9 +32,7 @@ struct Array256x256of;
     callback(TinyAverage) \
     callback(Average) \
     callback(MostUsed) \
-    callback(ChangeLog) \
-    callback(LoopingLogAndMostUsed) \
-    callback(LoopingLogAndChangeLog)
+    callback(ChangeLog)
 
 #define MakeEnum(name) impl_##name,
 enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
@@ -46,7 +44,6 @@ enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
 #include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"
 #include "pixels/changelogpixel.hh"
-#include "pixels/loopinglogpixel.hh"
 
 /* Count them into NPixelImpls */
 #define CountImpls(name) +1
