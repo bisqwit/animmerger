@@ -86,6 +86,9 @@ Produced with commandline:<br>
 <p>
 An alternative implementation of \"average\" is also provided: \"tinyaverage\" (option -A).
 It requires less memory to store, but is less accurate to calculate.
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option (not supported by tinyaverage).
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
@@ -100,6 +103,9 @@ average of moving actors.
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-t.png</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.
 
 ", 'mostused:1.1.1. MOSTUSED' => "
 
@@ -341,6 +347,10 @@ Produced with commandline:<br>
 # &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.<br>
+In most cases, the difference is neglible though.
 
 ", 'avgblur:1.1.1.1. Motion blur' => "
 
@@ -351,6 +361,10 @@ Value 0 disables motion blur (default: 0).
 Loop length 30 frames, blur length 20:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
      alt=\"Loop-Avg 30, blur 8\">
+<p>
+Loop length 30 frames, blur length 20, with YUV calculations:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
+     alt=\"Loop-Avg 30 through YUV, blur 8\">
 <p>
 Loop length 30 frames, blur length 8:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B8.gif\"

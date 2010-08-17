@@ -190,9 +190,10 @@ public:
     }
 
 
+    template<typename AvgType>
     struct ActionAvgSlave
     {
-        AveragePixel result;
+        AvgType      result;
         uint32       most;
         ActionAvgSlave(unsigned, uint32 m): result(), most(m)
         {
@@ -254,7 +255,7 @@ public:
     };
     inline uint32 GetActionAvg(unsigned=0) const FastPixelMethod
     {
-        return GetTimerAggregate<ActionAvgSlave> ();
+        return GetTimerAggregate<ActionAvgSlave<AveragePixel> > ();
     }
     inline uint32 GetLoopingAvg(unsigned timer) const FastPixelMethod
     {

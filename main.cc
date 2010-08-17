@@ -42,9 +42,10 @@ int main(int argc, char** argv)
             {"mvrange",    1,0,'a'},
             {"gif",        0,0,'g'},
             {"verbose",    0,0,'v'},
+            {"yuv",        0,0,'y'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gv", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvy", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -68,6 +69,8 @@ int main(int argc, char** argv)
                     " --motionblur, -B <int> Set motion blur length for CHANGELOG/LOOPINGAVG modes\n"
                     " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
                     " --version, -V          Displays version information\n"
+                    " --yuv, -y              Sets YUV mode for average-color calculations\n"
+                    "                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n"
                     " --refscale, -r <x>,<y>\n"
                     "     Change the grid size that controls\n"
                     "     how many samples are taken from the background image\n"
@@ -319,6 +322,9 @@ int main(int argc, char** argv)
             case 'v':
                 ++verbose;
                 break;
+            case 'y':
+                AveragesInYUV = true;
+                break;
             case 'g':
                 SaveGif = 1;
                 break;
@@ -344,6 +350,10 @@ int main(int argc, char** argv)
 
         if(AllUsedMethods & BlurCapablePixelMethodsMask)
             std::printf("\tBlur length: %u\n", AnimationBlurLength);
+
+        if(AllUsedMethods & YUVCapablePixelMethodsMask)
+            std::printf("\tAverage color is calculated in: %s\n",
+                AveragesInYUV ? "YUV" : "RGB");
 
         unsigned size = GetPixelSizeInBytes();
         int penalty = GetPixelSizePenaltyInBytes();

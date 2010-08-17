@@ -4,6 +4,7 @@ bool     OptimizeChangeLog   = true;
 unsigned AnimationBlurLength = 0;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
+bool     AveragesInYUV       = false;
 
 #include "pixel.hh"
 

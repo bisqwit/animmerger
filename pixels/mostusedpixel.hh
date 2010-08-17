@@ -49,20 +49,23 @@ public:
         return result.first;
     }
 
-    uint32 GetAverage(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    inline uint32 GetAggregate(unsigned=0) const
     {
-        AveragePixel result;
+        SlaveType result;
         for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
             result.set_n(i->first, i->second);
         return result.get();
     }
 
-    uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    inline uint32 GetAverage(unsigned=0) const FastPixelMethod
     {
-        TinyAveragePixel result;
-        for(vmap::const_iterator i = values.begin(); i != values.end(); ++i)
-            result.set_n(i->first, i->second);
-        return result.get();
+        return GetAggregate<AveragePixel> ();
+    }
+
+    inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<TinyAveragePixel> ();
     }
 
     uint32 GetActionAvg(unsigned=0) const FastPixelMethod
