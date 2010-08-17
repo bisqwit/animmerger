@@ -83,6 +83,9 @@ to spot.
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-a.png</code>
+<p>
+An alternative implementation of \"average\" is also provided: \"tinyaverage\" (option -A).
+It requires less memory to store, but is less accurate to calculate.
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
@@ -338,6 +341,65 @@ Produced with commandline:<br>
 # &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+
+", 'avgblur:1.1.1.1. Motion blur' => "
+
+The loopingavg method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
+<p>
+Loop length 30 frames, blur length 20:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
+     alt=\"Loop-Avg 30, blur 8\">
+<p>
+Loop length 30 frames, blur length 8:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B8.gif\"
+     alt=\"Loop-Avg 30, blur 8\">
+<p>
+Loop length 10 frames, blur length 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
+     alt=\"Loop-Avg 10, blur 4\">
+<p>
+Produced with commandline:<br>
+<code>
+# for b in 4 8 20;do <br>
+# &nbsp; for l in 10 30;do <br>
+# &nbsp; &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; &nbsp; animmerger --gif -B\$b -l\$l -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; &nbsp; gifsicle -O2 -o demo/method-vl\"\$l\"B\"\$b\".gif -l0 -d3 tile-*.gif<br>
+# &nbsp; done<br>
+# done</code>
+
+", 'caveats:1. Caveats' => "
+
+", 'caveat_parallax:1.1. Parallax motion' => "
+
+Parallax motion is bad. When animating video game content, please ensure that
+all background layers are synchronized. Note that this will likely require you
+to hack the emulator that is used to produce the video frames.
+<p>
+If different background layers are moving at different speeds with respect
+to the camera, animmerger will sync into one of them (probably the one that
+occupies the largest screen area), and the rest will appear to be moving with
+respect to the chosen background.
+ <p>
+Example:<br>
+<i>TODO: Add Super Mario World with parallax motion</i>
+<p>
+<i>TODO: Add Super Mario World with parallax fix</i>
+
+", 'caveat_flash:1.1. Flashes, fog and other transparent layers' => "
+
+The image aligning engine is confused by anything that
+globally changes the screen brightness.  This includes
+any pain-red-tinting, white-explosion flashes, fog clouds,
+etc. Please try to avoid them.
+ <p>
+Example:<br>
+<i>TODO: Add successful Super Metroid animation</i>
+<p>
+<i>TODO: Add example of how image alignment suffers
+when using the power bomb in Super Metroid</i>
 
 ", 'usage:1. Usage' => "
 

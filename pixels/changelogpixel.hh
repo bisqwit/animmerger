@@ -143,9 +143,10 @@ public:
     }
 
     template<typename SlaveType>
-    uint32 GetTimerAggregate(unsigned timer=0) const
+    uint32 GetTimerAggregate(unsigned timer=0, uint32 background=DefaultPixel) const
     {
-        SlaveType result(timer, GetMostUsed());
+        if(background == DefaultPixel) background = GetMostUsed();
+        SlaveType result(timer, background);
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -257,7 +258,27 @@ public:
     }
     inline uint32 GetLoopingAvg(unsigned timer) const FastPixelMethod
     {
-        return GetTimerAggregate<LoopingAvgSlave> (timer);
+        uint32 most = GetMostUsed();
+        uint32 res = GetTimerAggregate<LoopingAvgSlave> (timer, most);
+        if(AnimationBlurLength != 0)
+        {
+            if(res == most)
+            {
+                AveragePixel result;
+                unsigned remaining_blur = AnimationBlurLength;
+                result.set_n(res, 1);
+
+                timer += LoopingLogLength * AnimationBlurLength;
+                for(; timer-- > 0 && remaining_blur-- > 0; )
+                {
+                    res = GetTimerAggregate<LoopingAvgSlave> (timer);
+                    result.set_n(res, 1);
+                    if(res != most) break;
+                }
+                return result.get();
+            }
+        }
+        return res;
     }
     inline uint32 GetLoopingLast(unsigned timer) const FastPixelMethod
     {
