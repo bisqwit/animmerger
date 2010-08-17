@@ -281,6 +281,8 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     if(was_identical) return;
 
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
+    gdImageAlphaBlending(im, false);
+    gdImageSaveAlpha(im, true);
 
     for(unsigned p=0, y=0; y<hei; ++y)
         for(unsigned x=0; x<wid; ++x)
