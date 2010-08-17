@@ -23,9 +23,9 @@ SMALL    {font-size:70%}
   <h1>Animation merger</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of animmerger-1.4.1.
-<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.6. <a href="#firstnmost">FIRSTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.7. <a href="#lastnmost">LASTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.8. <a href="#leastused">LEASTUSED</a><br></td>
-<td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1.1. <a href="#motionblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopinglast">LOOPINGLAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.4. <a href="#loopingavg">LOOPINGAVG</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#h3">See also</a><br>&nbsp;&nbsp;&nbsp;7. <a href="#download">Downloading</a><br></td>
+  This is the documentation of animmerger-1.4.2.
+<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.6. <a href="#firstnmost">FIRSTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.7. <a href="#lastnmost">LASTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.8. <a href="#leastused">LEASTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br></td>
+<td width="50%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1.1. <a href="#motionblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopingavg">LOOPINGAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3.1. <a href="#avgblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.3. <a href="#methodsummary">Summary</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#caveats">Caveats</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1. <a href="#caveat_parallax">Parallax motion</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2. <a href="#caveat_flash">Flashes, fog and other transparent layers</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;7. <a href="#h3">See also</a><br>&nbsp;&nbsp;&nbsp;8. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
 
 Animmerger converts a 2D animation from local-frame-of-reference
@@ -96,6 +96,12 @@ to spot.
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-a.png</code>
+<p>
+An alternative implementation of "average" is also provided: "tinyaverage" (option -A).
+It requires less memory to store, but is less accurate to calculate.
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option (not supported by tinyaverage).
 
 </div><H4 id="actionavg" class="level4"><a name="actionavg"></a>2.1.2. ACTIONAVG</H4><div class="level4" id="divactionavg">
 
@@ -110,6 +116,9 @@ average of moving actors.
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-t.png</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.
 
 </div><H4 id="mostused" class="level4"><a name="mostused"></a>2.1.3. MOSTUSED</H4><div class="level4" id="divmostused">
 
@@ -300,27 +309,6 @@ The smaller value you use, the shorter the animation
 is in the number of frames, but the more pronounced
 is the "lemmings" effect.
 <p>
-30 frames (99755 bytes):<br>
-<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol30.gif"
-     alt="Loop, 30 frames">
-<p>
-Produced with commandline:<br>
-<code>
-# for l in 4 10 30; do <br>
-# &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# &nbsp; gifsicle -O2 -o demo/method-ol"$l".gif -l0 -d3 tile-*.gif<br>
-# done</code>
-
-</div><H4 id="loopinglast" class="level4"><a name="loopinglast"></a>2.2.3. LOOPINGLAST</H4><div class="level4" id="divloopinglast">
-
-The "loopinglast" method is a slightly higher quality
-version of "loopinglog". It uses the same amount of memory
-as "changelog" method.<br>
-In the example below, a difference can be observed in
-the face of the flying cloud when compared to the 30 frame
-animation in "loopinglog" section.
-<p>
 30 frames (94895 bytes):<br>
 <img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif"
      alt="Loop, 30 frames">
@@ -337,18 +325,26 @@ Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l$l -ps snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; animmerger --gif -l$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-sl"$l".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+ <p>
+It is also called "loopinglast" mode (option -s)
+to differentiate from "loopingavg".
+ <p>
+The loopinglog method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
 
-</div><H4 id="loopingavg" class="level4"><a name="loopingavg"></a>2.2.4. LOOPINGAVG</H4><div class="level4" id="divloopingavg">
+</div><H4 id="loopingavg" class="level4"><a name="loopingavg"></a>2.2.3. LOOPINGAVG</H4><div class="level4" id="divloopingavg">
 
 The "loopingavg" method combines the "loopinglog" and "actionavg" methods.
 Use the <code>-l</code> option to set the loop length in frames.<br>
 The most important difference to "loopinglog" is that overlapping action
 is averaged rather than explicitly choosing one of the acting pixels.<br>
-It looks slightly better, but may require GIF palette reduction,
-and requires as much RAM as "changelog" requires to generate it.
+It looks slightly better, but may require GIF palette reduction.<br>
+In comparison, "loopinglog" only uses pixel colors present
+in the original images.
 <p>
 30 frames (file size depends on selected palette size):<br>
 <img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif"
@@ -369,10 +365,171 @@ Produced with commandline:<br>
 # &nbsp; animmerger --gif -l$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov"$l".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.<br>
+In most cases, the difference is neglible though.
 
-</div><H2 id="usage" class="level2"><a name="usage"></a>3. Usage</H2><div class="level2" id="divusage">
+</div><H5 id="avgblur" class="level5"><a name="avgblur"></a>2.2.3.1. Motion blur</H5><div class="level5" id="divavgblur">
 
-<pre class=smallerpre>animmerger v1.4.0 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
+The loopingavg method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
+<p>
+Loop length 30 frames, blur length 20:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif"
+     alt="Loop-Avg 30, blur 8">
+<p>
+Loop length 30 frames, blur length 20, with YUV calculations:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif"
+     alt="Loop-Avg 30 through YUV, blur 8">
+<p>
+Loop length 10 frames, blur length 4:<br>
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif"
+     alt="Loop-Avg 10, blur 4">
+<p>
+Produced with commandline:<br>
+<code>
+# for b in 4 8 20;do <br>
+# &nbsp; for l in 10 30;do <br>
+# &nbsp; &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; &nbsp; animmerger --gif -B$b -l$l -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; &nbsp; gifsicle -O2 -o demo/method-vl"$l"B"$b".gif -l0 -d3 tile-*.gif<br>
+# &nbsp; done<br>
+# done</code>
+
+</div><H3 id="methodsummary" class="level3"><a name="methodsummary"></a>2.3. Summary</H3><div class="level3" id="divmethodsummary">
+
+<table border=1 style="text-align:left">
+ <tr valign=bottom>
+  <th>Method name</th>
+  <th>Static or<br>animated</th>
+  <th>Composes<br>new colors</th>
+  <th>Obeys YUV<br>option</th>
+  <th>Memory size per pixel*</th>
+  <th>Primary<br>use</th>
+ </tr><tr><th>First</th>                  <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td>Maps</td>
+ </tr><tr><th>Last</th>                   <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td></td>
+ </tr><tr><th>FirstNMost</th>             <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstUncommon</th> <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstNLeast</th>   <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LastNMost</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastUncommon</th>  <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastNLeast</th>    <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>MostUsed</th>               <td>Static          </td>   <td>No</td>     <td>No       </td><td>12&hellip;16 + 6*number of unique colors</td>   <td>Maps</td>
+ </tr><tr><th>LeastUsed</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>Average</th>                <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>16</td>                                         <td></td>
+ </tr><tr><th>Tinyaverage</th>            <td>Static          </td>   <td>Yes</td>    <td>No       </td><td>8</td>                                          <td></td>
+ </tr><tr><th>ActionAvg</th>              <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>ChangeLog</th>              <td>Animated (movie)</td> <td>If blur</td><td>For blur </td><td>12&hellip;16 + 8*number of content changes</td> <td>Animations</td>
+ </tr><tr><th>LoopingLog</th>             <td>Animated (loop) </td> <td>If blur</td><td>For blur </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LoopingAvg</th>             <td>Animated (loop) </td> <td>Yes</td>    <td>Yes      </td><td>As ChangeLog</td>                               <td>Fun</td>
+ </tr>
+</table>
+ <p>
+*) These numbers are estimates. Actual memory size per pixel depends
+on the exact selection of pixel methods requested and the memory
+allocation overhead. Animmerger strives
+to always select the smallest combination of pixel methods
+(memoryconsumptionwise) that can implement all the requested methods.
+
+</div><H2 id="caveats" class="level2"><a name="caveats"></a>3. Caveats</H2><div class="level2" id="divcaveats">
+
+</div><H3 id="caveat_parallax" class="level3"><a name="caveat_parallax"></a>3.1. Parallax motion</H3><div class="level3" id="divcaveat_parallax">
+
+Parallax motion is bad. When animating video game content, please ensure that
+all background layers are synchronized. Note that this will likely require you
+to hack the emulator that is used to produce the video frames.
+<p>
+If different background layers are moving at different speeds with respect
+to the camera, animmerger will sync into one of them (probably the one that
+occupies the largest screen area), and the rest will appear to be moving with
+respect to the chosen background.
+ <p>
+Example:<br>
+<table border=1>
+ <tr>
+  <td colspan=2>
+This scene is from Super Mario World. The HUD layer is disabled,
+but otherwise it is an intact animation. The palette was reduced
+and fps halved to make the file slightly smaller for web distribution.
+  </td>
+ </tr>
+ <tr valign=top>
+  <td width="480">
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif"
+     alt="Super Mario World with parallax motion">
+  </td>
+  <td width="480">
+<img src="http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif"
+     alt="Super Mario World with parallax fix"><br>
+  </td>
+ </tr>
+ <tr valign=top>
+  <td>
+You can easily see the problem with parallax motion: Sometimes
+the image alignment syncs to the platforms, sometimes it syncs
+to the stalactite background. When it syncs to the platforms, the
+other background can be seeing moving as a distinct layer.
+</td>
+  <td>
+In this version, the background layers move in unison with respect
+to the camera. As such, the image alignment is perfect.<br>
+This was achieved with the following patch to snes9x:
+<pre style="font-size:84%;height:6em;overflow:auto;border:1px solid #444;padding:1px"
+>--- ppu.cpp~    2010-08-17 23:46:11.022843689 +0300
++++ ppu.cpp     2010-08-17 22:34:52.000000000 +0300
+@@ -416,2 +416,3 @@
+                        PPU.BG[0].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -423,2 +424,3 @@
+                        PPU.BG[0].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -429,3 +431,3 @@
+                  case 0x210F:
+-                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -436,3 +438,3 @@
+                  case 0x2110:
+-                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;</pre>
+</td></tr>
+</table>
+
+The commands used to produce these animations were:<br>
+<code># rm tile-*.gif;  animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-cl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif<br>
+# rm tile-*.gif; animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5b/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-fl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif
+</code>
+<p>
+The palette file was customized by hand, by taking a representative
+snapshot of the movie, and then progressively merging near-identical
+entries in the colormap in GIMP manually until only the minimal
+set of unique colors/tones remain.
+
+</div><H3 id="caveat_flash" class="level3"><a name="caveat_flash"></a>3.2. Flashes, fog and other transparent layers</H3><div class="level3" id="divcaveat_flash">
+
+The image aligning engine is confused by anything that
+globally changes the screen brightness.  This includes
+any pain-red-tinting, white-explosion flashes, fog clouds,
+etc. Please try to avoid them.
+ <p>
+Example:<br>
+<i>TODO: Add successful Super Metroid animation</i>
+<p>
+<i>TODO: Add example of how image alignment suffers
+when using the power bomb in Super Metroid</i>
+
+</div><H2 id="usage" class="level2"><a name="usage"></a>4. Usage</H2><div class="level2" id="divusage">
+
+<pre class=smallerpre>animmerger v1.4.1 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
 
 Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [&lt;...&gt;]
 
@@ -383,9 +540,11 @@ Merges animation frames together with motion shifting.
  --method, -p &lt;mode&gt;    Select pixel type, see below
  --bgmethod, -b &lt;mode&gt;  Select pixel type for alignment tests
  --looplength, -l &lt;int&gt; Set loop length for the LOOPINGxx modes
- --motionblur, -B &lt;int&gt; Set motion blur length for CHANGELOG mode
+ --motionblur, -B &lt;int&gt; Set motion blur length for animated modes
  --firstlast, -f &lt;int&gt;  Set threshold for xxNMOST modes
  --version, -V          Displays version information
+ --yuv, -y              Sets YUV mode for average-color calculations
+                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.
  --refscale, -r &lt;x&gt;,&lt;y&gt;
      Change the grid size that controls
      how many samples are taken from the background image
@@ -439,15 +598,13 @@ AVAILABLE PIXEL TYPES
      Similar to average, except that blurring of actors
      over the background is avoided.
   CHANGELOG, long option: --method=changelog, short option: -pc
-     Produces an animation.
+     Produces an animation. Also supports motion blur.
   LOOPINGLOG, long option: --methods=loopinglog, short option: -po
      Produces a time-restricted animation.
      Also called, &quot;lemmings mode&quot;.
-     Use the -l option to set loop length in frames.
-  LOOPINGLAST, long option: --methods=loopinglast, short option: -ps
-     Higher quality version of loopinglog.
+     Use the -l option to set loop length in frames. Supports motion blur.
   LOOPINGAVG, long option: --methods=loopingavg, short option: -pv
-     A combination of loopinglog and actionavg.
+     A combination of loopinglog and actionavg, also supports motion blur.
 
 DEFINING MASKS
 
@@ -488,21 +645,27 @@ is required per pixel when using different options.
 animmerger always strives to choose the smallest pixel
 implementation that provides all of the requested features.
 
+When creating animations of video game content, please take
+all necessary steps to ensure that background stays immobile
+while characters move. Parallax animation is bad; If possible,
+please fix all background layers so that they scroll at even
+rate.
+
 </pre>
 
-</div><H2 id="h1" class="level2"><a name="h1"></a>4. Copying</H2><div class="level2" id="divh1">
+</div><H2 id="h1" class="level2"><a name="h1"></a>5. Copying</H2><div class="level2" id="divh1">
 
 animmerger has been written by Joel Yliluoma, a.k.a.
 <a href="http://iki.fi/bisqwit/">Bisqwit</a>,<br>
 and is distributed under the terms of the
 <a href="http://www.gnu.org/licenses/licenses.html#GPL">General Public License</a> (GPL).
 
-</div><H2 id="h2" class="level2"><a name="h2"></a>5. Requirements</H2><div class="level2" id="divh2">
+</div><H2 id="h2" class="level2"><a name="h2"></a>6. Requirements</H2><div class="level2" id="divh2">
 
 GNU make and C++ compiler is required to recompile the source code.<br>
 libgd is also required.
 
-</div><H2 id="h3" class="level2"><a name="h3"></a>6. See also</H2><div class="level2" id="divh3">
+</div><H2 id="h3" class="level2"><a name="h3"></a>7. See also</H2><div class="level2" id="divh3">
 
 <ul>
 <li><a href="http://advsys.net/ken/utils.htm">pngout</a> for making PNG files considerably smaller.
@@ -511,14 +674,14 @@ libgd is also required.
 </li>
 </ul>
 
-</div><H2 id="download" class="level2"><a name="download"></a>7. Downloading</H2><div class="level2" id="divdownload">
+</div><H2 id="download" class="level2"><a name="download"></a>8. Downloading</H2><div class="level2" id="divdownload">
    The official home page of animmerger
    is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for animmerger can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/animmerger.git">git://bisqwit.iki.fi/animmerger.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Mon, 16 Aug 2010 20:33:38 +0300)<br>
-  with <tt>docmaker.php</tt> (last updated: Mon, 16 Aug 2010 20:33:38 +0300)<br>
-  at Mon, 16 Aug 2010 20:33:38 +0300</small>
+       <tt>progdesc.php</tt> (last updated: Wed, 18 Aug 2010 01:09:14 +0300)<br>
+  with <tt>docmaker.php</tt> (last updated: Wed, 18 Aug 2010 01:09:13 +0300)<br>
+  at Wed, 18 Aug 2010 01:09:14 +0300</small>
  </p>
 </body>
 </html>

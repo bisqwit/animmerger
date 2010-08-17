@@ -11,7 +11,7 @@ function usagetext($prog)
   $k='';foreach($kk as $s)$k.="$s\n";
   return $k;
 }
- 
+
 $text = array(
    '1. Purpose' => "
 
@@ -83,6 +83,12 @@ to spot.
 Produced with commandline:<br>
 <code># animmerger -pa snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-a.png</code>
+<p>
+An alternative implementation of \"average\" is also provided: \"tinyaverage\" (option -A).
+It requires less memory to store, but is less accurate to calculate.
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option (not supported by tinyaverage).
 
 ", 'actionavg:1.1.1. ACTIONAVG' => "
 
@@ -97,6 +103,9 @@ average of moving actors.
 Produced with commandline:<br>
 <code># animmerger -pt snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-t.png</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.
 
 ", 'mostused:1.1.1. MOSTUSED' => "
 
@@ -287,27 +296,6 @@ The smaller value you use, the shorter the animation
 is in the number of frames, but the more pronounced
 is the \"lemmings\" effect.
 <p>
-30 frames (99755 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-ol30.gif\"
-     alt=\"Loop, 30 frames\">
-<p>
-Produced with commandline:<br>
-<code>
-# for l in 4 10 30; do <br>
-# &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
-# &nbsp; gifsicle -O2 -o demo/method-ol\"\$l\".gif -l0 -d3 tile-*.gif<br>
-# done</code>
-
-", 'loopinglast:1.1.1. LOOPINGLAST' => "
-
-The \"loopinglast\" method is a slightly higher quality
-version of \"loopinglog\". It uses the same amount of memory
-as \"changelog\" method.<br>
-In the example below, a difference can be observed in
-the face of the flying cloud when compared to the 30 frame
-animation in \"loopinglog\" section.
-<p>
 30 frames (94895 bytes):<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
      alt=\"Loop, 30 frames\">
@@ -324,9 +312,16 @@ Produced with commandline:<br>
 <code>
 # for l in 4 10 30; do <br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; animmerger --gif -l\$l -ps snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-sl\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+ <p>
+It is also called \"loopinglast\" mode (option -s)
+to differentiate from \"loopingavg\".
+ <p>
+The loopinglog method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
 
 ", 'loopingavg:1.1.1. LOOPINGAVG' => "
 
@@ -334,8 +329,9 @@ The \"loopingavg\" method combines the \"loopinglog\" and \"actionavg\" methods.
 Use the <code>-l</code> option to set the loop length in frames.<br>
 The most important difference to \"loopinglog\" is that overlapping action
 is averaged rather than explicitly choosing one of the acting pixels.<br>
-It looks slightly better, but may require GIF palette reduction,
-and requires as much RAM as \"changelog\" requires to generate it.
+It looks slightly better, but may require GIF palette reduction.<br>
+In comparison, \"loopinglog\" only uses pixel colors present
+in the original images.
 <p>
 30 frames (file size depends on selected palette size):<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
@@ -356,6 +352,167 @@ Produced with commandline:<br>
 # &nbsp; animmerger --gif -l\$l -pv snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-ov\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
+<p>
+If you want the color averages to be calculated through the YUV colorspace
+rather than the RGB colorspace, add the --yuv option.<br>
+In most cases, the difference is neglible though.
+
+", 'avgblur:1.1.1.1. Motion blur' => "
+
+The loopingavg method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
+<p>
+Loop length 30 frames, blur length 20:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
+     alt=\"Loop-Avg 30, blur 8\">
+<p>
+Loop length 30 frames, blur length 20, with YUV calculations:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
+     alt=\"Loop-Avg 30 through YUV, blur 8\">
+<p>
+Loop length 10 frames, blur length 4:<br>
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
+     alt=\"Loop-Avg 10, blur 4\">
+<p>
+Produced with commandline:<br>
+<code>
+# for b in 4 8 20;do <br>
+# &nbsp; for l in 10 30;do <br>
+# &nbsp; &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; &nbsp; animmerger --gif -B\$b -l\$l -pl snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; &nbsp; gifsicle -O2 -o demo/method-vl\"\$l\"B\"\$b\".gif -l0 -d3 tile-*.gif<br>
+# &nbsp; done<br>
+# done</code>
+
+", 'methodsummary:1.1. Summary' =>"
+
+<table border=1 style=\"text-align:left\">
+ <tr valign=bottom>
+  <th>Method name</th>
+  <th>Static or<br>animated</th>
+  <th>Composes<br>new colors</th>
+  <th>Obeys YUV<br>option</th>
+  <th>Memory size per pixel*</th>
+  <th>Primary<br>use</th>
+ </tr><tr><th>First</th>                  <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td>Maps</td>
+ </tr><tr><th>Last</th>                   <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td></td>
+ </tr><tr><th>FirstNMost</th>             <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstUncommon</th> <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstNLeast</th>   <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LastNMost</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastUncommon</th>  <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastNLeast</th>    <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>MostUsed</th>               <td>Static          </td>   <td>No</td>     <td>No       </td><td>12&hellip;16 + 6*number of unique colors</td>   <td>Maps</td>
+ </tr><tr><th>LeastUsed</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>Average</th>                <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>16</td>                                         <td></td>
+ </tr><tr><th>Tinyaverage</th>            <td>Static          </td>   <td>Yes</td>    <td>No       </td><td>8</td>                                          <td></td>
+ </tr><tr><th>ActionAvg</th>              <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>ChangeLog</th>              <td>Animated (movie)</td> <td>If blur</td><td>For blur </td><td>12&hellip;16 + 8*number of content changes</td> <td>Animations</td>
+ </tr><tr><th>LoopingLog</th>             <td>Animated (loop) </td> <td>If blur</td><td>For blur </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LoopingAvg</th>             <td>Animated (loop) </td> <td>Yes</td>    <td>Yes      </td><td>As ChangeLog</td>                               <td>Fun</td>
+ </tr>
+</table>
+ <p>
+*) These numbers are estimates. Actual memory size per pixel depends
+on the exact selection of pixel methods requested and the memory
+allocation overhead. Animmerger strives
+to always select the smallest combination of pixel methods
+(memoryconsumptionwise) that can implement all the requested methods.
+
+", 'caveats:1. Caveats' => "
+
+", 'caveat_parallax:1.1. Parallax motion' => "
+
+Parallax motion is bad. When animating video game content, please ensure that
+all background layers are synchronized. Note that this will likely require you
+to hack the emulator that is used to produce the video frames.
+<p>
+If different background layers are moving at different speeds with respect
+to the camera, animmerger will sync into one of them (probably the one that
+occupies the largest screen area), and the rest will appear to be moving with
+respect to the chosen background.
+ <p>
+Example:<br>
+<table border=1>
+ <tr>
+  <td colspan=2>
+This scene is from Super Mario World. The HUD layer is disabled,
+but otherwise it is an intact animation. The palette was reduced
+and fps halved to make the file slightly smaller for web distribution.
+  </td>
+ </tr>
+ <tr valign=top>
+  <td width=\"480\">
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
+     alt=\"Super Mario World with parallax motion\">
+  </td>
+  <td width=\"480\">
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
+     alt=\"Super Mario World with parallax fix\"><br>
+  </td>
+ </tr>
+ <tr valign=top>
+  <td>
+You can easily see the problem with parallax motion: Sometimes
+the image alignment syncs to the platforms, sometimes it syncs
+to the stalactite background. When it syncs to the platforms, the
+other background can be seeing moving as a distinct layer.
+</td>
+  <td>
+In this version, the background layers move in unison with respect
+to the camera. As such, the image alignment is perfect.<br>
+This was achieved with the following patch to snes9x:
+<pre style=\"font-size:84%;height:6em;overflow:auto;border:1px solid #444;padding:1px\"
+>--- ppu.cpp~    2010-08-17 23:46:11.022843689 +0300
++++ ppu.cpp     2010-08-17 22:34:52.000000000 +0300
+@@ -416,2 +416,3 @@
+                        PPU.BG[0].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -423,2 +424,3 @@
+                        PPU.BG[0].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -429,3 +431,3 @@
+                  case 0x210F:
+-                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -436,3 +438,3 @@
+                  case 0x2110:
+-                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;</pre>
+</td></tr>
+</table>
+
+The commands used to produce these animations were:<br>
+<code># rm tile-*.gif;  animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-cl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif<br>
+# rm tile-*.gif; animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5b/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-fl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif
+</code>
+<p>
+The palette file was customized by hand, by taking a representative
+snapshot of the movie, and then progressively merging near-identical
+entries in the colormap in GIMP manually until only the minimal
+set of unique colors/tones remain.
+
+", 'caveat_flash:1.1. Flashes, fog and other transparent layers' => "
+
+The image aligning engine is confused by anything that
+globally changes the screen brightness.  This includes
+any pain-red-tinting, white-explosion flashes, fog clouds,
+etc. Please try to avoid them.
+ <p>
+Example:<br>
+<i>TODO: Add successful Super Metroid animation</i>
+<p>
+<i>TODO: Add example of how image alignment suffers
+when using the power bomb in Super Metroid</i>
 
 ", 'usage:1. Usage' => "
 

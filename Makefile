@@ -1,4 +1,4 @@
-VERSION=1.4.1
+VERSION=1.4.2
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -18,7 +18,6 @@ ARCHFILES=\
 	pixels/tinyaveragepixel.hh \
 	pixels/mostusedpixel.hh \
 	pixels/changelogpixel.hh \
-	pixels/loopinglogpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \

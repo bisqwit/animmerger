@@ -10,21 +10,21 @@
  * animation flags & 2 = obeys looplength
  * animation flags & 4 = obeys blur
  * animation flags & 8 = obeys firstlastlength
+ * animation flags &16 = obeys yuv flag
  */
 #define DefinePixelMethods(callback) \
-    callback(f,0,First) \
-    callback(l,0,Last) \
-    callback(F,8,FirstNMost) \
-    callback(L,8,LastNMost) \
-    callback(a,0,Average) \
-    callback(A,0,TinyAverage) \
-    callback(t,0,ActionAvg) \
-    callback(m,0,MostUsed) \
-    callback(e,0,LeastUsed) \
-    callback(c,5,ChangeLog) \
-    callback(o,3,LoopingLog) \
-    callback(v,3,LoopingAvg) \
-    callback(s,3,LoopingLast)
+    callback(f,0x00,First) \
+    callback(l,0x00,Last) \
+    callback(F,0x08,FirstNMost) \
+    callback(L,0x08,LastNMost) \
+    callback(a,0x10,Average) \
+    callback(A,0x00,TinyAverage) \
+    callback(t,0x10,ActionAvg) \
+    callback(m,0x00,MostUsed) \
+    callback(e,0x00,LeastUsed) \
+    callback(c,0x05,ChangeLog) \
+    callback(v,0x17,LoopingAvg) \
+    callback(o,0x07,LoopingLog)
 
 /* Create it as an enum */
 #define MakeEnum(o,f,name) pm_##name##Pixel,
@@ -41,7 +41,7 @@ extern bool OptimizeChangeLog;
 extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
-
+extern bool AveragesInYUV;
 
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;
@@ -57,6 +57,9 @@ static const unsigned long BlurCapablePixelMethodsMask = 0 DefinePixelMethods(Ma
 #undef MakeMask
 #define MakeMask(o,flags,name) | ((flags&8) ? (1ul << pm_##name##Pixel) : 0)
 static const unsigned long FirstLastPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
+#undef MakeMask
+#define MakeMask(o,flags,name) | ((flags&16) ? (1ul << pm_##name##Pixel) : 0)
+static const unsigned long YUVCapablePixelMethodsMask = 0 DefinePixelMethods(MakeMask);
 #undef MakeMask
 
 

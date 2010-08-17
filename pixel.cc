@@ -4,6 +4,7 @@ bool     OptimizeChangeLog   = true;
 unsigned AnimationBlurLength = 0;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
+bool     AveragesInYUV       = false;
 
 #include "pixel.hh"
 
@@ -32,9 +33,7 @@ struct Array256x256of;
     callback(TinyAverage) \
     callback(Average) \
     callback(MostUsed) \
-    callback(ChangeLog) \
-    callback(LoopingLogAndMostUsed) \
-    callback(LoopingLogAndChangeLog)
+    callback(ChangeLog)
 
 #define MakeEnum(name) impl_##name,
 enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
@@ -46,7 +45,6 @@ enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
 #include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"
 #include "pixels/changelogpixel.hh"
-#include "pixels/loopinglogpixel.hh"
 
 /* Count them into NPixelImpls */
 #define CountImpls(name) +1
@@ -139,10 +137,6 @@ namespace
     template<typename T1, typename T2>
     struct ChooseType<T1,T2,true> { typedef T1 result; };
 
-    template<typename T1,typename T2>
-    struct HaveCommonComponents
-        { static const bool result = (T1::Components & T2::Components) != 0; };
-
     /* Combine implementations */
     template<typename T1,typename T2>
     struct And: public T1, public T2
@@ -158,32 +152,24 @@ namespace
         static const unsigned Components  = T1::Components | T2::Components;
     };
 
-    template<typename T1,typename T2, bool=HaveCommonComponents<T1,T2>::result>
-    struct MakeAnd: PixelMetaInfo<And<T1,T2> >
-    {
-    };
-    template<typename T1,typename T2>
-    struct MakeAnd<T1,T2,true>: public PixelMetaInfo<void>
-    {
+    /* This converts an implementation index into a type. */
+    template<typename idclass,
+             typename Base> // Two or more classes
+    struct PixelMethodImpl: public
         // Special case: Don't combine T1 and T2,
         // when T1 already inherits T2 or any of T2's ancestors,
         //   or T2 already inherits T1 or any of T1's ancestors.
         // This avoids gcc warning about
         // "direct base inaccessible due to ambiguity".
-        /* Illegal combination of two classes: metainfo */
-    };
-
-    /* This converts an implementation index into a type. */
-    template<unsigned id, typename Base> // Two or more classes
-    struct PixelMethodImpl: public MakeAnd<Base, typename PixelMethodClass<id>::result>
+        ChooseType<
+            PixelMetaInfo<void>,
+            PixelMetaInfo<And<Base, typename idclass::result> >,
+            (Base::Components & idclass::result::Components) != 0
+        >::result
     {
     };
-    template<unsigned id> // Single class
-    struct PixelMethodImpl<id, void>: public PixelMethodClass<id>
-    {
-    };
-    template<> // Invalid class
-    struct PixelMethodImpl<NPixelImpls,void>: public MakeAnd<void,void,true>
+    template<typename idclass> // Single class
+    struct PixelMethodImpl<idclass, void>: public idclass
     {
     };
 
@@ -195,14 +181,14 @@ namespace
     template<unsigned bitmask = 1>
     struct PixelMethodImplComb: public
         PixelMethodImpl<
-            GetLowestBit<bitmask>::result,
+            PixelMethodClass<GetLowestBit<bitmask>::result>,
             typename PixelMethodImplComb<bitmask & (bitmask-1)>::result>
             // bitmask & (bitmask-1) clears the
             // least significant bit of the mask.
     {
     };
     template<>
-    struct PixelMethodImplComb<0>: public PixelMethodImpl<NPixelImpls,void>
+    struct PixelMethodImplComb<0>: public PixelMetaInfo<void>
     {
     };
 
@@ -296,13 +282,13 @@ namespace
         static ObjT* Copy(const ObjT& b) { return new ResT ( (const ResT&) b ) ; }
         static void Assign(ObjT& tgt, const ObjT& b) { (ResT&) tgt = (const ResT&) b; }
     };
-    template<>
+    /*template<>
     struct FactoryMethods<void>
     {
         static Array256x256of_Base* Construct() { return 0; }
         static Array256x256of_Base* Copy(const Array256x256of_Base&) { return 0; }
         static void Assign(Array256x256of_Base&, const Array256x256of_Base&) { }
-    };
+    };*/
     template<typename T>
     struct PixelImplCombFactory
     {

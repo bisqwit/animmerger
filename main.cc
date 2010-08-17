@@ -42,9 +42,10 @@ int main(int argc, char** argv)
             {"mvrange",    1,0,'a'},
             {"gif",        0,0,'g'},
             {"verbose",    0,0,'v'},
+            {"yuv",        0,0,'y'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gv", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvy", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -65,9 +66,11 @@ int main(int argc, char** argv)
                     " --method, -p <mode>    Select pixel type, see below\n"
                     " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
-                    " --motionblur, -B <int> Set motion blur length for CHANGELOG mode\n"
+                    " --motionblur, -B <int> Set motion blur length for animated modes\n"
                     " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
                     " --version, -V          Displays version information\n"
+                    " --yuv, -y              Sets YUV mode for average-color calculations\n"
+                    "                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n"
                     " --refscale, -r <x>,<y>\n"
                     "     Change the grid size that controls\n"
                     "     how many samples are taken from the background image\n"
@@ -121,15 +124,13 @@ int main(int argc, char** argv)
                     "     Similar to average, except that blurring of actors\n"
                     "     over the background is avoided.\n"
                     "  CHANGELOG, long option: --method=changelog, short option: -pc\n"
-                    "     Produces an animation.\n"
+                    "     Produces an animation. Also supports motion blur.\n"
                     "  LOOPINGLOG, long option: --methods=loopinglog, short option: -po\n"
                     "     Produces a time-restricted animation.\n"
                     "     Also called, \"lemmings mode\".\n"
-                    "     Use the -l option to set loop length in frames.\n"
-                    "  LOOPINGLAST, long option: --methods=loopinglast, short option: -ps\n"
-                    "     Higher quality version of loopinglog.\n"
+                    "     Use the -l option to set loop length in frames. Supports motion blur.\n"
                     "  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n"
-                    "     A combination of loopinglog and actionavg.\n"
+                    "     A combination of loopinglog and actionavg, also supports motion blur.\n"
                     "\n"
                     "DEFINING MASKS\n"
                     "\n"
@@ -169,6 +170,12 @@ int main(int argc, char** argv)
                     "is required per pixel when using different options.\n"
                     "animmerger always strives to choose the smallest pixel\n"
                     "implementation that provides all of the requested features.\n"
+                    "\n"
+                    "When creating animations of video game content, please take\n"
+                    "all necessary steps to ensure that background stays immobile\n"
+                    "while characters move. Parallax animation is bad; If possible,\n"
+                    "please fix all background layers so that they scroll at even\n"
+                    "rate.\n"
                     "\n");
                 return 0;
             }
@@ -274,6 +281,8 @@ int main(int argc, char** argv)
                     #define TestMethod(optchar,f,name) \
                         else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
                             pixelmethods_result |= 1ul << pm_##name##Pixel;
+                    else if(strcmp(arg, "s") == 0 || strcasecmp(arg, "loopinglast") == 0)
+                        pixelmethods_result |= 1ul << pm_LoopingLogPixel;
                     DefinePixelMethods(TestMethod)
                     #undef TestMethod
                     else
@@ -313,6 +322,9 @@ int main(int argc, char** argv)
             case 'v':
                 ++verbose;
                 break;
+            case 'y':
+                AveragesInYUV = true;
+                break;
             case 'g':
                 SaveGif = 1;
                 break;
@@ -338,6 +350,10 @@ int main(int argc, char** argv)
 
         if(AllUsedMethods & BlurCapablePixelMethodsMask)
             std::printf("\tBlur length: %u\n", AnimationBlurLength);
+
+        if(AllUsedMethods & YUVCapablePixelMethodsMask)
+            std::printf("\tAverage color is calculated in: %s\n",
+                AveragesInYUV ? "YUV" : "RGB");
 
         unsigned size = GetPixelSizeInBytes();
         int penalty = GetPixelSizePenaltyInBytes();

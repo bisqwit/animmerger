@@ -142,11 +142,11 @@ public:
         return result.get();
     }
 
-    uint32 GetActionAvg(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetTimerAggregate(unsigned timer=0, uint32 background=DefaultPixel) const
     {
-        const uint32 most = GetMostUsed();
-
-        AveragePixel result;
+        if(background == DefaultPixel) background = GetMostUsed();
+        SlaveType result(timer, background);
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
             i != history.end();
@@ -161,79 +161,9 @@ public:
                     1
 #endif
                     ;
-
-            if(j->second != most)
-                result.set_n(j->second, duration);
+            result.set_n(j->first, j->second, duration);
         }
-        if(most != DefaultPixel) result.set_n(most, 1);
-        uint32 res = result.get();
-        return (res != DefaultPixel) ? res : most;
-    }
-
-    uint32 GetLoopingAvg(unsigned timer) const FastPixelMethod
-    {
-        unsigned offs = timer % LoopingLogLength;
-        const uint32 most = GetMostUsed();
-
-        AveragePixel result;
-        for(MapType<unsigned, uint32>::const_iterator
-            i = history.begin();
-            i != history.end();
-            )
-        {
-            MapType<unsigned, uint32>::const_iterator j(i); ++i;
-            unsigned begin    = j->first;
-            unsigned duration =
-                (i != history.end()) ? (i->first - j->first) :
-#if CHANGELOG_USE_LASTTIMESTAMP
-                    (last_time - j->first) + 1
-#else
-                    1
-#endif
-                    ;
-
-            if(j->second != most)
-            {
-                unsigned n_hits = 0;
-                while(duration--)
-                    if(begin++ % LoopingLogLength == offs)
-                        ++n_hits;
-                result.set_n(j->second, n_hits);
-            }
-        }
-        uint32 res = result.get();
-        return (res != DefaultPixel) ? res : most;
-    }
-
-    uint32 GetLoopingLast(unsigned timer) const FastPixelMethod
-    {
-        unsigned offs = timer % LoopingLogLength;
-        const uint32 most = GetMostUsed();
-        uint32 result = most;
-        for(MapType<unsigned, uint32>::const_iterator
-            i = history.begin();
-            i != history.end();
-            )
-        {
-            MapType<unsigned, uint32>::const_iterator j(i); ++i;
-            unsigned begin    = j->first;
-            unsigned duration =
-                (i != history.end()) ? (i->first - j->first) :
-#if CHANGELOG_USE_LASTTIMESTAMP
-                    (last_time - j->first) + 1
-#else
-                    1
-#endif
-                    ;
-
-            if(j->second != most)
-            {
-                while(duration--)
-                    if(begin++ % LoopingLogLength == offs)
-                        { result = j->second; break; }
-            }
-        }
-        return result;
+        return result.get();
     }
 
     template<typename SlaveType>
@@ -259,29 +189,30 @@ public:
         return result.get();
     }
 
-    inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    template<typename SlaveType>
+    uint32 GetLoopingAggregate(unsigned timer) const
     {
-        return GetAggregate<MostUsedPixel> ();
-    }
-    inline uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
-    {
-        return GetAggregate<LeastUsedPixel> ();
-    }
-    inline uint32 GetAverage(unsigned=0) const FastPixelMethod
-    {
-        return GetAggregate<AveragePixel> ();
-    }
-    inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
-    {
-        return GetAggregate<TinyAveragePixel> ();
-    }
-    inline uint32 GetLast(unsigned=0) const FastPixelMethod
-    {
-        return history.empty() ? DefaultPixel : history.rbegin()->second;
-    }
-    inline uint32 GetFirst(unsigned=0) const FastPixelMethod
-    {
-        return history.empty() ? DefaultPixel : history.begin()->second;
+        uint32 most = GetMostUsed();
+        uint32 res = GetTimerAggregate<SlaveType> (timer, most);
+        if(AnimationBlurLength != 0)
+        {
+            if(res == most)
+            {
+                AveragePixel result;
+                unsigned remaining_blur = AnimationBlurLength;
+                result.set_n(res, 1);
+
+                timer += LoopingLogLength * AnimationBlurLength;
+                for(; timer-- > 0 && remaining_blur-- > 0; )
+                {
+                    res = GetTimerAggregate<SlaveType> (timer, most);
+                    result.set_n(res, 1);
+                    if(res != most) break;
+                }
+                return result.get();
+            }
+        }
+        return res;
     }
 
     template<typename SlaveType>
@@ -347,6 +278,107 @@ public:
         return result.get();
     }
 
+    template<typename AvgType>
+    struct ActionAvgSlave
+    {
+        AvgType      result;
+        uint32       most;
+        ActionAvgSlave(unsigned, uint32 m): result(), most(m)
+        {
+            if(most != DefaultPixel) result.set_n(most, 1);
+        }
+        void set_n(unsigned, uint32 pix, unsigned duration) FasterPixelMethod
+        {
+            if(pix == most) return;
+            result.set_n(pix, duration);
+        }
+        inline uint32 get() const FasterPixelMethod
+        {
+            uint32 res = result.get();
+            return (res != DefaultPixel) ? res : most;
+        }
+    };
+
+    template<typename AvgType>
+    struct LoopingAvgSlave
+    {
+        AvgType      result;
+        uint32       most;
+        unsigned     offs;
+        LoopingAvgSlave(unsigned timer, uint32 m)
+            : result(), most(m), offs(timer % LoopingLogLength) { }
+        void set_n(unsigned begin, uint32 pix, unsigned duration) FasterPixelMethod
+        {
+            if(pix == most) return;
+            unsigned n_hits = 0;
+            while(duration--)
+                if(begin++ % LoopingLogLength == offs)
+                    ++n_hits;
+            result.set_n(pix, n_hits);
+        }
+        inline uint32 get() const FasterPixelMethod
+        {
+            uint32 res = result.get();
+            return (res != DefaultPixel) ? res : most;
+        }
+    };
+
+    struct LoopingLastSlave
+    {
+        uint32       result;
+        uint32       most;
+        unsigned     offs;
+        LoopingLastSlave(unsigned timer, uint32 m)
+            : result(m), most(m), offs(timer % LoopingLogLength) { }
+        void set_n(unsigned begin, uint32 pix, unsigned duration) FasterPixelMethod
+        {
+            if(pix == most) return;
+            while(duration--)
+                if(begin++ % LoopingLogLength == offs)
+                    { result = pix; break; }
+        }
+        inline uint32 get() const FasterPixelMethod
+        {
+            return result;
+        }
+    };
+
+    inline uint32 GetActionAvg(unsigned=0) const FastPixelMethod
+    {
+        return GetTimerAggregate<ActionAvgSlave<AveragePixel> > ();
+    }
+    inline uint32 GetLoopingAvg(unsigned timer) const FastPixelMethod
+    {
+        return GetLoopingAggregate<LoopingAvgSlave<AveragePixel> >(timer);
+    }
+    inline uint32 GetLoopingLog(unsigned timer) const FastPixelMethod
+    {
+        return GetLoopingAggregate<LoopingLastSlave>(timer);
+    }
+    inline uint32 GetMostUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<MostUsedPixel> ();
+    }
+    inline uint32 GetLeastUsed(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<LeastUsedPixel> ();
+    }
+    inline uint32 GetAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<AveragePixel> ();
+    }
+    inline uint32 GetTinyAverage(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<TinyAveragePixel> ();
+    }
+    inline uint32 GetLast(unsigned=0) const FastPixelMethod
+    {
+        return history.empty() ? DefaultPixel : history.rbegin()->second;
+    }
+    inline uint32 GetFirst(unsigned=0) const FastPixelMethod
+    {
+        return history.empty() ? DefaultPixel : history.begin()->second;
+    }
     uint32 GetFirstNMost(unsigned=0) const FastPixelMethod
     {
         if(FirstLastLength == 0) return GetFirstUncommon();
@@ -355,7 +387,6 @@ public:
         else
             return GetFirstNAggregate<LeastUsedPixel>(-FirstLastLength);
     }
-
     uint32 GetLastNMost(unsigned=0) const FastPixelMethod
     {
         if(FirstLastLength == 0) return GetLastUncommon();
@@ -487,7 +518,7 @@ public:
       (1ul << pm_ChangeLogPixel)
     | (1ul << pm_ActionAvgPixel)
     | (1ul << pm_LoopingAvgPixel)
-    | (1ul << pm_LoopingLastPixel)
+    | (1ul << pm_LoopingLogPixel)
     | (1ul << pm_MostUsedPixel)
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)
