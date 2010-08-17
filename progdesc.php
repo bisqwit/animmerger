@@ -434,9 +434,72 @@ occupies the largest screen area), and the rest will appear to be moving with
 respect to the chosen background.
  <p>
 Example:<br>
-<i>TODO: Add Super Mario World with parallax motion</i>
+<table border=1>
+ <tr>
+  <td colspan=2>
+This scene is from Super Mario World. The HUD layer is disabled,
+but otherwise it is an intact animation. The palette was reduced
+and fps halved to make the file slightly smaller for web distribution.
+  </td>
+ </tr>
+ <tr valign=top>
+  <td width=\"480\">
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
+     alt=\"Super Mario World with parallax motion\">
+  </td>
+  <td width=\"480\">
+<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
+     alt=\"Super Mario World with parallax fix\"><br>
+  </td>
+ </tr>
+ <tr valign=top>
+  <td>
+You can easily see the problem with parallax motion: Sometimes
+the image alignment syncs to the platforms, sometimes it syncs
+to the stalactite background. When it syncs to the platforms, the
+other background can be seeing moving as a distinct layer.
+</td>
+  <td>
+In this version, the background layers move in unison with respect
+to the camera. As such, the image alignment is perfect.<br>
+This was achieved with the following patch to snes9x:
+<pre style=\"font-size:84%;height:6em;overflow:auto;border:1px solid #444;padding:1px\"
+>--- ppu.cpp~    2010-08-17 23:46:11.022843689 +0300
++++ ppu.cpp     2010-08-17 22:34:52.000000000 +0300
+@@ -416,2 +416,3 @@
+                        PPU.BG[0].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -423,2 +424,3 @@
+                        PPU.BG[0].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -429,3 +431,3 @@
+                  case 0x210F:
+-                       PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].HOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;
+@@ -436,3 +438,3 @@
+                  case 0x2110:
+-                       PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
++                       //PPU.BG[1].VOffset = (Byte<<8) | PPU.BGnxOFSbyte;
+                        PPU.BGnxOFSbyte = Byte;</pre>
+</td></tr>
+</table>
+
+The commands used to produce these animations were:<br>
+<code># rm tile-*.gif;  animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-cl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif<br>
+# rm tile-*.gif; animmerger -v -r12x12 -bl -pc -a -4,-3,6,9 pano5b/*.png<br>
+# rm tile-???[13579].gif   # Delete 50% of frames to reduce fps in half<br>
+# gifsicle -O2 -o demo/pano5-fl.gif --crop 8,8+480x400 --use-colormap smwpalette.gif -l0 -d6 tile-????.gif
+</code>
 <p>
-<i>TODO: Add Super Mario World with parallax fix</i>
+The palette file was customized by hand, by taking a representative
+snapshot of the movie, and then progressively merging near-identical
+entries in the colormap in GIMP manually until only the minimal
+set of unique colors/tones remain.
 
 ", 'caveat_flash:1.1. Flashes, fog and other transparent layers' => "
 
