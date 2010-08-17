@@ -11,7 +11,7 @@ function usagetext($prog)
   $k='';foreach($kk as $s)$k.="$s\n";
   return $k;
 }
- 
+
 $text = array(
    '1. Purpose' => "
 
@@ -315,9 +315,13 @@ Produced with commandline:<br>
 # &nbsp; animmerger --gif -l\$l -po snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -o demo/method-sl\"\$l\".gif -l0 -d3 tile-*.gif<br>
 # done</code>
-<p>
+ <p>
 It is also called \"loopinglast\" mode (option -s)
 to differentiate from \"loopingavg\".
+ <p>
+The loopinglog method also supports motion blur.
+Use the --motionblur (-B) option to set it.
+Value 0 disables motion blur (default: 0).
 
 ", 'loopingavg:1.1.1. LOOPINGAVG' => "
 
@@ -325,8 +329,9 @@ The \"loopingavg\" method combines the \"loopinglog\" and \"actionavg\" methods.
 Use the <code>-l</code> option to set the loop length in frames.<br>
 The most important difference to \"loopinglog\" is that overlapping action
 is averaged rather than explicitly choosing one of the acting pixels.<br>
-It looks slightly better, but may require GIF palette reduction,
-and requires as much RAM as \"changelog\" requires to generate it.
+It looks slightly better, but may require GIF palette reduction.<br>
+In comparison, \"loopinglog\" only uses pixel colors present
+in the original images.
 <p>
 30 frames (file size depends on selected palette size):<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
@@ -366,10 +371,6 @@ Loop length 30 frames, blur length 20, with YUV calculations:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
      alt=\"Loop-Avg 30 through YUV, blur 8\">
 <p>
-Loop length 30 frames, blur length 8:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B8.gif\"
-     alt=\"Loop-Avg 30, blur 8\">
-<p>
 Loop length 10 frames, blur length 4:<br>
 <img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
      alt=\"Loop-Avg 10, blur 4\">
@@ -383,6 +384,41 @@ Produced with commandline:<br>
 # &nbsp; &nbsp; gifsicle -O2 -o demo/method-vl\"\$l\"B\"\$b\".gif -l0 -d3 tile-*.gif<br>
 # &nbsp; done<br>
 # done</code>
+
+", 'methodsummary:1.1. Summary' =>"
+
+<table border=1 style=\"text-align:left\">
+ <tr valign=bottom>
+  <th>Method name</th>
+  <th>Static or<br>animated</th>
+  <th>Composes<br>new colors</th>
+  <th>Obeys YUV<br>option</th>
+  <th>Memory size per pixel*</th>
+  <th>Primary<br>use</th>
+ </tr><tr><th>First</th>                  <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td>Maps</td>
+ </tr><tr><th>Last</th>                   <td>Static          </td>   <td>No</td>     <td>No       </td><td>4</td>                                          <td></td>
+ </tr><tr><th>FirstNMost</th>             <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstUncommon</th> <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; FirstNLeast</th>   <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LastNMost</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastUncommon</th>  <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>&middot; LastNLeast</th>    <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>MostUsed</th>               <td>Static          </td>   <td>No</td>     <td>No       </td><td>12&hellip;16 + 6*number of unique colors</td>   <td>Maps</td>
+ </tr><tr><th>LeastUsed</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>Average</th>                <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>16</td>                                         <td></td>
+ </tr><tr><th>Tinyaverage</th>            <td>Static          </td>   <td>Yes</td>    <td>No       </td><td>8</td>                                          <td></td>
+ </tr><tr><th>ActionAvg</th>              <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>ChangeLog</th>              <td>Animated (movie)</td> <td>If blur</td><td>For blur </td><td>12&hellip;16 + 8*number of content changes</td> <td>Animations</td>
+ </tr><tr><th>LoopingLog</th>             <td>Animated (loop) </td> <td>If blur</td><td>For blur </td><td>As ChangeLog</td>                               <td></td>
+ </tr><tr><th>LoopingAvg</th>             <td>Animated (loop) </td> <td>Yes</td>    <td>Yes      </td><td>As ChangeLog</td>                               <td>Fun</td>
+ </tr>
+</table>
+ <p>
+*) These numbers are estimates. Actual memory size per pixel depends
+on the exact selection of pixel methods requested and the memory
+allocation overhead. Animmerger strives
+to always select the smallest combination of pixel methods
+(memoryconsumptionwise) that can implement all the requested methods.
 
 ", 'caveats:1. Caveats' => "
 
