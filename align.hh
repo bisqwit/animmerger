@@ -75,13 +75,37 @@ struct AlignResult Align(
     int org_y);
 #endif
 
+/* Attempts to align the input picture into the background picture
+ *    input, inputwidth, inputheight:
+ *        Input bitmap (rgb32 array, width, height)
+ *        May contain holes, indicated by (pixel value >> 24) != 0
+ *    background, backwidth, backheight:
+ *        Background bitmap (rgb32 array, width, height)
+ *        May contain holes, indicated by (pixel value >> 24) != 0
+ *    org_x, org_y:
+ *        Upper-left corner offset relative to the background
+ *        picture where the previous frame was placed.
+ *        This can be used for optimization: It is usually likely
+ *        that the next frame will be located a short distance
+ *        away from the previous frame.
+ * Pixel order is like this (for a bitmap where width=4, height=2):
+ *    0123     upper-left coordinate is 0,0
+ *    4567     bottom-right coordinate is 3,1
+ * Result:
+ *    offs_x, offs_y:
+ *        Suggested placement of the input picture
+ *        within the background picture
+ *    suspect_reset:
+ *        Set to true if there's a reason to suspect
+ *        that the images do not quite align right
+ */
 struct AlignResult Align(
     const uint32* background,
     unsigned backwidth, unsigned backheight,
     const uint32* input,
     unsigned inputwidth, unsigned inputheight,
-    int org_x,
-    int org_y);
+    unsigned org_x,
+    unsigned org_y);
 
 struct AlignResult
 {

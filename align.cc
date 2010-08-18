@@ -424,4 +424,96 @@ AlignResult Align(
      * is most likely.
      * Preferrably, work also with tint/brightness changes...
      */
+
+    /* Find a set of possible offsets */
+    typedef std::map<RelativeCoordinate, unsigned,
+        std::less<RelativeCoordinate>,
+        FSBAllocator<int> > OffsetSuggestions;
+    OffsetSuggestions offset_suggestions;
+    #ifdef _OPENMP
+    MutexType offset_suggestions_lock;
+    #endif
+
+    /*for(int y=-(int)inputheight; y<=(int)backheight; ++y)
+        for(int x=-(int)inputwidth; x<=(int)backwidth; ++x)*/
+    for(int y=-16; y<=16; ++y)
+    for(int x=-16; x<=16; ++x)
+            offset_suggestions.insert
+                (std::make_pair( RelativeCoordinate(x-org_x, y-org_y), 0 ));
+
+    const unsigned n_rand_spots_per = 7;
+    VecType<IntCoordinate> rand_spots;
+    const unsigned x_divide = x_divide_reference;
+    const unsigned y_divide = y_divide_reference;
+    const unsigned x_shrunk = (inputwidth  + x_divide-1) / x_divide;
+    const unsigned y_shrunk = (inputheight + y_divide-1) / y_divide;
+
+    for(unsigned y=0; y<y_shrunk; ++y)
+        for(unsigned x=0; x<x_shrunk; ++x)
+        {
+            const unsigned sx = x*x_divide, sy = y*y_divide;
+            unsigned cw = x_divide; if(sx+cw > inputwidth ) cw = inputwidth-sx;
+            unsigned ch = y_divide; if(sy+ch > inputheight) ch = inputwidth-sy;
+            for(unsigned n=0; n<n_rand_spots_per; ++n)
+            {
+                IntCoordinate c = { sx + (rand()%cw), sy + (rand()%ch) };
+                rand_spots.push_back(c);
+            }
+        }
+    /*fprintf(stderr, "org=%d,%d, nspots=%u, noffs=%lu (%d..%d, %d..%d), back=%u,%u, in=%u,%u\n",
+        org_x,org_y,
+        n_rand_spots, offset_suggestions.size(),
+        -(int)inputheight, backheight,
+        -(int)inputwidth, backwidth,
+        backwidth,backheight,
+        inputwidth,inputheight);*/
+
+    OffsetSuggestions::iterator best = offset_suggestions.begin();
+
+    for(OffsetSuggestions::iterator
+        j = offset_suggestions.begin();
+        j != offset_suggestions.end();
+        )
+    {
+        OffsetSuggestions::iterator i ( j ); ++j;
+
+        unsigned n_match = 0;
+        #pragma omp parallel for reduction(+:n_match)
+        for(unsigned a=0; a<rand_spots.size(); ++a)
+        {
+            const int ix = rand_spots[a].x;
+            const int iy = rand_spots[a].y;
+            const int bx = (rand_spots[a].x + i->first.x + org_x);
+            const int by = (rand_spots[a].y + i->first.y + org_y);
+            if(bx < 0 || bx >= backwidth
+            || by < 0 || by >= backheight) continue;
+
+            n_match +=      (input[ iy * inputwidth + ix ]
+                     == background[ by * backwidth + bx ] );
+        }
+        //if(!n_match) offset_suggestions.erase(i);
+        i->second += n_match;
+        //fprintf(stderr, "Got %d,%d: %u\n", i->first.x, i->first.y, n_match);
+
+        if(i->second > best->second)
+            best = i;
+    }
+
+    //fprintf(stderr, "best: %d,%d -- %u\n", best->first.x, best->first.y, best->second);
+    if(!best->second)
+    {
+        AlignResult result;
+        result.suspect_reset = false;
+        result.offs_x        = org_x;
+        result.offs_y        = org_y;
+        return result;
+    }
+
+    const RelativeCoordinate& best_coord = best->first;
+
+    AlignResult result;
+    result.suspect_reset = false;
+    result.offs_x        = best_coord.x + org_x;
+    result.offs_y        = best_coord.y + org_y;
+    return result;
 }

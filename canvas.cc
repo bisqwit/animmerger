@@ -404,8 +404,8 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
 
     FitScreen(input,
         sx,sy,
-        align.offs_x,
-        align.offs_y,
+        align.offs_x-org_x+xmin,
+        align.offs_y-org_y+ymin,
         align.suspect_reset);
 }
 
