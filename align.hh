@@ -19,6 +19,7 @@ struct IntCoordinate
     }
 };
 
+#if 0
 /* SpotType describes the contents of a particular
  * location in the image. See the implementation
  * of FindInterestingSpots() on how it works.
@@ -72,6 +73,16 @@ struct AlignResult Align(
     const std::vector<InterestingSpot>& reference_spots,
     int org_x,
     int org_y);
+#endif
+
+struct AlignResult Align(
+    const uint32* background,
+    unsigned backwidth, unsigned backheight,
+    const uint32* input,
+    unsigned inputwidth, unsigned inputheight,
+    int org_x,
+    int org_y);
+
 struct AlignResult
 {
     int  offs_x;

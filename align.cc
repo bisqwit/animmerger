@@ -57,6 +57,7 @@ namespace
     };
 }
 
+#if 0
 void FindInterestingSpots(
     std::vector<InterestingSpot>& output,
     const uint32* input,
@@ -406,4 +407,21 @@ AlignResult Align(
     result.offs_x        = best_coord.x;
     result.offs_y        = best_coord.y;
     return result;
+}
+#endif
+
+AlignResult Align(
+    const uint32* background,
+    unsigned backwidth, unsigned backheight,
+    const uint32* input,
+    unsigned inputwidth, unsigned inputheight,
+    int org_x,
+    int org_y)
+{
+    /* TODO: Figure out where,
+     * within background[], does input[] overlap.
+     * Presume that somewhere near org_x,org_y
+     * is most likely.
+     * Preferrably, work also with tint/brightness changes...
+     */
 }

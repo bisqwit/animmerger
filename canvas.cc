@@ -392,76 +392,15 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 void
 TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
 {
-    /* Find spots of interest within the reference image,
-     * and within the input image.
-     *
-     * Select that offset which results in greatest overlap
-     * between those two sets of spots.
-     */
-
-    std::vector<InterestingSpot> input_spots;
-    std::vector<InterestingSpot> reference_spots;
-    FindInterestingSpots(input_spots, input, 0,0, sx,sy, true);
-
-    /* Cache InterestingSpot lists for each cube */
-    static std::map
-        <IntCoordinate, std::vector<InterestingSpot>,
-         std::less<IntCoordinate>,
-         FSBAllocator<int> > cache;
-
-    /* For speed reasons, we don't use LoadScreen(), but
-     * instead, work on cube-by-cube basis.
-     */
-    for(ymaptype::iterator
-        yi = screens.begin();
-        yi != screens.end();
-        ++yi)
-    {
-        const int y_screen_offset = yi->first * 256;
-
-        for(xmaptype::iterator
-            xi = yi->second.begin();
-            xi != yi->second.end();
-            ++xi)
-        {
-            const int x_screen_offset = xi->first  * 256;
-            cubetype& cube            = xi->second;
-
-            IntCoordinate cache_key = {x_screen_offset,y_screen_offset};
-
-            if(cube.changed)
-            {
-                uint32 result[256*256];
-
-                cube.pixels->GetStaticInto(result, 256);
-
-                size_t prev_size = reference_spots.size();
-                FindInterestingSpots(reference_spots, result,
-                    x_screen_offset,y_screen_offset,
-                    256,256,
-                    false);
-
-                cache[cache_key].assign(
-                    reference_spots.begin() + prev_size,
-                    reference_spots.end() );
-
-                cube.changed = false;
-            }
-            else
-            {
-                const std::vector<InterestingSpot>& found = cache[cache_key];
-                reference_spots.insert(
-                    reference_spots.end(),
-                    found.begin(),
-                    found.end());
-            }
-        }
-    }
-
-    AlignResult align = Align(
-        input_spots,
-        reference_spots,
-        org_x, org_y);
+    struct AlignResult align =
+        Align(
+            &LoadBackground(xmin,ymin, xmax-xmin,ymax-ymin)[0],
+            xmax-xmin, ymax-ymin,
+            input,
+            sx, sy,
+            org_x-xmin,
+            org_y-ymin
+        );
 
     FitScreen(input,
         sx,sy,
