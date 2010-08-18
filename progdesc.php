@@ -30,7 +30,8 @@ different pixel methods, and a simulated infinite 2D canvas
 
 <table>
 <tr><td valign=top>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/original.gif\"
+<img width=256 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/original.gif\"
      alt=\"Original animation\">
 </td><td valign=top>
 As a sample, here is the original animation (712100 bytes).
@@ -73,7 +74,8 @@ But you knew that, right?</small>
 The \"average\" method produces a \"motion blur\" effect of the entire
 input, reducing it into a single frame.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-a.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-a.png\"
      alt=\"Average\">
 <p>
 You can see a faint trace of all animated actors that appeared in
@@ -97,7 +99,8 @@ The \"actionavg\" method attempts to fix the faintness problem with
 (using the \"mostused\" method) and adding it only once to the
 average of moving actors.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
      alt=\"Action average\">
 <p>
 Produced with commandline:<br>
@@ -112,7 +115,8 @@ rather than the RGB colorspace, add the --yuv option.
 The \"most used\" method produces what might be the background
 image for the entire animation.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-m.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-m.png\"
      alt=\"Most used\">
 <p>
 Note: If there is an actor that sits in a certain location
@@ -130,7 +134,8 @@ Produced with commandline:<br>
 The \"last\" method is a simpler implementation of the \"most used\"
 method, simply recording the last pixel value in any location.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png\"
      alt=\"Last\">
 <p>
 Produced with commandline:<br>
@@ -142,7 +147,8 @@ Produced with commandline:<br>
 The \"first\" method is analogous to \"last\".
 It shows whatever first appeared in a particular pixel location.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
      alt=\"First\">
 <p>
 The turtles are distorted, because they moved while the screen scrolled.<br>
@@ -161,23 +167,28 @@ If N is 0, instead gets last uncommon pixel.<br>
 If N is negative, using least common values rather than most common.
 <p>
 Most common of first 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
      alt=\"Most common of first 4\">
 <p>
 Most common of first 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
      alt=\"Most common of first 10\">
 <p>
 Most common of first 16:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
      alt=\"Most common of first 16\">
 <p>
 First uncommon:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
      alt=\"First uncommon\">
 <p>
 Least common of first 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
      alt=\"Least common of first 10\">
 <p>
 Produced with commandline:<br>
@@ -195,15 +206,18 @@ If N is 0, instead gets last uncommon pixel.<br>
 If N is negative, using least common values rather than most common.
 <p>
 Most common of last 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
      alt=\"Most common of last 10\">
 <p>
 Last uncommon:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
      alt=\"Last uncommon\">
 <p>
 Least common of last 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
      alt=\"Least common of last 10\">
 <p>
 Produced with commandline:<br>
@@ -218,7 +232,8 @@ The \"least used\" method is analogous to \"most used\".<br>
 It can be used to find graphical artifacts and teleporting actors,
 but for the most part, the output is not very useful.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
      alt=\"Least used\">
 <p>
 Produced with commandline:<br>
@@ -232,7 +247,8 @@ Produced with commandline:<br>
 The \"changelog\" method records the entire animation (121995 bytes in this example).<br>
 It takes considerably less disk space (and is faster to load) than the original animation, because now the background does not scroll.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif\"
      alt=\"Changelog\">
 <p>
 You see some artifacts in the turtle and in Mario when they appear
@@ -247,7 +263,8 @@ in the original animation either.
 <p>
 Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-tc.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-tc.gif\"
      alt=\"Changelog, with HUD intact\">
 <p>
 Exteriors, i.e. content outside the \"current\" viewport of the animation
@@ -268,15 +285,18 @@ The changelog method also supports motion blur. Use the --motionblur (-B) option
 Value 0 disables motion blur (default: 0).
 <p>
 Blur length 1:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
      alt=\"Changelog, blur 1\">
 <p>
 Blur length 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
      alt=\"Changelog, blur 4\">
 <p>
 Blur length 20:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
      alt=\"Changelog, blur 1\">
 <p>
 Produced with commandline:<br>
@@ -297,15 +317,18 @@ is in the number of frames, but the more pronounced
 is the \"lemmings\" effect.
 <p>
 30 frames (94895 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
 10 frames (66738 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
      alt=\"Loop, 10 frames\">
 <p>
 4 frames (40372 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
      alt=\"Loop, 4 frames\">
 <p>
 Produced with commandline:<br>
@@ -334,15 +357,18 @@ In comparison, \"loopinglog\" only uses pixel colors present
 in the original images.
 <p>
 30 frames (file size depends on selected palette size):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
 10 frames:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10.gif\"
      alt=\"Loop, 10 frames\">
 <p>
 4 frames:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl4.gif\"
      alt=\"Loop, 4 frames\">
 <p>
 Produced with commandline:<br>
@@ -364,15 +390,18 @@ Use the --motionblur (-B) option to set it.
 Value 0 disables motion blur (default: 0).
 <p>
 Loop length 30 frames, blur length 20:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
      alt=\"Loop-Avg 30, blur 8\">
 <p>
 Loop length 30 frames, blur length 20, with YUV calculations:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
      alt=\"Loop-Avg 30 through YUV, blur 8\">
 <p>
 Loop length 10 frames, blur length 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
      alt=\"Loop-Avg 10, blur 4\">
 <p>
 Produced with commandline:<br>
@@ -444,11 +473,13 @@ and fps halved to make the file slightly smaller for web distribution.
  </tr>
  <tr valign=top>
   <td width=\"480\">
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
+<img width=480 height=400
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
      alt=\"Super Mario World with parallax motion\">
   </td>
   <td width=\"480\">
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
+<img width=480 height=400
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
      alt=\"Super Mario World with parallax fix\"><br>
   </td>
  </tr>
