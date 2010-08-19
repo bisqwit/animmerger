@@ -376,7 +376,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
             gdImageSetPixel(im, x,y, pix);
         }
     FILE* fp = std::fopen(Filename, "wb");
-    if(SaveGif)
+    if(SaveGif == 1 || animated)
     {
         gdImageTrueColorToPalette(im, false, 256);
         gdImageGif(im, fp);
