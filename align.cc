@@ -444,15 +444,15 @@ AlignResult Align(
     MutexType offset_suggestions_lock;
     #endif
 
-    for(int y=-17; y<=17; ++y)
-    for(int x=-17; x<=17; ++x)
+    for(int y=-37; y<=37; ++y)
+    for(int x=-37; x<=37; ++x)
         offset_suggestions.push_back
             (std::make_pair( RelativeCoordinate(x-org_x, y-org_y), 0 ));
 
-    const unsigned n_rand_spots_per = 17;
     VecType<IntCoordinate> rand_spots;
     const unsigned x_divide = x_divide_reference;
     const unsigned y_divide = y_divide_reference;
+    const unsigned n_rand_spots_per = ((x_divide*y_divide+59) / 60);
     const unsigned x_shrunk = (inputwidth  + x_divide-1) / x_divide;
     const unsigned y_shrunk = (inputheight + y_divide-1) / y_divide;
 
@@ -506,8 +506,11 @@ AlignResult Align(
             }
             const uint32* inptr = &input[iy*inputwidth + ix];
             const uint32* bgptr = &background[by*backwidth + bx];
-            if( (*inptr & 0xFF000000u)
-            ||  (*bgptr & 0xFF000000u) )
+            if( (*inptr & 0xFF000000u) )
+            {
+                continue;
+            }
+            if( (*bgptr & 0xFF000000u) )
             {
                 ++n_match;
                 continue;
