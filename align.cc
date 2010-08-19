@@ -461,7 +461,7 @@ AlignResult Align(
         {
             const unsigned sx = x*x_divide, sy = y*y_divide;
             unsigned cw = x_divide; if(sx+cw > inputwidth ) cw = inputwidth-sx;
-            unsigned ch = y_divide; if(sy+ch > inputheight) ch = inputwidth-sy;
+            unsigned ch = y_divide; if(sy+ch > inputheight) ch = inputheight-sy;
             for(unsigned n=0; n<n_rand_spots_per; ++n)
             {
                 IntCoordinate c = { sx + (rand()%cw), sy + (rand()%ch) };
