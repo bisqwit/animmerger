@@ -23,8 +23,6 @@ int main(int argc, char** argv)
 {
     VecType<AlphaRange> alpha_ranges;
 
-    int verbose=0;
-
     for(;;)
     {
         int option_index = 0;
@@ -373,9 +371,11 @@ int main(int argc, char** argv)
     }
 
     VecType<uint32> pixels;
+
     for(int a=optind; a<argc; ++a)
     {
         const char* fn = argv[a];
+        if(verbose) fprintf(stderr, "Reading %s\n", fn);
         FILE* fp = std::fopen(fn, "rb");
         if(!fp)
         {

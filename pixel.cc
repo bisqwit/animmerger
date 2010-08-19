@@ -5,6 +5,7 @@ unsigned AnimationBlurLength = 0;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
 bool     AveragesInYUV       = false;
+int      verbose             = 0;
 
 #include "pixel.hh"
 

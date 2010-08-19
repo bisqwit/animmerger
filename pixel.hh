@@ -42,6 +42,7 @@ extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 extern bool AveragesInYUV;
+extern int verbose;
 
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod;

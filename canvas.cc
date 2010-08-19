@@ -389,8 +389,8 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     gdImageDestroy(im);
 }
 
-void
-TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy)
+AlignResult TILE_Tracker::TryAlignWithHotspots
+    (const uint32* input, unsigned sx,unsigned sy) const
 {
     /* Find spots of interest within the reference image,
      * and within the input image.
@@ -412,20 +412,20 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
     /* For speed reasons, we don't use LoadScreen(), but
      * instead, work on cube-by-cube basis.
      */
-    for(ymaptype::iterator
+    for(ymaptype::const_iterator
         yi = screens.begin();
         yi != screens.end();
         ++yi)
     {
         const int y_screen_offset = yi->first * 256;
 
-        for(xmaptype::iterator
+        for(xmaptype::const_iterator
             xi = yi->second.begin();
             xi != yi->second.end();
             ++xi)
         {
             const int x_screen_offset = xi->first  * 256;
-            cubetype& cube            = xi->second;
+            const cubetype& cube      = xi->second;
 
             IntCoordinate cache_key = {x_screen_offset,y_screen_offset};
 
@@ -458,49 +458,91 @@ TILE_Tracker::FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned 
         }
     }
 
-    AlignResult align = Align(
+    return Align(
         input_spots,
         reference_spots,
         org_x, org_y);
+}
 
-    FitScreen(input,
-        sx,sy,
-        align.offs_x,
-        align.offs_y,
-        align.suspect_reset);
+AlignResult TILE_Tracker::TryAlignWithBackground
+    (const uint32* input, unsigned sx,unsigned sy) const
+{
+    struct AlignResult align =
+        Align(
+            &LoadBackground(xmin,ymin, xmax-xmin,ymax-ymin)[0],
+            xmax-xmin, ymax-ymin,
+            input,
+            sx, sy,
+            org_x-xmin,
+            org_y-ymin
+        );
+
+    align.offs_x -= org_x-xmin;
+    align.offs_y -= org_y-ymin;
+    return align;
+}
+
+AlignResult TILE_Tracker::TryAlignWithPrevFrame
+    (const uint32* prev_input,
+     const uint32* input, unsigned sx,unsigned sy) const
+{
+    return Align(
+        prev_input, sx,sy,
+        input,      sx,sy,
+        0,0
+    );
+}
+
+void
+TILE_Tracker::FitScreenAutomatic
+    (const uint32* input, unsigned sx,unsigned sy)
+{
+    static VecType<uint32> prev_frame;
+    if(prev_frame.size() == sx*sy)
+    {
+        AlignResult align = TryAlignWithPrevFrame(&prev_frame[0], input,sx,sy);
+        if(!align.suspect_reset)
+        {
+            prev_frame.assign(input, input+sx*sy);
+            FitScreen(input,sx,sy, align);
+            return;
+        }
+    }
+    prev_frame.assign(input, input+sx*sy);
+
+    AlignResult align = TryAlignWithHotspots(input,sx,sy);
+    FitScreen(input,sx,sy, align);
 }
 
 void TILE_Tracker::FitScreen
-    (const uint32* buf,
-     unsigned max_x,
-     unsigned max_y,
-     int offs_x, int offs_y, bool suspect_reset,
+    (const uint32* input, unsigned sx, unsigned sy,
+     const AlignResult& alignment,
      int extra_offs_x,
      int extra_offs_y
     )
 {
-    //if(offs_x != 0 || offs_y != 0)
+    //if(alignment.offs_x != 0 || alignment.offs_y != 0)
     {
         std::fprintf(stderr, "[frame%5u] Motion(%d,%d), Origo(%d,%d)\n",
-            CurrentTimer, offs_x,offs_y, org_x,org_y);
+            CurrentTimer, alignment.offs_x,alignment.offs_y, org_x,org_y);
     }
 
-    org_x += offs_x; org_y += offs_y;
+    org_x += alignment.offs_x; org_y += alignment.offs_y;
 
     int this_org_x = org_x + extra_offs_x;
     int this_org_y = org_y + extra_offs_y;
 
-    if(suspect_reset)
+    if(alignment.suspect_reset)
     {
 #if 0
         goto AlwaysReset;
 #endif
-        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, max_x,max_y, CurrentTimer, bgmethod);
+        VecType<uint32> oldbuf = LoadScreen(this_org_x,this_org_y, sx,sy, CurrentTimer, bgmethod);
         unsigned diff = 0;
         for(unsigned a=0; a<oldbuf.size(); ++a)
         {
             unsigned oldpix = oldbuf[a];
-            unsigned pix   = buf[a];
+            unsigned pix   = input[a];
             unsigned r = (pix >> 16) & 0xFF;
             unsigned g = (pix >> 8) & 0xFF;
             unsigned b = (pix    ) & 0xFF;
@@ -534,8 +576,8 @@ void TILE_Tracker::FitScreen
     const bool first = CurrentTimer == 0;
     if(first || this_org_x < xmin) xmin = this_org_x;
     if(first || this_org_y < ymin) ymin = this_org_y;
-    int xtmp = this_org_x+max_x; if(first || xtmp > xmax) xmax=xtmp;
-    int ytmp = this_org_y+max_y; if(first || ytmp > ymax) ymax=ytmp;
+    int xtmp = this_org_x+sx; if(first || xtmp > xmax) xmax=xtmp;
+    int ytmp = this_org_y+sy; if(first || ytmp > ymax) ymax=ytmp;
 
 #if 0
     /* If the image geometry would exceed some bounds */
@@ -546,7 +588,7 @@ void TILE_Tracker::FitScreen
     }
 #endif
 
-    PutScreen(buf, this_org_x,this_org_y, max_x,max_y, CurrentTimer);
+    PutScreen(input, this_org_x,this_org_y, sx,sy, CurrentTimer);
 }
 
 void TILE_Tracker::Reset()
