@@ -57,7 +57,16 @@ namespace
     };
 }
 
-#if 0
+static inline unsigned char GetLuma(uint32 pix)
+{
+    return (((pix&0xFF0000u)*RY/(1<<16))
+          + ((pix&0x00FF00u)*GY/(1<<8))
+          + ((pix&0x0000FFu)*BY/(1<<0))
+          + RGB2YUV_MUL/2
+           ) / RGB2YUV_MUL;
+    // Get the luma in 0..255 range.
+}
+
 void FindInterestingSpots(
     std::vector<InterestingSpot>& output,
     const uint32* input,
@@ -95,12 +104,7 @@ void FindInterestingSpots(
         {
             if((input[p] & 0xFF000000u) == 0)
             {
-                Y[p] = (((input[p]&0xFF0000u)*RY/(1<<16))
-                      + ((input[p]&0x00FF00u)*GY/(1<<8))
-                      + ((input[p]&0x0000FFu)*BY/(1<<0))
-                      + RGB2YUV_MUL/2
-                       ) / RGB2YUV_MUL;
-                // Get the luma in 0..255 range.
+                Y[p] = GetLuma(input[p]);
             }
             else
             {
@@ -408,7 +412,6 @@ AlignResult Align(
     result.offs_y        = best_coord.y;
     return result;
 }
-#endif
 
 AlignResult Align(
     const uint32* background,
@@ -425,23 +428,28 @@ AlignResult Align(
      * Preferrably, work also with tint/brightness changes...
      */
 
+    if(!backwidth || !backheight)
+    {
+        AlignResult result;
+        result.suspect_reset = false;
+        result.offs_x        = org_x;
+        result.offs_y        = org_y;
+        return result;
+    }
+
     /* Find a set of possible offsets */
-    typedef std::map<RelativeCoordinate, unsigned,
-        std::less<RelativeCoordinate>,
-        FSBAllocator<int> > OffsetSuggestions;
+    typedef VecType<std::pair<RelativeCoordinate, unsigned> > OffsetSuggestions;
     OffsetSuggestions offset_suggestions;
     #ifdef _OPENMP
     MutexType offset_suggestions_lock;
     #endif
 
-    /*for(int y=-(int)inputheight; y<=(int)backheight; ++y)
-        for(int x=-(int)inputwidth; x<=(int)backwidth; ++x)*/
-    for(int y=-16; y<=16; ++y)
-    for(int x=-16; x<=16; ++x)
-            offset_suggestions.insert
-                (std::make_pair( RelativeCoordinate(x-org_x, y-org_y), 0 ));
+    for(int y=-17; y<=17; ++y)
+    for(int x=-17; x<=17; ++x)
+        offset_suggestions.push_back
+            (std::make_pair( RelativeCoordinate(x-org_x, y-org_y), 0 ));
 
-    const unsigned n_rand_spots_per = 7;
+    const unsigned n_rand_spots_per = 17;
     VecType<IntCoordinate> rand_spots;
     const unsigned x_divide = x_divide_reference;
     const unsigned y_divide = y_divide_reference;
@@ -468,52 +476,153 @@ AlignResult Align(
         backwidth,backheight,
         inputwidth,inputheight);*/
 
-    OffsetSuggestions::iterator best = offset_suggestions.begin();
+    unsigned best=0, worst=0;
 
-    for(OffsetSuggestions::iterator
-        j = offset_suggestions.begin();
-        j != offset_suggestions.end();
-        )
+    /*VecType<unsigned char> InputLuma( inputwidth * inputheight );
+    #pragma omp parallel for schedule(static)
+    for(unsigned a=0; a<InputLuma.size(); ++a)
+        InputLuma[a] = GetLuma( input[a] );*/
+
+    #pragma omp parallel for schedule(guided)
+    for(unsigned a=0; a<offset_suggestions.size(); ++a)
     {
-        OffsetSuggestions::iterator i ( j ); ++j;
+        OffsetSuggestions::iterator i = offset_suggestions.begin() + a;
 
         unsigned n_match = 0;
-        #pragma omp parallel for reduction(+:n_match)
-        for(unsigned a=0; a<rand_spots.size(); ++a)
+        for(unsigned b=0; b<rand_spots.size(); ++b)
         {
-            const int ix = rand_spots[a].x;
-            const int iy = rand_spots[a].y;
-            const int bx = (rand_spots[a].x + i->first.x + org_x);
-            const int by = (rand_spots[a].y + i->first.y + org_y);
-            if(bx < 0 || bx >= backwidth
-            || by < 0 || by >= backheight) continue;
+            const int ix = rand_spots[b].x;
+            const int iy = rand_spots[b].y;
+            const int bx = (rand_spots[b].x + i->first.x + org_x);
+            const int by = (rand_spots[b].y + i->first.y + org_y);
+            if(bx < 0 || bx >= (int)backwidth
+            || by < 0 || by >= (int)backheight)
+            {
+                if(bx >= -32 && by >= -32
+                && bx <= (int)(backwidth+32)
+                && by <= (int)(backheight+32))
+                    ++n_match;
+                continue;
+            }
+            const uint32* inptr = &input[iy*inputwidth + ix];
+            const uint32* bgptr = &background[by*backwidth + bx];
+            if( (*inptr & 0xFF000000u)
+            ||  (*bgptr & 0xFF000000u) )
+            {
+                ++n_match;
+                continue;
+            }
 
-            n_match +=      (input[ iy * inputwidth + ix ]
-                     == background[ by * backwidth + bx ] );
+            if(*inptr == *bgptr)
+            {
+                ++n_match;
+            }
+            /*else
+            {
+                // Check if they still match when comparing their average
+                // relative brightnesses to their surroundings
+                unsigned in_luma = InputLuma[inptr-input];
+                unsigned bg_luma = GetLuma(*bgptr);
+                unsigned in_luma_sum = 0, in_luma_count = 0;
+                unsigned bg_luma_sum = 0, bg_luma_count = 0;
+                for(int offsx=-1; offsx<=1; ++offsx)
+                for(int offsy=-1; offsy<=1; ++offsy)
+                {
+                    if(bx+offsx >= 0 && bx+offsy < (int)backwidth
+                    && by+offsy >= 0 && by+offsy < (int)backheight)
+                        { bg_luma_sum += GetLuma(bgptr[offsy*(int)backwidth+offsx]);
+                          ++bg_luma_count; }
+                    if(ix+offsx >= 0 && ix+offsy < (int)inputwidth
+                    && iy+offsy >= 0 && iy+offsy < (int)inputheight)
+                        { bg_luma_sum += InputLuma[ &inptr[offsy*(int)inputwidth+offsx] - input ];
+                          ++bg_luma_count; }
+                }
+                double in_luma_ratio = in_luma / (in_luma_sum / (double)in_luma_count);
+                double bg_luma_ratio = bg_luma / (bg_luma_sum / (double)bg_luma_count);
+                if(in_luma_ratio == bg_luma_ratio)
+                    ++n_match;
+            }*/
         }
-        //if(!n_match) offset_suggestions.erase(i);
+        #ifdef _OPENMP
+        ScopedLock lck(offset_suggestions_lock);
+        #endif
         i->second += n_match;
-        //fprintf(stderr, "Got %d,%d: %u\n", i->first.x, i->first.y, n_match);
-
-        if(i->second > best->second)
-            best = i;
+        if(i->second > offset_suggestions[best].second)
+            best = a;
+        if(i->second < offset_suggestions[worst].second)
+            worst = a;
     }
 
-    //fprintf(stderr, "best: %d,%d -- %u\n", best->first.x, best->first.y, best->second);
-    if(!best->second)
+    const unsigned maxval = x_shrunk*y_shrunk*n_rand_spots_per;
+    const unsigned bestval = offset_suggestions[best].second;
+    const unsigned worstval =offset_suggestions[worst].second;
+    const unsigned graphwidth = 10;
+
+    const RelativeCoordinate& best_coord = offset_suggestions[best].first;
+
+    AlignResult result;
+    result.suspect_reset = bestval < (maxval * 0.80);
+    result.offs_x        = best_coord.x + org_x;
+    result.offs_y        = best_coord.y + org_y;
+
+    /* >= 94% = very reliable
+     * >= 80% = parallax motion, but still relatively reliable
+     */
+    if(verbose)
     {
-        AlignResult result;
+        fprintf(stderr,
+            "---------------------------\n"
+            "Max: %u, Best: %u (%.1f%%%s), Worst: %u(%.1f%%), estimate %d,%d\n",
+            maxval,
+            bestval,  bestval*100.0/maxval,
+            result.suspect_reset ? "" : " [OK]",
+            worstval, worstval*100.0/maxval,
+            result.offs_x, result.offs_y
+        );
+        int power[graphwidth];
+        unsigned maxpower=0;
+        for(unsigned x=0; x<graphwidth; ++x)
+        {
+            unsigned prevlimit = worstval + (bestval-worstval+1)*(x  )/graphwidth;
+            unsigned limit     = worstval + (bestval-worstval+1)*(x+1)/graphwidth;
+            unsigned n = 0;
+            for(unsigned a=0; a<offset_suggestions.size(); ++a)
+                if(offset_suggestions[a].second >= prevlimit
+                && offset_suggestions[a].second <  limit)
+                    ++n;
+            power[x] = n;
+            if(n > maxpower) maxpower = n;
+        }
+        for(int y=8; y>=0; --y)
+        {
+            int threshold = (int)((y)*maxpower/8);
+            for(unsigned x=0; x<graphwidth; ++x)
+                fputc((power[x]>threshold) ? '#' : '.', stderr);
+            fprintf(stderr, "\n");
+        }
+        /**/
+        int prev=-8;
+        for(unsigned a=0; a<offset_suggestions.size(); ++a)
+        {
+            if(offset_suggestions[a].first.y != prev)
+            {
+                fprintf(stderr, "\n");
+                prev = offset_suggestions[a].first.y;
+            }
+            if(best == a)
+                fprintf(stderr, "[%4u]", offset_suggestions[a].second);
+            else
+                fprintf(stderr, "%5u ", offset_suggestions[a].second);
+        }/**/
+        fprintf(stderr, "\n");
+    }
+
+    if(!bestval)
+    {
         result.suspect_reset = false;
         result.offs_x        = org_x;
         result.offs_y        = org_y;
         return result;
     }
-
-    const RelativeCoordinate& best_coord = best->first;
-
-    AlignResult result;
-    result.suspect_reset = false;
-    result.offs_x        = best_coord.x + org_x;
-    result.offs_y        = best_coord.y + org_y;
     return result;
 }

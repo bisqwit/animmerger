@@ -15,6 +15,8 @@
 //extern unsigned SequenceBegin;      // For animated
 extern int SaveGif;
 
+struct AlignResult;
+
 class TILE_Tracker
 {
     int org_x, org_y;
@@ -26,7 +28,7 @@ class TILE_Tracker
 
     struct cubetype
     {
-        bool changed;
+        mutable bool changed;
         vectype pixels;
     };
 
@@ -62,12 +64,18 @@ public:
     void PutScreen(const uint32*const input, int ox,int oy, unsigned sx,unsigned sy,
                    unsigned timer);
 
-    void FitScreenAutomatic(const uint32*const input, unsigned sx,unsigned sy);
+    void FitScreenAutomatic(const uint32* input, unsigned sx,unsigned sy);
 
-    void FitScreen(const uint32* buf,
-                   unsigned max_x,
-                   unsigned max_y,
-                   int offs_x, int offs_y, bool suspect_reset,
+    AlignResult TryAlignWithHotspots(
+        const uint32* input, unsigned sx,unsigned sy) const;
+    AlignResult TryAlignWithPrevFrame(
+        const uint32* prev_input,
+        const uint32* input, unsigned sx,unsigned sy) const;
+    AlignResult TryAlignWithBackground(
+        const uint32* input, unsigned sx,unsigned sy) const;
+
+    void FitScreen(const uint32* input, unsigned sx,unsigned sy,
+                   const AlignResult& alignment,
                    int extra_offs_x=0,
                    int extra_offs_y=0
                   );
