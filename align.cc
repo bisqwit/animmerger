@@ -488,13 +488,20 @@ AlignResult Align(
     {
         OffsetSuggestions::iterator i = offset_suggestions.begin() + a;
 
+        int rx = i->first.x;
+        int ry = i->first.y;
+        if(rx < mv_xmin || rx > mv_xmax
+        || ry < mv_ymin || ry > mv_ymax
+        /*
+        || (rx&&ry)*/) continue;
+
         unsigned n_match = 0;
         for(unsigned b=0; b<rand_spots.size(); ++b)
         {
             const int ix = rand_spots[b].x;
             const int iy = rand_spots[b].y;
-            const int bx = (rand_spots[b].x + i->first.x + org_x);
-            const int by = (rand_spots[b].y + i->first.y + org_y);
+            const int bx = (rand_spots[b].x + rx + org_x);
+            const int by = (rand_spots[b].y + ry + org_y);
             if(bx < 0 || bx >= (int)backwidth
             || by < 0 || by >= (int)backheight)
             {

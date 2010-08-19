@@ -51,6 +51,9 @@ CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 #CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
 # ^ Apparently, cannot be helped
 
+#CXX=g++-4.5
+#CXXFLAGS += -flto
+
 all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)

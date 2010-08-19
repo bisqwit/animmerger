@@ -66,6 +66,7 @@ static const unsigned long YUVCapablePixelMethodsMask = 0 DefinePixelMethods(Mak
 
 #ifdef __GNUC__
 # define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+//# define FastPixelMethod __attribute__((regparm(3)))
 # define FasterPixelMethod FastPixelMethod __attribute__((always_inline))
 #else
 # define FastPixelMethod
