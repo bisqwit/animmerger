@@ -3,6 +3,7 @@
 
 #include <map>
 #include <set>
+#include <cstdio>
 
 #include "settype.hh"
 #include "pixel.hh" // For pixelmethod
@@ -580,7 +581,7 @@ AlignResult Align(
      */
     if(verbose)
     {
-        fprintf(stderr,
+        std::fprintf(stderr,
             "---------------------------\n"
             "Max: %u, Best: %u (%.1f%%%s), Worst: %u(%.1f%%), estimate %d,%d\n",
             maxval,
@@ -607,8 +608,8 @@ AlignResult Align(
         {
             int threshold = (int)((y)*maxpower/8);
             for(unsigned x=0; x<graphwidth; ++x)
-                fputc((power[x]>threshold) ? '#' : '.', stderr);
-            fprintf(stderr, "\n");
+                std::fputc((power[x]>threshold) ? '#' : '.', stderr);
+            std::fprintf(stderr, "\n");
         }
         /**/
         int prev=-8;
@@ -616,15 +617,15 @@ AlignResult Align(
         {
             if(offset_suggestions[a].first.y != prev)
             {
-                fprintf(stderr, "\n");
+                std::fprintf(stderr, "\n");
                 prev = offset_suggestions[a].first.y;
             }
             if(best == a)
-                fprintf(stderr, "[%4u]", offset_suggestions[a].second);
+                std::fprintf(stderr, "[%4u]", offset_suggestions[a].second);
             else
-                fprintf(stderr, "%5u ", offset_suggestions[a].second);
+                std::fprintf(stderr, "%5u ", offset_suggestions[a].second);
         }/**/
-        fprintf(stderr, "\n");
+        std::fprintf(stderr, "\n");
     }
 
     if(!bestval)
