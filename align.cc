@@ -414,6 +414,116 @@ AlignResult Align(
     return result;
 }
 
+namespace
+{
+    double ScoreBlankBackground(unsigned n_pixels)
+    {
+        return 1.0;
+    }
+    double ScoreStrip(const uint32* background, const uint32* input, unsigned n_pixels)
+    {
+        double result = 0.0;
+        for(unsigned n=0; n<n_pixels; ++n)
+            if(background[n] & 0xFF000000u)
+                result += 0.5;
+            else if(input[n] & 0xFF000000u)
+                result += 0.5;
+            else
+                result += ( input[n] == background[n] );
+        return result;
+    }
+    double ScoreRectangle(
+        const uint32* background, unsigned back_stride,
+        const uint32* input,      unsigned input_stride,
+        unsigned width, unsigned height)
+    {
+        double result = 0.0;
+        for(unsigned y=0; y<height; ++y)
+        {
+            result += ScoreStrip(background, input, width);
+            input      += input_stride;
+            background += back_stride;
+        }
+        return result;
+    }
+
+    /* Overlays the input image over background image,
+     * at input_offset (relative to background image),
+     * and returns a value that describes how well it
+     * matched. Sections containing alpha in either
+     * image are ignored.
+     * Parameters are ints to make the code lighter on typecasts.
+     */
+    double CompareImages(
+        const uint32* background,
+        int backwidth, int backheight, // unsigned
+        const uint32* input,
+        int inputwidth, int inputheight, // unsigned
+        int input_offset_x, int input_offset_y) // signed
+    {
+        const unsigned input_dimension = inputwidth * inputheight;
+        //const uint32 background_slice[input_dimension];
+
+        // How large blank margins to insert at top & left
+        // If the input image is positioned beyond the top&left edges.
+        const int ignore_from_top  = (input_offset_y < 0 ? -input_offset_y : 0);
+        const int ignore_from_left = (input_offset_x < 0 ? -input_offset_x : 0);
+
+        // How many scanlines to copy of actual content
+        const int n_scanlines = std::max(0, std::min(inputheight-ignore_from_top, backheight - input_offset_y));
+        // How many pixels to copy horizontally on each scanline
+        const int n_linepixels = std::max(0, std::min(inputwidth-ignore_from_left, backwidth - input_offset_x));
+
+        // How many scanlines remain at the bottom
+        const int remain_at_bottom = inputheight - ignore_from_top - n_scanlines;
+        // How many pixels remain at the right
+        const int remain_at_right  = inputwidth - ignore_from_left - n_linepixels;
+
+        double result = 0.0;
+        result += ScoreBlankBackground((ignore_from_top + remain_at_bottom) * inputwidth
+                                     + n_scanlines * (ignore_from_left + remain_at_right));
+        //std::memset(&background_slice[0], 0xFF,
+        //            ignore_from_top * inputwidth * sizeof(uint32));
+
+        if(n_scanlines && n_linepixels)
+        {
+            const uint32* background_ptr =
+                background +
+                backwidth * ( input_offset_y<0 ? 0 : input_offset_y ) +
+                (input_offset_x<0 ? 0 : input_offset_x);
+
+            result += ScoreRectangle(
+                background_ptr, backwidth,
+                &input[ignore_from_top*inputwidth+ignore_from_left], inputwidth,
+                n_linepixels, n_scanlines);
+
+            //for(unsigned y=0; y<n_scanlines; ++y)
+            //{
+                //std::memset(&background_slice[inputwidth * (y + ignore_from_top)],
+                //            0xFF,
+                //            ignore_from_left*sizeof(uint32));
+                //std::memcpy(&background_slice[inputwidth * (y + ignore_from_top)
+                //                              + ignore_from_left*sizeof(uint32)],
+                //            background_ptr,
+                //            n_linepixels*sizeof(uint32));
+                //result += ScoreStrip(background_ptr,
+                //                     &input[inputwidth * (y + ignore_from_top)
+                //                           + ignore_from_left*sizeof(uint32)],
+                //                     n_linepixels);
+                //std::memset(&background_slice[inputwidth * (y + ignore_from_top)
+                //                              + (n_linepixels + ignore_from_left) * sizeof(uint32)],
+                //            0xFF,
+                //            remain_at_right*sizeof(uint32));
+                //background_ptr += backwidth;
+            //}
+        }
+        //std::memset(&background_slice[inputwidth * (ignore_from_top+n_scanlines)],
+        //            0xFF,
+        //            remain_at_bottom*inputwidth*sizeof(uint32))
+        return result;
+    }
+}
+
 AlignResult Align(
     const uint32* background,
     unsigned backwidth, unsigned backheight,
@@ -439,18 +549,27 @@ AlignResult Align(
     }
 
     /* Find a set of possible offsets */
-    typedef VecType<std::pair<RelativeCoordinate, unsigned> > OffsetSuggestions;
+    typedef VecType<std::pair<RelativeCoordinate, double> > OffsetSuggestions;
     OffsetSuggestions offset_suggestions;
     #ifdef _OPENMP
     MutexType offset_suggestions_lock;
     #endif
 
-    for(int y=-37; y<=37; ++y)
-    for(int x=-37; x<=37; ++x)
+    const int mi_x = mv_xmin==-9999 ? -17 : mv_xmin;
+    const int ma_x = mv_xmax== 9999 ?  17 : mv_xmax;
+    const int mi_y = mv_ymin==-9999 ? -17 : mv_ymin;
+    const int ma_y = mv_ymax== 9999 ?  17 : mv_ymax;
+
+    for(int y=mi_y; y<=ma_y; ++y)
+    for(int x=mi_x; x<=ma_x; ++x)
         offset_suggestions.push_back
             (std::make_pair( RelativeCoordinate(x-org_x, y-org_y), 0 ));
 
-    VecType<IntCoordinate> rand_spots;
+/*
+    std::vector<InterestingSpot> rand_spots;
+#if 1
+    FindInterestingSpots(rand_spots, input, 0,0, inputwidth,inputheight, false);
+#else
     const unsigned x_divide = x_divide_reference;
     const unsigned y_divide = y_divide_reference;
     const unsigned n_rand_spots_per = ((x_divide*y_divide+59) / 60);
@@ -469,6 +588,8 @@ AlignResult Align(
                 rand_spots.push_back(c);
             }
         }
+#endif
+*/
     /*fprintf(stderr, "org=%d,%d, nspots=%u, noffs=%lu (%d..%d, %d..%d), back=%u,%u, in=%u,%u\n",
         org_x,org_y,
         n_rand_spots, offset_suggestions.size(),
@@ -496,77 +617,24 @@ AlignResult Align(
         /*
         || (rx&&ry)*/) continue;
 
-        unsigned n_match = 0;
-        for(unsigned b=0; b<rand_spots.size(); ++b)
-        {
-            const int ix = rand_spots[b].x;
-            const int iy = rand_spots[b].y;
-            const int bx = (rand_spots[b].x + rx + org_x);
-            const int by = (rand_spots[b].y + ry + org_y);
-            if(bx < 0 || bx >= (int)backwidth
-            || by < 0 || by >= (int)backheight)
-            {
-                if(bx >= -32 && by >= -32
-                && bx <= (int)(backwidth+32)
-                && by <= (int)(backheight+32))
-                    ++n_match;
-                continue;
-            }
-            const uint32* inptr = &input[iy*inputwidth + ix];
-            const uint32* bgptr = &background[by*backwidth + bx];
-            if( (*inptr & 0xFF000000u) )
-            {
-                continue;
-            }
-            if( (*bgptr & 0xFF000000u) )
-            {
-                ++n_match;
-                continue;
-            }
+        double result = CompareImages(
+            background, backwidth,backheight,
+            input,    inputwidth,inputheight,
+            rx, ry);
 
-            if(*inptr == *bgptr)
-            {
-                ++n_match;
-            }
-            /*else
-            {
-                // Check if they still match when comparing their average
-                // relative brightnesses to their surroundings
-                unsigned in_luma = InputLuma[inptr-input];
-                unsigned bg_luma = GetLuma(*bgptr);
-                unsigned in_luma_sum = 0, in_luma_count = 0;
-                unsigned bg_luma_sum = 0, bg_luma_count = 0;
-                for(int offsx=-1; offsx<=1; ++offsx)
-                for(int offsy=-1; offsy<=1; ++offsy)
-                {
-                    if(bx+offsx >= 0 && bx+offsy < (int)backwidth
-                    && by+offsy >= 0 && by+offsy < (int)backheight)
-                        { bg_luma_sum += GetLuma(bgptr[offsy*(int)backwidth+offsx]);
-                          ++bg_luma_count; }
-                    if(ix+offsx >= 0 && ix+offsy < (int)inputwidth
-                    && iy+offsy >= 0 && iy+offsy < (int)inputheight)
-                        { bg_luma_sum += InputLuma[ &inptr[offsy*(int)inputwidth+offsx] - input ];
-                          ++bg_luma_count; }
-                }
-                double in_luma_ratio = in_luma / (in_luma_sum / (double)in_luma_count);
-                double bg_luma_ratio = bg_luma / (bg_luma_sum / (double)bg_luma_count);
-                if(in_luma_ratio == bg_luma_ratio)
-                    ++n_match;
-            }*/
-        }
         #ifdef _OPENMP
         ScopedLock lck(offset_suggestions_lock);
         #endif
-        i->second += n_match;
+        i->second += result;
         if(i->second > offset_suggestions[best].second)
             best = a;
         if(i->second < offset_suggestions[worst].second)
             worst = a;
     }
 
-    const unsigned maxval = x_shrunk*y_shrunk*n_rand_spots_per;
-    const unsigned bestval = offset_suggestions[best].second;
-    const unsigned worstval =offset_suggestions[worst].second;
+    const unsigned maxval = inputwidth*inputheight;
+    const double bestval = offset_suggestions[best].second;
+    const double worstval =offset_suggestions[worst].second;
     const unsigned graphwidth = 10;
 
     const RelativeCoordinate& best_coord = offset_suggestions[best].first;
@@ -583,7 +651,7 @@ AlignResult Align(
     {
         std::fprintf(stderr,
             "---------------------------\n"
-            "Max: %u, Best: %u (%.1f%%%s), Worst: %u(%.1f%%), estimate %d,%d\n",
+            "Max: %u, Best: %.1f (%.1f%%%s), Worst: %.1f(%.1f%%), estimate %d,%d\n",
             maxval,
             bestval,  bestval*100.0/maxval,
             result.suspect_reset ? "" : " [OK]",
@@ -621,9 +689,9 @@ AlignResult Align(
                 prev = offset_suggestions[a].first.y;
             }
             if(best == a)
-                std::fprintf(stderr, "[%4u]", offset_suggestions[a].second);
+                std::fprintf(stderr, "[%4g]", offset_suggestions[a].second);
             else
-                std::fprintf(stderr, "%5u ", offset_suggestions[a].second);
+                std::fprintf(stderr, "%5g ", offset_suggestions[a].second);
         }/**/
         std::fprintf(stderr, "\n");
     }

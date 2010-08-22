@@ -1404,7 +1404,8 @@ void
 TILE_Tracker::FitScreenAutomatic
     (const uint32* input, unsigned sx,unsigned sy)
 {
-    static VecType<uint32> prev_frame;
+    //static VecType<uint32> prev_frame;
+    VecType<uint32> prev_frame = LoadBackground(org_x,org_y, sx,sy);
     //fprintf(stderr, "sx=%u,sy=%u, prev_frame size=%u\n", sx,sy, prev_frame.size());
     if(prev_frame.size() == sx*sy)
     {
