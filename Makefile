@@ -77,7 +77,7 @@ CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 
 #CXXFLAGS += -m32
 #CXXFLAGS += -fomit-frame-pointer
-#OPTIM=-O2 -fno-inline
+OPTIM=-O0 -fno-inline
 
 #CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
 # ^ Apparently, cannot be helped

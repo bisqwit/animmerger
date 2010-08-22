@@ -1595,5 +1595,8 @@ rate.\n\
 
         tracker.NextFrame();
     }
+    tracker.FindSprites();
+
     tracker.Save();
+
 }
