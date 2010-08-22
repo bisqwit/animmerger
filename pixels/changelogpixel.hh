@@ -119,11 +119,27 @@ public:
         return Find(timer, DefaultPixel);
     }
 
+    inline uint32 GetChangeLogBackground() const
+    {
+        switch(bgmethod)
+        {
+            case pm_FirstPixel:      return GetFirst();
+            case pm_LastPixel:       return GetLast();
+            case pm_FirstNMostPixel: return GetFirstNMost();
+            case pm_LastNMostPixel:  return GetLastNMost();
+            case pm_AveragePixel:    return GetAverage();
+            case pm_TinyAveragePixel:return GetTinyAverage();
+            case pm_ActionAvgPixel:  return GetActionAvg();
+            default:
+            case pm_MostUsedPixel:   return GetMostUsed();
+            case pm_LeastUsedPixel:  return GetLeastUsed();
+        }
+    }
     uint32 GetChangeLog(unsigned timer) const FastPixelMethod
     {
         if(AnimationBlurLength == 0) return Find(timer);
 
-        const uint32 most = GetMostUsed();
+        const uint32 most = GetChangeLogBackground();
         uint32 pix = Find(timer, most);
 
         if(pix != most) return pix;
@@ -431,7 +447,7 @@ private:
             MapType<unsigned, uint32>::const_iterator
                 i = history.find(timer);
             if(i == history.end() || i->first != timer)
-                return GetMostUsed();
+                return GetChangeLogBackground();
             return i->second;
         }
         // Find the pixel value that was present at the given time.
@@ -450,7 +466,7 @@ private:
         /* Pre-begin value: Use background */
         if(i == history.begin())
         {
-            return GetMostUsed();
+            return GetChangeLogBackground();
         }
 
         bool last = (i == history.end());
@@ -462,7 +478,7 @@ private:
           )
         {
             /* Post-end value: Use background */
-            return GetMostUsed();
+            return GetChangeLogBackground();
         }
         /* Anything else. Take the value. */
         return i->second;
