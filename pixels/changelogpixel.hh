@@ -119,21 +119,17 @@ public:
         return Find(timer, DefaultPixel);
     }
 
-    inline uint32 GetChangeLogBackground() const
+    inline uint32 GetChangeLogBackground(int sign=0) const
     {
-        switch(bgmethod)
+        #define DoCase(o,f,name) \
+            case pm_##name##Pixel: \
+                if(f&1) break; else return Get##name(0);
+        switch((sign <= 0 ? bgmethod0 : bgmethod1))
         {
-            case pm_FirstPixel:      return GetFirst();
-            case pm_LastPixel:       return GetLast();
-            case pm_FirstNMostPixel: return GetFirstNMost();
-            case pm_LastNMostPixel:  return GetLastNMost();
-            case pm_AveragePixel:    return GetAverage();
-            case pm_TinyAveragePixel:return GetTinyAverage();
-            case pm_ActionAvgPixel:  return GetActionAvg();
-            default:
-            case pm_MostUsedPixel:   return GetMostUsed();
-            case pm_LeastUsedPixel:  return GetLeastUsed();
+            DefinePixelMethods(DoCase)
         }
+        #undef DoCase
+        return GetMostUsed();
     }
     uint32 GetChangeLog(unsigned timer) const FastPixelMethod
     {
@@ -161,7 +157,7 @@ public:
     template<typename SlaveType>
     uint32 GetTimerAggregate(unsigned timer=0, uint32 background=DefaultPixel) const
     {
-        if(background == DefaultPixel) background = GetChangeLogBackground();
+        if(background == DefaultPixel) background = GetMostUsed();
         SlaveType result(timer, background);
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
@@ -466,7 +462,7 @@ private:
         /* Pre-begin value: Use background */
         if(i == history.begin())
         {
-            return GetChangeLogBackground();
+            return GetChangeLogBackground(-1);
         }
 
         bool last = (i == history.end());
@@ -478,7 +474,7 @@ private:
           )
         {
             /* Post-end value: Use background */
-            return GetChangeLogBackground();
+            return GetChangeLogBackground(+1);
         }
         /* Anything else. Take the value. */
         return i->second;

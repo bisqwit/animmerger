@@ -10,7 +10,9 @@ int      verbose             = 0;
 #include "pixel.hh"
 
 unsigned long pixelmethods_result = 1ul << pm_MostUsedPixel;
-enum PixelMethod bgmethod = pm_MostUsedPixel;
+enum PixelMethod bgmethod  = pm_MostUsedPixel;
+enum PixelMethod bgmethod0 = pm_MostUsedPixel;
+enum PixelMethod bgmethod1 = pm_MostUsedPixel;
 
 #define DO_VERY_SPECIALIZED -1
 /* Specialization values:
@@ -103,13 +105,16 @@ namespace
     struct CallGet##name##Helper \
     { \
         static uint32 call(const T& obj, unsigned timer=0) FasterPixelMethod \
-            { return obj.Get##name(timer); } \
+        { \
+            return obj.Get##name(timer); \
+        } \
     }; \
     template<typename T> \
     struct CallGet##name##Helper<T,false> \
     { \
+        /* If the method does not exist, use default method. */ \
         static uint32 call(const T&, unsigned=0) FasterPixelMethod \
-            { return DefaultPixel; } \
+        { return DefaultPixel; } \
     }; \
     template<typename T> \
     uint32 CallGet##name(const T& obj, unsigned timer=0) FasterPixelMethod; \
@@ -358,19 +363,9 @@ namespace
     const FactoryType* Get256x256pixelFactory()
     {
         unsigned long Traits = pixelmethods_result
-                            | (1ul << bgmethod);
-
-        /* ActionAvgPixel uses MostUsedPixel as the background
-         * method. If something other is desired, use ChangeLogPixel
-         * because it has a more complete implementation.
-         * This exception is hard to convey with other rules,
-         * so it is hardcoded here.
-         */
-        if((Traits & (1ul << pm_ActionAvgPixel))
-        && bgmethod != pm_MostUsedPixel)
-        {
-            Traits |= (1ul << pm_ChangeLogPixel);
-        }
+                            | (1ul << bgmethod)
+                            | (1ul << bgmethod0)
+                            | (1ul << bgmethod1);
 
         static unsigned long Prev = ~0ul;
         static const FactoryType* cache = 0;

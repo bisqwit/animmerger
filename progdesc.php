@@ -263,7 +263,7 @@ in the original animation either.
 <p>
 Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
 <p>
-<img width=724 height=224
+<img width=725 height=225
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-tc.gif\"
      alt=\"Changelog, with HUD intact\">
 <p>
@@ -278,6 +278,16 @@ Produced with commandline:<br>
 # <a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
+ <p>
+The background for ChangeLog can also be controlled with the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt>
+options.<br>
+Here is how the above animation (HUD-less) looks like with <tt>--bgmethod0 first --bgmethod1 last</tt>:
+ <p>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cfl.gif\"
+     alt=\"Changelog with first&amp;last\">
+Note that <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> only affect the ChangeLog method,
+and only when motion blur is not used.
 
 ", 'motionblur:1.1.1.1. Motion blur' => "
 

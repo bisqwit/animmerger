@@ -19,9 +19,72 @@ static const char* const PixelMethodNames[NPixelMethods] =
 };
 #undef MakePixName
 
+namespace
+{
+    int ParsePixelMethod(
+        char* optarg,
+        bool allow_multiple,
+        bool allow_animated)
+    {
+        #define AddOption(optchar,f,name) \
+            { #optchar , #name, pm_##name##Pixel, (f&1) },
+        static const struct
+        {
+            const char* shortopt;
+            const char* longopt;
+            PixelMethod mode;
+            bool animated;
+        } opts[] =
+        {
+            DefinePixelMethods(AddOption)
+            { "s" , "LoopingLast", pm_LoopingLogPixel, true }
+        };
+        #undef AddOption
+
+        unsigned result = 0;
+        for(; char* arg =
+            allow_multiple ? std::strtok(optarg, ",")
+                           : optarg; optarg=0)
+        {
+            if(allow_multiple && strcmp(arg, "*") == 0)
+                result |= ((1ul << NPixelMethods) - 1);
+            else
+            {
+                for(unsigned a=0; a < sizeof(opts)/sizeof(*opts); ++a)
+                {
+                    if(strcasecmp(arg, opts[a].shortopt) == 0
+                    || strcasecmp(arg, opts[a].longopt) == 0)
+                    {
+                        if(!allow_animated && opts[a].animated) goto is_animated;
+                        result |= (allow_multiple ? 1ul << opts[a].mode
+                                                  : (unsigned) opts[a].mode);
+                        goto found_mode;
+                    }
+                }
+
+                std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
+                return -1;
+            is_animated:
+                std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
+                return -1;
+            found_mode:;
+            }
+        }
+        if(allow_multiple && result == 0)
+        {
+            std::fprintf(stderr, "animmerger: Error: No pixel method defined\n");
+            result = 1ul << pm_MostUsedPixel;
+        }
+        return result;
+    }
+}
+
 int main(int argc, char** argv)
 {
     VecType<AlphaRange> alpha_ranges;
+
+    bool bgmethod0_chosen = false;
+    bool bgmethod1_chosen = false;
 
     for(;;)
     {
@@ -33,6 +96,8 @@ int main(int argc, char** argv)
             {"mask",       1,0,'m'},
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
+            {"bgmethod0",  1,0,4000},
+            {"bgmethod1",  1,0,4001},
             {"looplength", 1,0,'l'},
             {"motionblur", 1,0,'B'},
             {"firstlast",  1,0,'f'},
@@ -63,6 +128,8 @@ int main(int argc, char** argv)
                     " --mask, -m <defs>      Define a mask, see instructions below\n"
                     " --method, -p <mode>    Select pixel type, see below\n"
                     " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
+                    " --bgmethod0 <mode>     Explicit ChangeLog background before camera comes\n"
+                    " --bgmethod1 <mode>     Explicit ChangeLog background after camera leaves\n"
                     " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
                     " --motionblur, -B <int> Set motion blur length for animated modes\n"
                     " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
@@ -271,50 +338,32 @@ int main(int argc, char** argv)
             }
             case 'p':
             {
-                pixelmethods_result = 0;
-                for(; char* arg = std::strtok(optarg, ","); optarg=0)
-                {
-                    if(strcmp(arg, "*") == 0)
-                        pixelmethods_result |= ((1ul << NPixelMethods) - 1);
-                    #define TestMethod(optchar,f,name) \
-                        else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
-                            pixelmethods_result |= 1ul << pm_##name##Pixel;
-                    else if(strcmp(arg, "s") == 0 || strcasecmp(arg, "loopinglast") == 0)
-                        pixelmethods_result |= 1ul << pm_LoopingLogPixel;
-                    DefinePixelMethods(TestMethod)
-                    #undef TestMethod
-                    else
-                    {
-                        std::fprintf(stderr, "animmerger: Unrecognized method: %s\n", arg);
-                        return -1;
-                    }
-                }
-                if(!pixelmethods_result)
-                {
-                    std::fprintf(stderr, "animmerger: Error: No pixel method defined\n");
-                    pixelmethods_result = 1ul << pm_MostUsedPixel;
-                }
+                int res = ParsePixelMethod(optarg, true, true);
+                if(res < 0) return res;
+                pixelmethods_result = res;
                 break;
             }
             case 'b':
             {
-                char* arg = optarg;
-                if(false) {}
-                #define TestMethod(optchar,f,name) \
-                    else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
-                    { \
-                        if(f & 1) goto is_animated; \
-                        bgmethod = pm_##name##Pixel; \
-                    }
-                DefinePixelMethods(TestMethod)
-                #undef TestMethod
-                else
-                {
-                    std::fprintf(stderr, "animmerger: Unrecognized bgmethod: %s\n", arg);
-                    return -1;
-                is_animated:
-                    std::fprintf(stderr, "animmerger: Background pixel method cannot be animated. Bad choice: %s\n", arg);
-                }
+                int res = ParsePixelMethod(optarg, false, false);
+                if(res < 0) return res;
+                bgmethod = (PixelMethod) res;
+                break;
+            }
+            case 4000: // bgmethod0
+            {
+                int res = ParsePixelMethod(optarg, false, false);
+                if(res < 0) return res;
+                bgmethod0 = (PixelMethod) res;
+                bgmethod0_chosen = true;
+                break;
+            }
+            case 4001: // bgmethod1
+            {
+                int res = ParsePixelMethod(optarg, false, false);
+                if(res < 0) return res;
+                bgmethod1 = (PixelMethod) res;
+                bgmethod1_chosen = true;
                 break;
             }
             case 'v':
@@ -329,11 +378,37 @@ int main(int argc, char** argv)
         }
     }
 
+    if(!bgmethod0_chosen) bgmethod0 = bgmethod;
+    if(!bgmethod1_chosen) bgmethod1 = bgmethod;
+
+    if(bgmethod0_chosen || bgmethod1_chosen)
+    {
+        if(!(pixelmethods_result & (1ul << pm_ChangeLogPixel)))
+        {
+            std::fprintf(stderr,
+                "animmerger: Warning: bgmethod0 or bgmethod1 only apply to ChangeLog, which was not selected.\n");
+        }
+        if(AnimationBlurLength != 0)
+        {
+            std::fprintf(stderr,
+                "animmerger: Warning: bgmethod0 and bgmethod1 are ignored when motion blur is used.\n");
+        }
+    }
+
     if(verbose)
     {
-        const unsigned long AllUsedMethods = (1ul << bgmethod) | pixelmethods_result;
+        const unsigned long AllUsedMethods =
+            pixelmethods_result
+            | (1ul << bgmethod)
+            | (1ul << bgmethod0)
+            | (1ul << bgmethod1);
 
         std::printf("\tChosen background method: %s\n", PixelMethodNames[bgmethod]);
+        if(bgmethod0 != bgmethod)
+            std::printf("\tBackground for changelog before camera: %s\n", PixelMethodNames[bgmethod0]);
+        if(bgmethod1 != bgmethod)
+            std::printf("\tBackground for changelog after camera: %s\n", PixelMethodNames[bgmethod1]);
+
         std::printf("\tChosen foreground methods:");
         for(unsigned a=0; a<NPixelMethods; ++a)
             if(pixelmethods_result & (1ul << a))

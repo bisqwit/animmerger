@@ -45,7 +45,7 @@ extern bool AveragesInYUV;
 extern int verbose;
 
 extern unsigned long pixelmethods_result;
-extern PixelMethod bgmethod;
+extern PixelMethod bgmethod, bgmethod0, bgmethod1;
 
 #define MakeMask(o,flags,name) | ((flags&1) ? (1ul << pm_##name##Pixel) : 0)
 static const unsigned long AnimatedPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
@@ -65,8 +65,14 @@ static const unsigned long YUVCapablePixelMethodsMask = 0 DefinePixelMethods(Mak
 
 
 #ifdef __GNUC__
-# define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
-//# define FastPixelMethod __attribute__((regparm(3)))
+   /* The optimize attribute does not work with LTO,
+    * which is only available on g++-4.5 onwards.
+    */
+# if (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 5))
+#  define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+# else
+#  define FastPixelMethod __attribute__((regparm(3)))
+# endif
 # define FasterPixelMethod FastPixelMethod __attribute__((always_inline))
 #else
 # define FastPixelMethod
