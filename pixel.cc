@@ -357,7 +357,20 @@ namespace
 
     const FactoryType* Get256x256pixelFactory()
     {
-        unsigned long Traits = pixelmethods_result | (1ul << bgmethod);
+        unsigned long Traits = pixelmethods_result
+                            | (1ul << bgmethod);
+
+        /* ActionAvgPixel uses MostUsedPixel as the background
+         * method. If something other is desired, use ChangeLogPixel
+         * because it has a more complete implementation.
+         * This exception is hard to convey with other rules,
+         * so it is hardcoded here.
+         */
+        if((Traits & (1ul << pm_ActionAvgPixel))
+        && bgmethod != pm_MostUsedPixel)
+        {
+            Traits |= (1ul << pm_ChangeLogPixel);
+        }
 
         static unsigned long Prev = ~0ul;
         static const FactoryType* cache = 0;

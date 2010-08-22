@@ -161,7 +161,7 @@ public:
     template<typename SlaveType>
     uint32 GetTimerAggregate(unsigned timer=0, uint32 background=DefaultPixel) const
     {
-        if(background == DefaultPixel) background = GetMostUsed();
+        if(background == DefaultPixel) background = GetChangeLogBackground();
         SlaveType result(timer, background);
         for(MapType<unsigned, uint32>::const_iterator
             i = history.begin();
