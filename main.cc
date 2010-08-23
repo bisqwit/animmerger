@@ -275,6 +275,7 @@ namespace
         const int absx = bounds.x1 + x;
         const int absy = bounds.y1 + y;
 
+        const unsigned min_tilesize_power = 4;
         unsigned max_tilesize_power = 5;
     try_again:;
         int best_source_x=0, best_source_y=0;
@@ -284,7 +285,7 @@ namespace
       #endif
 
         const unsigned n_tilesize_powers =
-            (max_tilesize_power-3)+1;
+            (max_tilesize_power-min_tilesize_power)+1;
         const unsigned n_tilesize_powers_squared =
             n_tilesize_powers * n_tilesize_powers;
 
@@ -293,21 +294,28 @@ namespace
             tilesize_counter < n_tilesize_powers_squared;
             ++tilesize_counter)
         {
-            unsigned tilesize_x = 1 << (3 + tilesize_counter/n_tilesize_powers);
-            unsigned tilesize_y = 1 << (3 + tilesize_counter%n_tilesize_powers);
+            unsigned tilesize_x = 1 << (min_tilesize_power + tilesize_counter/n_tilesize_powers);
+            unsigned tilesize_y = 1 << (min_tilesize_power + tilesize_counter%n_tilesize_powers);
 
-            int extend_extent_x = 1;
-            while(extend_extent_x * tilesize_x < bounds.width+tilesize_x*2)
-                ++extend_extent_x;
-            int extend_extent_y = 1;
-            while(extend_extent_y * tilesize_y < bounds.height+tilesize_y*2)
-                ++extend_extent_y;
+            int peek_x_min = -1;
+            while(peek_x_min*int(tilesize_x) > int(tilesize_x)*-1)
+                --peek_x_min;
+            int peek_x_max = 1;
+            while(peek_x_max*int(tilesize_x) < int(bounds.width+tilesize_x))
+                ++peek_x_max;
 
-            for(int extend_x=-extend_extent_x;
-                    extend_x<=extend_extent_x;
+            int peek_y_min = -1;
+            while(peek_y_min*int(tilesize_y) > int(tilesize_y)*-1)
+                --peek_y_min;
+            int peek_y_max = 1;
+            while(peek_y_max*int(tilesize_x) < int(bounds.height+tilesize_y))
+                ++peek_y_max;
+
+            for(int extend_x=peek_x_min;
+                    extend_x<=peek_x_max;
                     ++extend_x)
-            for(int extend_y=-extend_extent_y;
-                    extend_y<=extend_extent_y;
+            for(int extend_y=peek_y_min;
+                    extend_y<=peek_y_max;
                     ++extend_y)
             {
                 if(!extend_x && !extend_y) continue;
@@ -343,6 +351,9 @@ namespace
             max_tilesize_power += 1;
             goto try_again;
         }
+        /*fprintf(stderr, "Copy from %d,%d\n",
+            (best_source_x-absx),
+            (best_source_y-absy));*/
         return gfx[best_source_y*sx + best_source_x];
     }
 
@@ -350,12 +361,6 @@ namespace
         uint32* gfx, unsigned sx,unsigned sy,
         AlphaRange& bounds)
     {
-        /* For each 8x8 square within the bounds,
-         * figure out a tile size with which to
-         * best replicate the outside content.
-         * The tile size may be horizontally and vertically
-         * any power of two >= 3.
-         */
         int carry = (int)bounds.height - (int)bounds.width;
         while(bounds.width >= 2
            && bounds.height >= 2)
