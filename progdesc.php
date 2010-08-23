@@ -161,8 +161,11 @@ Produced with commandline:<br>
 ", 'solid:1.1.1. SOLID'=> "
 
 The \"solid\" method is an experimental light-weight replacement
-to the \"mostused\" method. It simply removes anything that moves
-and retains whatever stays still.
+to the \"mostused\" method. It simply ignores anything that moves
+and retains whatever stays still for the longest time.<br>
+Unlike \"mostused\",
+it does not sum separate appearances together; it only finds the maximum
+length of consecutive sameness.
 <p>
 <img width=724 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-O.png\"

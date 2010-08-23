@@ -7,28 +7,68 @@
  */
 class SolidPixel
 {
-    uint32 pix;
+    uint32 pix, best_pix;
+    unsigned short pix_confidence, best_confidence;
 public:
-    SolidPixel() : pix(DefaultPixel)
+    SolidPixel() : pix(DefaultPixel), best_pix(DefaultPixel),
+                   pix_confidence(0), best_confidence(0)
     {
     }
     void set(uint32 p, unsigned=0) FasterPixelMethod
     {
-        if(pix == DefaultPixel) pix = p;
-        else if(p != pix) pix = DefaultPixel;
+        if(pix == DefaultPixel)
+        {
+            pix = p;
+            ++pix_confidence;
+        }
+        else if(p == pix)
+        {
+            ++pix_confidence;
+        }
+        else
+        {
+            if(pix != DefaultPixel && pix_confidence > best_confidence)
+            {
+                best_confidence = pix_confidence;
+                best_pix        = pix;
+            }
+            pix_confidence = 0;
+            pix = DefaultPixel;
+        }
     }
     void set_n(uint32 p, unsigned count) FasterPixelMethod
     {
-        if(count > 1) pix = p;
-        else set(p);
+        switch(count)
+        {
+            case 0: return;
+            case 1: set(p); return;
+            default:
+                if(pix == DefaultPixel)
+                {
+                    pix = p;
+                    pix_confidence = count;
+                }
+                else if(p == pix)
+                    pix_confidence += count;
+                else
+                {
+                    if(pix != DefaultPixel && pix_confidence > best_confidence)
+                    {
+                        best_confidence = pix_confidence;
+                        best_pix        = pix;
+                    }
+                    pix_confidence = count-1;
+                    pix = p;
+                }
+        }
     }
     inline uint32 get(unsigned=0) const FasterPixelMethod
     {
-        return pix;
+        return GetSolid();
     }
     inline uint32 GetSolid(unsigned=0) const FasterPixelMethod
     {
-        return pix;
+        return (best_confidence > pix_confidence) ? best_pix : pix;
     }
 
 /////////
