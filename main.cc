@@ -3,7 +3,12 @@
 #include "settype.hh"
 #include "align.hh"
 
+#define impl_Average 0 /* dummy constant for AveragePixel */
+#include "pixels/averagepixel.hh"
+
 #include <cstdio>
+#include <algorithm>
+
 #include <getopt.h>
 
 struct AlphaRange
@@ -77,7 +82,128 @@ namespace
         }
         return result;
     }
-}
+
+    static inline int apply_mask_fudge_factor(int x)
+    {
+        return (x >> 2) + x;
+    }
+    static inline bool is_hud_pixel(uint32 pixel)
+    {
+        return pixel & 0xFF000000u;
+    }
+
+    /* Find the shortest manhattan-distance
+     * to a non-logo pixel from the given position.
+     * Multiply the result by 1.25.
+     */
+    static int BlurHUD_FindDistance(
+        const uint32* gfx, unsigned sx,unsigned sy,
+        unsigned x, unsigned y)
+    {
+        if(!is_hud_pixel( gfx[y*sx+x] )) return 0;
+
+        int result = 1;
+        int maxresult = std::max(sx, sy);
+        while(result < maxresult)
+        {
+            /* When distance = 1,
+             * walk this area: (stripe=-1..+0)
+             *     012
+             *     7x3
+             *     654
+             * When distance = 3, this: (stripe=-3..+2)
+             *    0123456    Thusly, we must test these coordinates:
+             *    O  .  7
+             *    N  .  8        (x+stripe, y-result) (0..5)
+             *    M..x..A        (x+result, y+stripe) (6..C)
+             *    L  .  B        (x-stripe, y+result) (D..I)
+             *    K  .  C        (x-result, y-stripe) (J..O)
+             *    JIHGFED
+             */
+            for(int stripe = -result; stripe < result; ++stripe)
+            {
+              { int testx = std::max(0, std::min(int(sx)-1, int(x)+stripe));
+                int testy = std::max(0, std::min(int(sy)-1, int(y)-result));
+                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
+                    goto found; }
+              { int testx = std::max(0, std::min(int(sx)-1, int(x)+result));
+                int testy = std::max(0, std::min(int(sy)-1, int(y)+stripe));
+                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
+                    goto found; }
+              { int testx = std::max(0, std::min(int(sx)-1, int(x)-stripe));
+                int testy = std::max(0, std::min(int(sy)-1, int(y)+result));
+                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
+                    goto found; }
+              { int testx = std::max(0, std::min(int(sx)-1, int(x)-result));
+                int testy = std::max(0, std::min(int(sy)-1, int(y)-stripe));
+                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
+                    goto found; }
+            }
+            ++result;
+        }
+    found:;
+        return apply_mask_fudge_factor( result );
+    }
+
+    static void BlurHUD(
+        uint32* gfx, unsigned sx,unsigned sy,
+        const AlphaRange& bounds)
+    {
+        const std::vector<uint32> backup( gfx, gfx + sx*sy );
+
+        /* Remove the HUD */
+        #pragma omp parallel for schedule(static)
+        for(unsigned /*q=bounds.y1*sx+bounds.x1,*/ y=0; y < bounds.height; ++y/*, q+=sx*/)
+        {
+            unsigned q = (bounds.y1 + y) * sx + bounds.x1;
+            for(unsigned x=0; x < bounds.width; ++x)
+            {
+                if(!is_hud_pixel( backup[q+x] ))
+                {
+                    gfx[q+x] = backup[q+x];
+                    continue;
+                }
+                /* At each position that is inside the logo, non-logo
+                 * pixels are averaged together from a circular area
+                 * whose radius corresponds to the shortest manhattan-distance
+                 * to a non-logo pixel, increased by a factor of 1.25.
+                 *
+                 * This is basically the same as what MPlayer's delogo
+                 * filter does, but written in 95% fewer lines.
+                 */
+                int circle_radius = BlurHUD_FindDistance
+                    ( &backup[0],sx,sy, x+bounds.x1,y+bounds.y1);
+
+                int rx = x + bounds.x1;
+                int ry = y + bounds.y1;
+
+                int minx = -circle_radius, maxx = +circle_radius;
+                int miny = -circle_radius, maxy = +circle_radius;
+                if(minx+rx < 0) minx = -rx;
+                if(miny+ry < 0) miny = -ry;
+                if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
+                if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
+
+                const uint32* src = &backup[(miny+ry)*sx + rx];
+
+                const int circle_radius_squared = circle_radius*circle_radius;
+
+                AveragePixel output;
+                for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
+                {
+                    const int circle_threshold = circle_radius_squared - ciry*ciry;
+                    for(int cirx=minx; cirx<=maxx; ++cirx)
+                        if(!is_hud_pixel(src[cirx])
+                        && cirx*cirx <= circle_threshold)
+                        {
+                            output.set(src[cirx]);
+                        }
+                }
+                gfx[q+x] = output.get();
+            } // for x
+        } // for y
+    } // BlurHUD
+} // namespace
 
 int main(int argc, char** argv)
 {
@@ -85,6 +211,7 @@ int main(int argc, char** argv)
 
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
+    bool HudBlurring = false;
 
     for(;;)
     {
@@ -98,6 +225,7 @@ int main(int argc, char** argv)
             {"bgmethod",   1,0,'b'},
             {"bgmethod0",  1,0,4000},
             {"bgmethod1",  1,0,4001},
+            {"blurhud",    0,0,'u'},
             {"looplength", 1,0,'l'},
             {"motionblur", 1,0,'B'},
             {"firstlast",  1,0,'f'},
@@ -108,7 +236,7 @@ int main(int argc, char** argv)
             {"yuv",        0,0,'y'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvy", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -136,6 +264,8 @@ int main(int argc, char** argv)
                     " --version, -V          Displays version information\n"
                     " --yuv, -y              Sets YUV mode for average-color calculations\n"
                     "                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n"
+                    " --blurhud, -u          Hide masked areas with circular interpolation\n"
+                    "                        rather than by making them entirely transparent.\n"
                     " --refscale, -r <x>,<y>\n"
                     "     Change the grid size that controls\n"
                     "     how many samples are taken from the background image\n"
@@ -353,6 +483,11 @@ int main(int argc, char** argv)
                 bgmethod = (PixelMethod) res;
                 break;
             }
+            case 'u':
+            {
+                HudBlurring = true;
+                break;
+            }
             case 4000: // bgmethod0
             {
                 int res = ParsePixelMethod(optarg, false, false);
@@ -492,16 +627,22 @@ int main(int argc, char** argv)
             for(size_t b=0; b<a.colors.size(); ++b)
                 fprintf(stderr, "- %06X\n", a.colors[b]);*/
 
+            unsigned BlankCount = 0;
             unsigned p = tmp.y1 * sx + tmp.x1;
-            for(unsigned y=0; y<tmp.height; ++y, p += (sx-tmp.width))
-                for(unsigned x=0; x<tmp.width; ++x, ++p)
+            for(unsigned y=0; y<tmp.height; ++y, p += sx)
+                for(unsigned x=0; x<tmp.width; ++x)
                 {
                     if(a.colors.empty()
-                    || a.colors.find(pixels[p]) != a.colors.end())
+                    || a.colors.find(pixels[p+x]) != a.colors.end())
                     {
-                        pixels[p] |= 0xFF000000u;
+                        pixels[p+x] |= 0xFF000000u;
+                        ++BlankCount;
                     }
                 }
+            if(HudBlurring && BlankCount != 0)
+            {
+                BlurHUD(&pixels[0], sx, sy, tmp);
+            }
         }
 
         tracker.FitScreenAutomatic(&pixels[0], sx,sy);
