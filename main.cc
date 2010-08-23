@@ -8,6 +8,7 @@
 
 #include <cstdio>
 #include <algorithm>
+#include <cmath>
 
 #include <getopt.h>
 
@@ -83,66 +84,55 @@ namespace
         return result;
     }
 
-    static inline int apply_mask_fudge_factor(int x)
-    {
-        return (x >> 2) + x;
-    }
     static inline bool is_hud_pixel(uint32 pixel)
     {
         return pixel & 0xFF000000u;
     }
 
-    /* Find the shortest manhattan-distance
-     * to a non-logo pixel from the given position.
+    /* Find the smallest circle radius that finds
+     * a non-logo pixel from the given position.
      * Multiply the result by 1.25.
      */
     static int BlurHUD_FindDistance(
         const uint32* gfx, unsigned sx,unsigned sy,
-        unsigned x, unsigned y)
+        unsigned x, unsigned y,
+        unsigned max_xdistance,
+        unsigned max_ydistance)
     {
         if(!is_hud_pixel( gfx[y*sx+x] )) return 0;
 
-        int result = 1;
-        int maxresult = std::max(sx, sy);
-        while(result < maxresult)
+        int circle_radius = std::max(max_xdistance, max_ydistance)+1;
+
+        int rx = x, ry = y;
+        int minx = -circle_radius, maxx = +circle_radius;
+        int miny = -circle_radius, maxy = +circle_radius;
+        if(minx+rx < 0) minx = -rx;
+        if(miny+ry < 0) miny = -ry;
+        if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
+        if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
+
+        int smallest_distance_squared = circle_radius*circle_radius*4;
+        const uint32* src = &gfx[(miny+ry)*sx + rx];
+        for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
         {
-            /* When distance = 1,
-             * walk this area: (stripe=-1..+0)
-             *     012
-             *     7x3
-             *     654
-             * When distance = 3, this: (stripe=-3..+2)
-             *    0123456    Thusly, we must test these coordinates:
-             *    O  .  7
-             *    N  .  8        (x+stripe, y-result) (0..5)
-             *    M..x..A        (x+result, y+stripe) (6..C)
-             *    L  .  B        (x-stripe, y+result) (D..I)
-             *    K  .  C        (x-result, y-stripe) (J..O)
-             *    JIHGFED
-             */
-            for(int stripe = -result; stripe < result; ++stripe)
+            int ciry_squared = ciry*ciry;
+            for(int cirx=minx; cirx<=maxx; ++cirx)
             {
-              { int testx = std::max(0, std::min(int(sx)-1, int(x)+stripe));
-                int testy = std::max(0, std::min(int(sy)-1, int(y)-result));
-                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
-                    goto found; }
-              { int testx = std::max(0, std::min(int(sx)-1, int(x)+result));
-                int testy = std::max(0, std::min(int(sy)-1, int(y)+stripe));
-                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
-                    goto found; }
-              { int testx = std::max(0, std::min(int(sx)-1, int(x)-stripe));
-                int testy = std::max(0, std::min(int(sy)-1, int(y)+result));
-                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
-                    goto found; }
-              { int testx = std::max(0, std::min(int(sx)-1, int(x)-result));
-                int testy = std::max(0, std::min(int(sy)-1, int(y)-stripe));
-                if(!is_hud_pixel( gfx[ unsigned(testy)*sx + unsigned(testx) ]))
-                    goto found; }
+                if(!is_hud_pixel( src[cirx] ))
+                {
+                    int distance_squared = cirx*cirx + ciry_squared;
+                    if(distance_squared < smallest_distance_squared)
+                    {
+                        smallest_distance_squared = distance_squared;
+                        if(smallest_distance_squared == 1)
+                            goto found_smallest_possible;
+                    }
+                }
             }
-            ++result;
         }
-    found:;
-        return apply_mask_fudge_factor( result );
+    found_smallest_possible:
+        int result = (int) ( 0.5 + std::sqrt( (double) smallest_distance_squared ) * 1.25 );
+        return result;
     }
 
     static void BlurHUD(
@@ -165,14 +155,19 @@ namespace
                 }
                 /* At each position that is inside the logo, non-logo
                  * pixels are averaged together from a circular area
-                 * whose radius corresponds to the shortest manhattan-distance
+                 * whose radius corresponds to the shortest distance
                  * to a non-logo pixel, increased by a factor of 1.25.
                  *
                  * This is basically the same as what MPlayer's delogo
                  * filter does, but written in 95% fewer lines.
+                 * Also, delogo uses manhattan distances rather than
+                 * euclidean distances.
                  */
                 int circle_radius = BlurHUD_FindDistance
-                    ( &backup[0],sx,sy, x+bounds.x1,y+bounds.y1);
+                    ( &backup[0],sx,sy, x+bounds.x1,y+bounds.y1,
+                      std::min(bounds.width-x, x),
+                      std::min(bounds.height-y, y)
+                    );
 
                 int rx = x + bounds.x1;
                 int ry = y + bounds.y1;

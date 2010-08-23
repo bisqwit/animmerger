@@ -54,6 +54,8 @@ CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 #CXX=g++-4.5
 #CXXFLAGS += -flto
 
+LDLIBS += -lm
+
 all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)
