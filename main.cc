@@ -257,137 +257,137 @@ int main(int argc, char** argv)
                 return 0;
             case 'h':
             {
-                std::printf("%s",
-                    "animmerger v"VERSION" - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)\n"
-                    "\n"
-                    "Usage: animmerger [<options>] <imagefile> [<...>]\n"
-                    "\n"
-                    "Merges animation frames together with motion shifting.\n"
-                    "\n"
-                    " --help, -h             This help\n"
-                    " --mask, -m <defs>      Define a mask, see instructions below\n"
-                    " --method, -p <mode>    Select pixel type, see below\n"
-                    " --bgmethod, -b <mode>  Select pixel type for alignment tests\n"
-                    " --bgmethod0 <mode>     Explicit ChangeLog background before camera comes\n"
-                    " --bgmethod1 <mode>     Explicit ChangeLog background after camera leaves\n"
-                    " --looplength, -l <int> Set loop length for the LOOPINGxx modes\n"
-                    " --motionblur, -B <int> Set motion blur length for animated modes\n"
-                    " --firstlast, -f <int>  Set threshold for xxNMOST modes\n"
-                    " --version, -V          Displays version information\n"
-                    " --yuv, -y              Sets YUV mode for average-color calculations\n"
-                    "                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n"
-                    " --blurhud, -u          Hide masked areas with circular interpolation\n"
-                    "                        rather than by making them entirely transparent.\n"
-                    " --refscale, -r <x>,<y>\n"
-                    "     Change the grid size that controls\n"
-                    "     how many samples are taken from the background image\n"
-                    "     for comparing with the input image, for image alignment.\n"
-                    "     Smaller grid = more accurate but slower aligning.\n"
-                    "     Default: -r32,32\n"
-                    "     Set to e.g. -r8,8 if you experience misalignment problems.\n"
-                    " --mvrange, -a <xmin>,<ymin>,<xmax>,<ymax>\n"
-                    "     Change the limits of motion vectors.\n"
-                    "     Default: -9999,-9999,9999,9999\n"
-                    "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
-                    "     only scroll horizontally and by 4 pixels at most per frame.\n"
-                    " --noalign              Disable image aligner\n"
-                    " --gif, -g              Save GIF frames instead of PNG frames\n"
-                    " --verbose, -v          Increase verbosity\n"
-                    "\n"
-                    "animmerger will always output PNG files into the current\n"
-                    "working directory, with the filename pattern tile-####.png\n"
-                    "where #### is a sequential number beginning from 0000.\n"
-                    "\n"
-                    "AVAILABLE PIXEL TYPES\n"
-                    "\n"
-                    "  AVERAGE, long option: --method=average , short option: -pa\n"
-                    "     Produces a single image. Each pixel\n"
-                    "     is the average of all frames addressing that pixel.\n"
-                    "  TINYAVERAGE, long option: --method=tinyaverage , short option: -pA\n"
-                    "     A less accurate but more space-efficient version of \"average\".\n"
-                    "  LAST, long option: --method=last , short option: -pl\n"
-                    "     Produces a single image. Each pixel\n"
-                    "     records the latest color addressing that pixel.\n"
-                    "  FIRST, long option: --method=first , short option: -pf\n"
-                    "     Produces a single image. Each pixel\n"
-                    "     records whatever first appeared in that spot.\n"
-                    "  SOLID, long option:: --method=solid , short option: -pO\n"
-                    "     Produces a single image. Changing pixels are\n"
-                    "     made transparent until something unchanging appears.\n"
-                    "  MOSTUSED, long option: --method=mostused, short option: -pm\n"
-                    "     Produces a single image. Each pixel\n"
-                    "     records the color that most often occured in that location.\n"
-                    "     Use this option for making maps!\n"
-                    "  LEASTUSED, long option: --method=leastused, short option: -pe\n"
-                    "     Produces a single image. Each pixel\n"
-                    "     records the color that least commonly occured in that location.\n"
-                    "  LASTNMOST, long option: --method=lastnmost, short option: -pL\n"
-                    "     Combines \"mostused\" and \"last\". Set threshold using\n"
-                    "     the -f option. Example: -f16 -pL = most used of last 16 pixels.\n"
-                    "     If -f0, then selects the last not-common pixel value.\n"
-                    "     If -f value is negative, uses leastused instead of mostused.\n"
-                    "  FIRSTNMOST, long option: --method=firstnmost, short option: -pF\n"
-                    "     Combines \"mostused\" and \"first\". Set threshold using\n"
-                    "     the -f option. Example: -f16 -pF = most used of first 16 pixels.\n"
-                    "     If -f0, then selects the first not-common pixel value.\n"
-                    "     If -f value is negative, uses leastused instead of mostused.\n"
-                    "  ACTIONAVG, long option: --method=actionavg, short option: -pt\n"
-                    "     Similar to average, except that blurring of actors\n"
-                    "     over the background is avoided.\n"
-                    "  CHANGELOG, long option: --method=changelog, short option: -pc\n"
-                    "     Produces an animation. Also supports motion blur.\n"
-                    "  LOOPINGLOG, long option: --methods=loopinglog, short option: -po\n"
-                    "     Produces a time-restricted animation.\n"
-                    "     Also called, \"lemmings mode\".\n"
-                    "     Use the -l option to set loop length in frames. Supports motion blur.\n"
-                    "  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n"
-                    "     A combination of loopinglog and actionavg, also supports motion blur.\n"
-                    "\n"
-                    "DEFINING MASKS\n"
-                    "\n"
-                    "  You can use masks to block out HUD / splitscreens\n"
-                    "  so that it will not intervene with the animation.\n"
-                    "  To define mask, use the --mask option, or -m for short.\n"
-                    "  Mask syntax: x1,y1,width,height,colors\n"
-                    "  Examples:\n"
-                    "    -m0,0,256,32\n"
-                    "       Mask out a 256x32 wide section at the top of screen\n"
-                    "    -m0,0,256,32,FFFFFF\n"
-                    "       From the 256x32 wide section at the top of screen,\n"
-                    "       mask out those pixels whose color is white (#FFFFFF)\n"
-                    "    -m16,16,8,40,000000,483D8B\n"
-                    "       From the 8x40 wide section at coordinates 16x16,\n"
-                    "       mask out those pixels whose color is either\n"
-                    "       black (#000000) or dark slate blue (#483D8B)\n"
-                    "\n"
-                    "TIPS\n"
-                    "\n"
-                    "Converting a GIF animation into individual frame files:\n"
-                    "   gifsicle -U -E animation.gif\n"
-                    "   animmerger <...> animation.gif.*\n"
-                    "\n"
-                    "To create images with multiple methods in succession,\n"
-                    "you can use the multimode option. For example,\n"
-                    "    --method average,last,mostused, or -pa,l,m\n"
-                    "creates three images, corresponding to that if\n"
-                    "you ran animmerger with -pa, -pl, -pm options\n"
-                    "in succession. Note that all modes share the same\n"
-                    "other parameters (firstlast, looplength).\n"
-                    "The benefit in doing this is that the image alignment\n"
-                    "phase needs only be done once.\n"
-                    "\n"
-                    "Different combinations of pixel methods require different\n"
-                    "amounts of memory. Use the -v option to see how much memory\n"
-                    "is required per pixel when using different options.\n"
-                    "animmerger always strives to choose the smallest pixel\n"
-                    "implementation that provides all of the requested features.\n"
-                    "\n"
-                    "When creating animations of video game content, please take\n"
-                    "all necessary steps to ensure that background stays immobile\n"
-                    "while characters move. Parallax animation is bad; If possible,\n"
-                    "please fix all background layers so that they scroll at even\n"
-                    "rate.\n"
-                    "\n");
+                std::printf("%s", "\
+animmerger v"VERSION" - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+\n\
+Usage: animmerger [<options>] <imagefile> [<...>]\n\
+\n\
+Merges animation frames together with motion shifting.\n\
+\n\
+ --help, -h             This help\n\
+ --mask, -m <defs>      Define a mask, see instructions below\n\
+ --method, -p <mode>    Select pixel type, see below\n\
+ --bgmethod, -b <mode>  Select pixel type for alignment tests\n\
+ --bgmethod0 <mode>     Explicit ChangeLog background before camera comes\n\
+ --bgmethod1 <mode>     Explicit ChangeLog background after camera leaves\n\
+ --looplength, -l <int> Set loop length for the LOOPINGxx modes\n\
+ --motionblur, -B <int> Set motion blur length for animated modes\n\
+ --firstlast, -f <int>  Set threshold for xxNMOST modes\n\
+ --version, -V          Displays version information\n\
+ --yuv, -y              Sets YUV mode for average-color calculations\n\
+                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n\
+ --blurhud, -u          Hide masked areas with circular interpolation\n\
+                        rather than by making them entirely transparent.\n\
+ --refscale, -r <x>,<y>\n\
+     Change the grid size that controls\n\
+     how many samples are taken from the background image\n\
+     for comparing with the input image, for image alignment.\n\
+     Smaller grid = more accurate but slower aligning.\n\
+     Default: -r32,32\n\
+     Set to e.g. -r8,8 if you experience misalignment problems.\n\
+ --mvrange, -a <xmin>,<ymin>,<xmax>,<ymax>\n\
+     Change the limits of motion vectors.\n\
+     Default: -9999,-9999,9999,9999\n\
+     Example: --mvrange -4,0,4,0 specifies that the screen may\n\
+     only scroll horizontally and by 4 pixels at most per frame.\n\
+ --noalign              Disable image aligner\n\
+ --gif, -g              Save GIF frames instead of PNG frames\n\
+ --verbose, -v          Increase verbosity\n\
+\n\
+animmerger will always output PNG files into the current\n\
+working directory, with the filename pattern tile-####.png\n\
+where #### is a sequential number beginning from 0000.\n\
+\n\
+AVAILABLE PIXEL TYPES\n\
+\n\
+  AVERAGE, long option: --method=average , short option: -pa\n\
+     Produces a single image. Each pixel\n\
+     is the average of all frames addressing that pixel.\n\
+  TINYAVERAGE, long option: --method=tinyaverage , short option: -pA\n\
+     A less accurate but more space-efficient version of \"average\".\n\
+  LAST, long option: --method=last , short option: -pl\n\
+     Produces a single image. Each pixel\n\
+     records the latest color addressing that pixel.\n\
+  FIRST, long option: --method=first , short option: -pf\n\
+     Produces a single image. Each pixel\n\
+     records whatever first appeared in that spot.\n\
+  SOLID, long option:: --method=solid , short option: -pO\n\
+     Produces a single image. Changing pixels are\n\
+     made transparent until something unchanging appears.\n\
+  MOSTUSED, long option: --method=mostused, short option: -pm\n\
+     Produces a single image. Each pixel\n\
+     records the color that most often occured in that location.\n\
+     Use this option for making maps!\n\
+  LEASTUSED, long option: --method=leastused, short option: -pe\n\
+     Produces a single image. Each pixel\n\
+     records the color that least commonly occured in that location.\n\
+  LASTNMOST, long option: --method=lastnmost, short option: -pL\n\
+     Combines \"mostused\" and \"last\". Set threshold using\n\
+     the -f option. Example: -f16 -pL = most used of last 16 pixels.\n\
+     If -f0, then selects the last not-common pixel value.\n\
+     If -f value is negative, uses leastused instead of mostused.\n\
+  FIRSTNMOST, long option: --method=firstnmost, short option: -pF\n\
+     Combines \"mostused\" and \"first\". Set threshold using\n\
+     the -f option. Example: -f16 -pF = most used of first 16 pixels.\n\
+     If -f0, then selects the first not-common pixel value.\n\
+     If -f value is negative, uses leastused instead of mostused.\n\
+  ACTIONAVG, long option: --method=actionavg, short option: -pt\n\
+     Similar to average, except that blurring of actors\n\
+     over the background is avoided.\n\
+  CHANGELOG, long option: --method=changelog, short option: -pc\n\
+     Produces an animation. Also supports motion blur.\n\
+  LOOPINGLOG, long option: --methods=loopinglog, short option: -po\n\
+     Produces a time-restricted animation.\n\
+     Also called, \"lemmings mode\".\n\
+     Use the -l option to set loop length in frames. Supports motion blur.\n\
+  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n\
+     A combination of loopinglog and actionavg, also supports motion blur.\n\
+\n\
+DEFINING MASKS\n\
+\n\
+  You can use masks to block out HUD / splitscreens\n\
+  so that it will not intervene with the animation.\n\
+  To define mask, use the --mask option, or -m for short.\n\
+  Mask syntax: x1,y1,width,height,colors\n\
+  Examples:\n\
+    -m0,0,256,32\n\
+       Mask out a 256x32 wide section at the top of screen\n\
+    -m0,0,256,32,FFFFFF\n\
+       From the 256x32 wide section at the top of screen,\n\
+       mask out those pixels whose color is white (#FFFFFF)\n\
+    -m16,16,8,40,000000,483D8B\n\
+       From the 8x40 wide section at coordinates 16x16,\n\
+       mask out those pixels whose color is either\n\
+       black (#000000) or dark slate blue (#483D8B)\n\
+\n\
+TIPS\n\
+\n\
+Converting a GIF animation into individual frame files:\n\
+   gifsicle -U -E animation.gif\n\
+   animmerger <...> animation.gif.*\n\
+\n\
+To create images with multiple methods in succession,\n\
+you can use the multimode option. For example,\n\
+    --method average,last,mostused, or -pa,l,m\n\
+creates three images, corresponding to that if\n\
+you ran animmerger with -pa, -pl, -pm options\n\
+in succession. Note that all modes share the same\n\
+other parameters (firstlast, looplength).\n\
+The benefit in doing this is that the image alignment\n\
+phase needs only be done once.\n\
+\n\
+Different combinations of pixel methods require different\n\
+amounts of memory. Use the -v option to see how much memory\n\
+is required per pixel when using different options.\n\
+animmerger always strives to choose the smallest pixel\n\
+implementation that provides all of the requested features.\n\
+\n\
+When creating animations of video game content, please take\n\
+all necessary steps to ensure that background stays immobile\n\
+while characters move. Parallax animation is bad; If possible,\n\
+please fix all background layers so that they scroll at even\n\
+rate.\n\
+\n");
                 return 0;
             }
             case 'm':

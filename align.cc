@@ -579,7 +579,7 @@ AlignResult Align(
     /* >= 94% = very reliable
      * >= 80% = parallax motion, but still relatively reliable
      */
-    if(verbose)
+    if(verbose >= 2)
     {
         std::fprintf(stderr,
             "---------------------------\n"
