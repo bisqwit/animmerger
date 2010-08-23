@@ -19,11 +19,12 @@ public:
         if(pix == DefaultPixel)
         {
             pix = p;
-            ++pix_confidence;
+            pix_confidence = 0;
         }
         else if(p == pix)
         {
-            ++pix_confidence;
+            if(pix_confidence) ++pix_confidence;
+            else pix_confidence = 2;
         }
         else
         {
@@ -33,7 +34,7 @@ public:
                 best_pix        = pix;
             }
             pix_confidence = 0;
-            pix = DefaultPixel;
+            pix = p;
         }
     }
     void set_n(uint32 p, unsigned count) FasterPixelMethod
@@ -49,7 +50,10 @@ public:
                     pix_confidence = count;
                 }
                 else if(p == pix)
-                    pix_confidence += count;
+                {
+                    if(pix_confidence) pix_confidence += count;
+                    else pix_confidence += 1 + count;
+                }
                 else
                 {
                     if(pix != DefaultPixel && pix_confidence > best_confidence)
@@ -57,7 +61,7 @@ public:
                         best_confidence = pix_confidence;
                         best_pix        = pix;
                     }
-                    pix_confidence = count-1;
+                    pix_confidence = count;
                     pix = p;
                 }
         }
