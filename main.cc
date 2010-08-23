@@ -2,6 +2,7 @@
 #include "canvas.hh"
 #include "settype.hh"
 #include "align.hh"
+#include "openmp.hh"
 
 #define impl_Average 0 /* dummy constant for AveragePixel */
 #include "pixels/averagepixel.hh"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <string.h>
 #include <getopt.h>
 
 struct AlphaRange
@@ -24,6 +26,13 @@ static const char* const PixelMethodNames[NPixelMethods] =
      DefinePixelMethods(MakePixName)
 };
 #undef MakePixName
+
+enum MaskMethod
+{
+    MaskHole,
+    MaskCircularBlur,
+    MaskPattern
+};
 
 namespace
 {
@@ -84,7 +93,7 @@ namespace
         return result;
     }
 
-    static inline bool is_hud_pixel(uint32 pixel)
+    static inline bool is_masked_pixel(uint32 pixel)
     {
         return pixel & 0xFF000000u;
     }
@@ -95,7 +104,7 @@ namespace
      * when the selected distance randomly only hits one pixel;
      * at the cost of some blur.
      */
-    static int BlurHUD_FindDistance(
+    int BlurHUD_FindDistance(
         const uint32* gfx, unsigned sx,unsigned sy,
         unsigned x, unsigned y,
         unsigned max_xdistance,
@@ -106,7 +115,7 @@ namespace
         int circle_radius_vertical   = max_ydistance+1;
         // ^ Estimated maximum radius that needs to be calculated to
         //   find a pixel that does not belong to the HUD.
-    try_again:
+    try_again:;
         int minx = -circle_radius_horizontal, maxx = +circle_radius_horizontal;
         int miny = -circle_radius_vertical,   maxy = +circle_radius_vertical;
         if(minx+rx < 0) minx = -rx;
@@ -121,7 +130,7 @@ namespace
             int ciry_squared = ciry*ciry;
             for(int cirx=minx; cirx<=maxx; ++cirx)
             {
-                if(!is_hud_pixel( src[cirx] ))
+                if(!is_masked_pixel( src[cirx] ))
                 {
                     int distance_squared = cirx*cirx + ciry_squared;
                     if(smallest_distance_squared == 0
@@ -150,7 +159,55 @@ namespace
         return result;
     }
 
-    static void BlurHUD(
+    uint32 DecideBlurHUD(
+        const uint32* gfx, unsigned sx,unsigned sy,
+        const AlphaRange& bounds,
+        unsigned x, unsigned y)
+    {
+        /* At each position that is inside the logo, non-logo
+         * pixels are averaged together from a circular area
+         * whose radius corresponds to the shortest distance
+         * to a non-logo pixel, increased by a factor of 1.25.
+         *
+         * This is basically the same as what MPlayer's delogo
+         * filter does, but written in 95% fewer lines.
+         * Also, delogo uses manhattan distances rather than
+         * euclidean distances.
+         */
+        const int circle_radius = BlurHUD_FindDistance
+            ( gfx,sx,sy, x+bounds.x1,y+bounds.y1,
+              std::min(bounds.width-x, x),
+              std::min(bounds.height-y, y)
+            );
+
+        int rx = x + bounds.x1;
+        int ry = y + bounds.y1;
+        int minx = -circle_radius, maxx = +circle_radius;
+        int miny = -circle_radius, maxy = +circle_radius;
+        if(minx+rx < 0) minx = -rx;
+        if(miny+ry < 0) miny = -ry;
+        if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
+        if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
+
+        const uint32* src = &gfx[(miny+ry)*sx + rx];
+
+        const int circle_radius_squared = circle_radius*circle_radius;
+
+        AveragePixel output;
+        for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
+        {
+            const int circle_threshold = circle_radius_squared - ciry*ciry;
+            for(int cirx=minx; cirx<=maxx; ++cirx)
+                if(!is_masked_pixel(src[cirx])
+                && cirx*cirx <= circle_threshold)
+                {
+                    output.set(src[cirx]);
+                }
+        }
+        return output.get();
+    }
+
+    void BlurHUD(
         uint32* gfx, unsigned sx,unsigned sy,
         const AlphaRange& bounds)
     {
@@ -163,56 +220,199 @@ namespace
             unsigned q = (bounds.y1 + y) * sx + bounds.x1;
             for(unsigned x=0; x < bounds.width; ++x)
             {
-                if(!is_hud_pixel( backup[q+x] ))
-                {
-                    gfx[q+x] = backup[q+x];
-                    continue;
-                }
-                /* At each position that is inside the logo, non-logo
-                 * pixels are averaged together from a circular area
-                 * whose radius corresponds to the shortest distance
-                 * to a non-logo pixel, increased by a factor of 1.25.
-                 *
-                 * This is basically the same as what MPlayer's delogo
-                 * filter does, but written in 95% fewer lines.
-                 * Also, delogo uses manhattan distances rather than
-                 * euclidean distances.
-                 */
-                int circle_radius = BlurHUD_FindDistance
-                    ( &backup[0],sx,sy, x+bounds.x1,y+bounds.y1,
-                      std::min(bounds.width-x, x),
-                      std::min(bounds.height-y, y)
-                    );
-
-                int rx = x + bounds.x1;
-                int ry = y + bounds.y1;
-
-                int minx = -circle_radius, maxx = +circle_radius;
-                int miny = -circle_radius, maxy = +circle_radius;
-                if(minx+rx < 0) minx = -rx;
-                if(miny+ry < 0) miny = -ry;
-                if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
-                if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
-
-                const uint32* src = &backup[(miny+ry)*sx + rx];
-
-                const int circle_radius_squared = circle_radius*circle_radius;
-
-                AveragePixel output;
-                for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
-                {
-                    const int circle_threshold = circle_radius_squared - ciry*ciry;
-                    for(int cirx=minx; cirx<=maxx; ++cirx)
-                        if(!is_hud_pixel(src[cirx])
-                        && cirx*cirx <= circle_threshold)
-                        {
-                            output.set(src[cirx]);
-                        }
-                }
-                gfx[q+x] = output.get();
+                if(is_masked_pixel( backup[q+x] ))
+                    gfx[q+x] = DecideBlurHUD(&backup[0], sx,sy,bounds, x,y);
             } // for x
         } // for y
     } // BlurHUD
+
+    unsigned CompareTiles(
+        const uint32* gfx, unsigned sx,unsigned sy,
+        int a_x, int a_y,
+        int b_x, int b_y,
+        unsigned tilesizex, unsigned tilesizey)
+    {
+        /* Compare two tiles of size tilesize
+         * centered at a and b respectively.
+         */
+        unsigned n_match = 0;
+        a_x -= tilesizex/2; if(a_x < 0) a_x = 0;
+        a_y -= tilesizey/2; if(a_y < 0) a_y = 0;
+        b_x -= tilesizex/2; if(b_x < 0) b_x = 0;
+        b_y -= tilesizey/2; if(b_y < 0) b_y = 0;
+        if(a_x + tilesizex > sx) a_x = sx-tilesizex;
+        if(a_y + tilesizey > sy) a_y = sy-tilesizey;
+        if(b_x + tilesizex > sx) b_x = sx-tilesizex;
+        if(b_y + tilesizey > sy) b_y = sy-tilesizey;
+        const uint32* a_ptr = gfx + a_y * sx + a_x;
+        const uint32* b_ptr = gfx + b_y * sx + b_x;
+        const uint32* a_ptr_end = a_ptr + tilesizey*sx;
+        for(; a_ptr < a_ptr_end; a_ptr += sx, b_ptr += sx)
+            for(unsigned x=0; x<tilesizex; ++x)
+            {
+                uint32 a_pix = a_ptr[x];
+                uint32 b_pix = b_ptr[x];
+                /* Truth table for comparison:
+                 *                  transparent(B)
+                 *   transparent(A)     no  yes
+                 *               no    a==b true
+                 *              yes    true false
+                 */
+                bool a_hud = is_masked_pixel(a_pix);
+                bool b_hud = is_masked_pixel(b_pix);
+                if(!(a_hud && b_hud)
+                && (a_hud || b_hud || a_pix == b_pix))
+                    ++n_match;
+            }
+        return n_match;
+    }
+
+    uint32 DecideExtrapolateHUD(
+        const uint32* gfx, unsigned sx,unsigned sy,
+        const AlphaRange& bounds,
+        unsigned x, unsigned y)
+    {
+        const int absx = bounds.x1 + x;
+        const int absy = bounds.y1 + y;
+
+        unsigned max_tilesize_power = 5;
+    try_again:;
+        int best_source_x=0, best_source_y=0;
+        unsigned best_score=0;
+      #ifdef _OPENMP
+        MutexType score_lock;
+      #endif
+
+        const unsigned n_tilesize_powers =
+            (max_tilesize_power-3)+1;
+        const unsigned n_tilesize_powers_squared =
+            n_tilesize_powers * n_tilesize_powers;
+
+        #pragma omp parallel for schedule(static)
+        for(unsigned tilesize_counter=0;
+            tilesize_counter < n_tilesize_powers_squared;
+            ++tilesize_counter)
+        {
+            unsigned tilesize_x = 1 << (3 + tilesize_counter/n_tilesize_powers);
+            unsigned tilesize_y = 1 << (3 + tilesize_counter%n_tilesize_powers);
+
+            int extend_extent_x = 1;
+            while(extend_extent_x * tilesize_x < bounds.width+tilesize_x*2)
+                ++extend_extent_x;
+            int extend_extent_y = 1;
+            while(extend_extent_y * tilesize_y < bounds.height+tilesize_y*2)
+                ++extend_extent_y;
+
+            for(int extend_x=-extend_extent_x;
+                    extend_x<=extend_extent_x;
+                    ++extend_x)
+            for(int extend_y=-extend_extent_y;
+                    extend_y<=extend_extent_y;
+                    ++extend_y)
+            {
+                if(!extend_x && !extend_y) continue;
+                int source_x = absx + extend_x * int(tilesize_x);
+                int source_y = absy + extend_y * int(tilesize_y);
+                if(source_x < 0 || source_x >= int(sx)
+                || source_y < 0 || source_y >= int(sy))
+                    continue;
+                if(is_masked_pixel( gfx[source_y*sx + source_x] ))
+                    continue;
+
+                unsigned score = CompareTiles(
+                    gfx,sx,sy,
+                    absx,absy,
+                    source_x,source_y,
+                    8,8 /*tilesize_x,tilesize_y*/);
+              #ifdef _OPENMP
+                ScopedLock lck(score_lock);
+              #endif
+                if(score > best_score)
+                {
+                    best_source_x = source_x;
+                    best_source_y = source_y;
+                    best_score = score;
+                }
+            }
+        }
+        if(best_score == 0)
+        {
+            /* If no sample could be found,
+             * retry with a larger tile size limit.
+             */
+            max_tilesize_power += 1;
+            goto try_again;
+        }
+        return gfx[best_source_y*sx + best_source_x];
+    }
+
+    void ExtrapolateHUD(
+        uint32* gfx, unsigned sx,unsigned sy,
+        AlphaRange& bounds)
+    {
+        /* For each 8x8 square within the bounds,
+         * figure out a tile size with which to
+         * best replicate the outside content.
+         * The tile size may be horizontally and vertically
+         * any power of two >= 3.
+         */
+        int carry = (int)bounds.height - (int)bounds.width;
+        while(bounds.width >= 2
+           && bounds.height >= 2)
+        {
+            //fprintf(stderr, "%ux%u+%u+%u\n",
+            //    bounds.width,bounds.height, bounds.x1,bounds.y1);
+            if(carry >= 0)
+            {
+                carry -= bounds.width;
+
+                unsigned y2 = bounds.height-1;
+                uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
+                uint32* q1 = q0 + y2 * sx;
+
+                // Do top & bottom horizontal edges
+                for(unsigned x=0; x<bounds.width; ++x)
+                {
+                    if(is_masked_pixel(q0[x]))
+                        q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
+                    if(is_masked_pixel(q1[x]))
+                        q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
+                }
+                bounds.y1 += 1;
+                bounds.height -= 2;
+            }
+            else
+            {
+                carry += bounds.height;
+
+                unsigned x2 = bounds.width-1;
+                uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
+                uint32* q1 = q0 + x2;
+
+                // Do left & right vertical edges
+                for(unsigned y=0; y<bounds.height; ++y, q0+=sx, q1+=sx)
+                {
+                    if(is_masked_pixel(*q0))
+                        *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
+                    if(is_masked_pixel(*q1))
+                        *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
+                }
+                bounds.x1 += 1;
+                bounds.width -= 2;
+            }
+        }
+
+        /* bounds.width or bounds.height may still be 1. */
+        for(unsigned y=0; y<bounds.height; ++y)
+        {
+            uint32* q = gfx + (bounds.y1 + y) * sx + bounds.x1;
+            for(unsigned x=0; x<bounds.width; ++x)
+            {
+                if(is_masked_pixel( q[x] ))
+                    q[x] = DecideExtrapolateHUD(&gfx[0], sx,sy,bounds, x,y);
+            }
+        }
+    }
 } // namespace
 
 int main(int argc, char** argv)
@@ -221,8 +421,8 @@ int main(int argc, char** argv)
 
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
-    bool HudBlurring = false;
     bool autoalign = true;
+    MaskMethod maskmethod = MaskHole;
 
     for(;;)
     {
@@ -236,7 +436,7 @@ int main(int argc, char** argv)
             {"bgmethod",   1,0,'b'},
             {"bgmethod0",  1,0,4000},
             {"bgmethod1",  1,0,4001},
-            {"blurhud",    0,0,'u'},
+            {"maskmethod", 1,0,'u'},
             {"looplength", 1,0,'l'},
             {"motionblur", 1,0,'B'},
             {"firstlast",  1,0,'f'},
@@ -248,7 +448,7 @@ int main(int argc, char** argv)
             {"noalign",    0,0,4002},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -264,20 +464,34 @@ Usage: animmerger [<options>] <imagefile> [<...>]\n\
 \n\
 Merges animation frames together with motion shifting.\n\
 \n\
- --help, -h             This help\n\
- --mask, -m <defs>      Define a mask, see instructions below\n\
- --method, -p <mode>    Select pixel type, see below\n\
- --bgmethod, -b <mode>  Select pixel type for alignment tests\n\
- --bgmethod0 <mode>     Explicit ChangeLog background before camera comes\n\
- --bgmethod1 <mode>     Explicit ChangeLog background after camera leaves\n\
- --looplength, -l <int> Set loop length for the LOOPINGxx modes\n\
- --motionblur, -B <int> Set motion blur length for animated modes\n\
- --firstlast, -f <int>  Set threshold for xxNMOST modes\n\
- --version, -V          Displays version information\n\
- --yuv, -y              Sets YUV mode for average-color calculations\n\
-                        Affects AVERAGE, ACTIONAVG and LOOPINGAVG.\n\
- --blurhud, -u          Hide masked areas with circular interpolation\n\
-                        rather than by making them entirely transparent.\n\
+Options:\n\
+ --help, -h\n\
+     This help\n\
+ --version, -V\n\
+     Displays version information\n\
+ --verbose, -v\n\
+     Increase verbosity\n\
+ --mask, -m <defs>\n\
+     Define a mask, see instructions below\n\
+ --maskmethod, -u <value>\n\
+     Specify how the masked content will be hidden, see instructions below\n\
+ --method, -p <mode>\n\
+     Select pixel type, see below\n\
+ --bgmethod, -b <mode>\n\
+     Select pixel type for alignment tests\n\
+ --bgmethod0 <mode>\n\
+     Explicit pixel mode for ChangeLog background before camera comes\n\
+ --bgmethod1 <mode>\n\
+     Explicit pixel mode for ChangeLog background after camera leaves\n\
+ --looplength, -l <int>\n\
+     Set loop length for the LOOPINGxx modes\n\
+ --motionblur, -B <int>\n\
+     Set motion blur length for animated modes\n\
+ --firstlast, -f <int>\n\
+     Set threshold for xxNMOST modes\n\
+ --yuv, -y\n\
+     Specifies that average-colors are to be calculated in the YUV\n\
+     colorspace rather than the default RGB colorspace.\n\
  --refscale, -r <x>,<y>\n\
      Change the grid size that controls\n\
      how many samples are taken from the background image\n\
@@ -290,9 +504,11 @@ Merges animation frames together with motion shifting.\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
      only scroll horizontally and by 4 pixels at most per frame.\n\
- --noalign              Disable image aligner\n\
- --gif, -g              Save GIF frames instead of PNG frames\n\
- --verbose, -v          Increase verbosity\n\
+ --noalign\n\
+     Disable automatic image aligner\n\
+ --gif, -g\n\
+     Save GIF frames instead of PNG frames,\n\
+     even in non-animated modes.\n\
 \n\
 animmerger will always output PNG files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
@@ -349,16 +565,37 @@ DEFINING MASKS\n\
   so that it will not intervene with the animation.\n\
   To define mask, use the --mask option, or -m for short.\n\
   Mask syntax: x1,y1,width,height,colors\n\
+\n\
   Examples:\n\
+\n\
     -m0,0,256,32\n\
        Mask out a 256x32 wide section at the top of screen\n\
+\n\
     -m0,0,256,32,FFFFFF\n\
        From the 256x32 wide section at the top of screen,\n\
        mask out those pixels whose color is white (#FFFFFF)\n\
+\n\
     -m16,16,8,40,000000,483D8B\n\
        From the 8x40 wide section at coordinates 16x16,\n\
        mask out those pixels whose color is either\n\
        black (#000000) or dark slate blue (#483D8B)\n\
+\n\
+  The masking method option --maskmethod, or -u for short,\n\
+  can be used to control how masks are handled.\n\
+\n\
+     --maskmethod=hole or -uhole (default)\n\
+         Make the masked areas entirely transparent. It will be as\n\
+         if there was a hole in the image where the masked part was.\n\
+         Alias: hole, alpha, transparent\n\
+\n\
+     --maskmethod=delogo or -ublur\n\
+         Hide masked areas by blurring them with circular interpolation.\n\
+         Alias: delogo, blur, interpolate\n\
+\n\
+     --maskmethod=pattern or -upattern\n\
+         Hide masked areas by extrapolating a surrounding\n\
+         pattern over the masked areas.\n\
+         Alias: pattern, extrapolate\n\
 \n\
 TIPS\n\
 \n\
@@ -383,7 +620,7 @@ animmerger always strives to choose the smallest pixel\n\
 implementation that provides all of the requested features.\n\
 \n\
 When creating animations of video game content, please take\n\
-all necessary steps to ensure that background stays immobile\n\
+all necessary steps to ensure that background stays fixed\n\
 while characters move. Parallax animation is bad; If possible,\n\
 please fix all background layers so that they scroll at even\n\
 rate.\n\
@@ -498,7 +735,26 @@ rate.\n\
             }
             case 'u':
             {
-                HudBlurring = true;
+                if(strcasecmp(optarg, "hole") == 0
+                || strcasecmp(optarg, "alpha") == 0
+                || strcasecmp(optarg, "transparent") == 0
+                )
+                    maskmethod = MaskHole;
+                else if(strcasecmp(optarg, "delogo") == 0
+                     || strcasecmp(optarg, "blur") == 0
+                     || strcasecmp(optarg, "interpolate") == 0
+                       )
+                    maskmethod = MaskCircularBlur;
+                else if(strcasecmp(optarg, "pattern") == 0
+                     || strcasecmp(optarg, "extrapolate") == 0
+                       )
+                    maskmethod = MaskPattern;
+                else
+                {
+                    std::fprintf(stderr,
+                        "animmerger: Unrecognized method: %s\n", optarg);
+                    return -1;
+                }
                 break;
             }
             case 4000: // bgmethod0
@@ -657,10 +913,18 @@ rate.\n\
                         ++BlankCount;
                     }
                 }
-            if(HudBlurring && BlankCount != 0)
-            {
-                BlurHUD(&pixels[0], sx, sy, tmp);
-            }
+            if(BlankCount != 0)
+                switch(maskmethod)
+                {
+                    case MaskHole:
+                        break;
+                    case MaskCircularBlur:
+                        BlurHUD(&pixels[0], sx, sy, tmp);
+                        break;
+                    case MaskPattern:
+                        ExtrapolateHUD(&pixels[0], sx, sy, tmp);
+                        break;
+                }
         }
 
         if(autoalign)
