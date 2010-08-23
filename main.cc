@@ -91,7 +91,9 @@ namespace
 
     /* Find the smallest circle radius that finds
      * a non-logo pixel from the given position.
-     * Multiply the result by 1.25.
+     * Multiply the result by 1.25 to avoid jitter that happens
+     * when the selected distance randomly only hits one pixel;
+     * at the cost of some blur.
      */
     static int BlurHUD_FindDistance(
         const uint32* gfx, unsigned sx,unsigned sy,
@@ -99,19 +101,20 @@ namespace
         unsigned max_xdistance,
         unsigned max_ydistance)
     {
-        if(!is_hud_pixel( gfx[y*sx+x] )) return 0;
-
-        int circle_radius = std::max(max_xdistance, max_ydistance)+1;
-
-        int rx = x, ry = y;
-        int minx = -circle_radius, maxx = +circle_radius;
-        int miny = -circle_radius, maxy = +circle_radius;
+        const int rx = x, ry = y;
+        int circle_radius_horizontal = max_xdistance+1;
+        int circle_radius_vertical   = max_ydistance+1;
+        // ^ Estimated maximum radius that needs to be calculated to
+        //   find a pixel that does not belong to the HUD.
+    try_again:
+        int minx = -circle_radius_horizontal, maxx = +circle_radius_horizontal;
+        int miny = -circle_radius_vertical,   maxy = +circle_radius_vertical;
         if(minx+rx < 0) minx = -rx;
         if(miny+ry < 0) miny = -ry;
         if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
         if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
 
-        int smallest_distance_squared = circle_radius*circle_radius*4;
+        int smallest_distance_squared = 0;
         const uint32* src = &gfx[(miny+ry)*sx + rx];
         for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
         {
@@ -121,7 +124,8 @@ namespace
                 if(!is_hud_pixel( src[cirx] ))
                 {
                     int distance_squared = cirx*cirx + ciry_squared;
-                    if(distance_squared < smallest_distance_squared)
+                    if(smallest_distance_squared == 0
+                    || distance_squared < smallest_distance_squared)
                     {
                         smallest_distance_squared = distance_squared;
                         if(smallest_distance_squared == 1)
@@ -129,6 +133,17 @@ namespace
                     }
                 }
             }
+        }
+        if(smallest_distance_squared == 0)
+        {
+            // For some reason, we found nothing.
+            // Just in case, double the circle_radius and try again!
+            // This may happen when the max_?distance variables are
+            // based on the edges of a HUD that happens to be positioned
+            // on the screen edges.
+            circle_radius_horizontal *= 2;
+            circle_radius_vertical   *= 2;
+            goto try_again;
         }
     found_smallest_possible:
         int result = (int) ( 0.5 + std::sqrt( (double) smallest_distance_squared ) * 1.25 );
