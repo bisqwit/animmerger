@@ -207,6 +207,7 @@ int main(int argc, char** argv)
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
     bool HudBlurring = false;
+    bool autoalign = true;
 
     for(;;)
     {
@@ -229,6 +230,7 @@ int main(int argc, char** argv)
             {"gif",        0,0,'g'},
             {"verbose",    0,0,'v'},
             {"yuv",        0,0,'y'},
+            {"noalign",    0,0,4002},
             {0,0,0,0}
         };
         int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu", long_options, &option_index);
@@ -273,6 +275,7 @@ int main(int argc, char** argv)
                     "     Default: -9999,-9999,9999,9999\n"
                     "     Example: --mvrange -4,0,4,0 specifies that the screen may\n"
                     "     only scroll horizontally and by 4 pixels at most per frame.\n"
+                    " --noalign              Disable image aligner\n"
                     " --gif, -g              Save GIF frames instead of PNG frames\n"
                     " --verbose, -v          Increase verbosity\n"
                     "\n"
@@ -499,6 +502,11 @@ int main(int argc, char** argv)
                 bgmethod1_chosen = true;
                 break;
             }
+            case 4002:
+            {
+                autoalign = false;
+                break;
+            }
             case 'v':
                 ++verbose;
                 break;
@@ -640,10 +648,18 @@ int main(int argc, char** argv)
             }
         }
 
-        tracker.FitScreenAutomatic(&pixels[0], sx,sy);
-
-        //bgmethod = pixelmethod; NeedsBackgroundPixel = false;
-        //tracker.FitScreen(&pixels[0], sx,sy,   0,0, false);
+        if(autoalign)
+        {
+            tracker.FitScreenAutomatic(&pixels[0], sx,sy);
+        }
+        else
+        {
+            AlignResult align;
+            align.offs_x = 0;
+            align.offs_y = 0;
+            align.suspect_reset = false;
+            tracker.FitScreen(&pixels[0], sx,sy, align);
+        }
 
         tracker.NextFrame();
     }
