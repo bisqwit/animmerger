@@ -383,6 +383,10 @@ public:
     {
         return GetAggregate<TinyAveragePixel> ();
     }
+    inline uint32 GetSolid(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<SolidPixel> ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
@@ -535,6 +539,7 @@ public:
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)
     | (1ul << pm_TinyAveragePixel)
+    | (1ul << pm_SolidPixel)
     | (1ul << pm_LastPixel)
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)

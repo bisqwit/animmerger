@@ -15,6 +15,7 @@
 #define DefinePixelMethods(callback) \
     callback(f,0x00,First) \
     callback(l,0x00,Last) \
+    callback(O,0x00,Solid) \
     callback(F,0x08,FirstNMost) \
     callback(L,0x08,LastNMost) \
     callback(a,0x10,Average) \

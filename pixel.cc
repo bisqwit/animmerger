@@ -33,6 +33,7 @@ struct Array256x256of;
 #define DefinePixelImpls(callback) \
     callback(Last) \
     callback(First) \
+    callback(Solid) \
     callback(TinyAverage) \
     callback(Average) \
     callback(MostUsed) \
@@ -44,6 +45,7 @@ enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
+#include "pixels/solidpixel.hh"
 #include "pixels/averagepixel.hh"
 #include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"

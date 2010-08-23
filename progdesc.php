@@ -131,7 +131,7 @@ Produced with commandline:<br>
 
 ", 'last:1.1.1. LAST'=> "
 
-The \"last\" method is a simpler implementation of the \"most used\"
+The \"last\" method is a simpler implementation of the MostUsed
 method, simply recording the last pixel value in any location.
 <p>
 <img width=724 height=224
@@ -157,6 +157,22 @@ It is the same effect as if you move the paper in a desktop scanner during the s
 Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-f.png</code>
+
+", 'solid:1.1.1. SOLID'=> "
+
+The \"solid\" method is an experimental light-weight replacement
+to the \"mostused\" method. It simply removes anything that moves
+and retains whatever stays still.
+<p>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-O.png\"
+     alt=\"Solid\">
+<p>
+As seen here, it has shortcomings, too.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pO snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-O.png</code>
 
 ", 'firstnmost:1.1.1. FIRSTNMOST'=> "
 
@@ -268,7 +284,7 @@ Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
      alt=\"Changelog, with HUD intact\">
 <p>
 Exteriors, i.e. content outside the \"current\" viewport of the animation
-are colored as in the \"most used\" pixel method.<br>
+are colored as in the MostUsed pixel method.<br>
 This is evident in the trails left by the HUD as it scrolls by at different speeds.
 <p>
 Produced with commandline:<br>
@@ -279,15 +295,16 @@ Produced with commandline:<br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
  <p>
-The background for ChangeLog can also be controlled with the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt>
-options.<br>
+The background for ChangeLog is normally generated with the MostUsed method, but it can be
+explicitly controlled with the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> options.<br>
 Here is how the above animation (HUD-less) looks like with <tt>--bgmethod0 first --bgmethod1 last</tt>:
  <p>
 <img width=724 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cfl.gif\"
      alt=\"Changelog with first&amp;last\">
-Note that <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> only affect the ChangeLog method,
-and only when motion blur is not used.
+<br>
+Note that the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> options
+only affect the ChangeLog method, and only when motion blur is not used.
 
 ", 'motionblur:1.1.1.1. Motion blur' => "
 
