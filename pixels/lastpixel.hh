@@ -23,6 +23,5 @@ public:
     static const unsigned long Traits =
         (1ul << pm_LastPixel);
     static const unsigned SizePenalty = 0;
-    static const unsigned Components =
-        (1ul << impl_Last);
+    static const unsigned Components = (1ul << impl_Last);
 };

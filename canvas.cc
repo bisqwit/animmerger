@@ -1,9 +1,12 @@
-#include "canvas.hh"
-#include "align.hh"
+#include "pixel.hh"
+#include "pixels/averagepixel.hh"
+
 #include <gd.h>
 #include <cstdio>
 
 #include "openmp.hh"
+#include "canvas.hh"
+#include "align.hh"
 
 int SaveGif = -1;
 
@@ -278,6 +281,11 @@ void TILE_Tracker::Save(unsigned method)
                 SavedTimer = LoopingLogLength;
         }
 
+        if(SaveGif == 1 || animated)
+        {
+            CreatePalette( (PixelMethod) method, SavedTimer );
+        }
+
         #pragma omp parallel for schedule(dynamic) ordered
         for(unsigned frame=0; frame<SavedTimer; frame+=1)
         {
@@ -297,6 +305,93 @@ void TILE_Tracker::Save(unsigned method)
       #pragma omp parallel for ordered schedule(static,1)
         for(unsigned dummy=0; dummy<1; ++dummy)
             SaveFrame( (PixelMethod)method, 0, SequenceBegin);
+    }
+}
+
+namespace
+{
+    unsigned ColorDiff(int r1,int g1,int b1, uint32 pix2)
+    {
+        int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
+        int rdiff = r1-r2, gdiff = g1-g2, bdiff = b1-b2;
+        return rdiff*rdiff + gdiff*gdiff + bdiff*bdiff;
+    }
+    unsigned ColorDiff(uint32 pix1, uint32 pix2)
+    {
+        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+        return ColorDiff(r1,g1,b1, pix2);
+    }
+}
+
+void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
+{
+    typedef std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> > MapT;
+    MapT PixelOccurrenceCounts;
+    for(unsigned frame=0; frame<nframes; frame+=1)
+    {
+        for(ymaptype::const_iterator
+            yi = screens.begin();
+            yi != screens.end();
+            ++yi)
+        for(xmaptype::const_iterator
+            xi = yi->second.begin();
+            xi != yi->second.end();
+            ++xi)
+        {
+            const cubetype& cube      = xi->second;
+            uint32 result[256*256];
+            cube.pixels->GetLiveSectionInto(method, frame, result,256, 0,0, 256,256);
+            for(unsigned a=0; a<256*256; ++a)
+                ++PixelOccurrenceCounts[ result[a] ];
+        }
+    }
+
+    while(PixelOccurrenceCounts.size() > PaletteSize)
+    {
+        /* Find two colors that are nearly identical, and merge them */
+        std::pair<MapT::iterator, MapT::iterator> best_pair;
+        unsigned best_difference = 0;
+
+        for(MapT::iterator
+            i = PixelOccurrenceCounts.begin();
+            i != PixelOccurrenceCounts.end();
+            ++i)
+        {
+            uint32 pix1 = i->first;
+            int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+
+            for(MapT::iterator j = i;
+                ++j != PixelOccurrenceCounts.end(); )
+            {
+                uint32 pix2 = j->first;
+                unsigned diff = ColorDiff(r1,g1,b1, pix2);
+                if(diff < best_difference || best_difference == 0)
+                {
+                    best_pair.first  = i;
+                    best_pair.second = j;
+                    best_difference = diff;
+                }
+            }
+        }
+        MapT::iterator i = best_pair.first;
+        MapT::iterator j = best_pair.second;
+        unsigned combined_count = i->second + j->second;
+        AveragePixel pix;
+        pix.set(i->first/*, i->second*/);
+        pix.set(j->first/*, j->second*/);
+        PixelOccurrenceCounts.erase(i);
+        PixelOccurrenceCounts.erase(j);
+        PixelOccurrenceCounts[ pix.get() ] += combined_count;
+    }
+
+    unsigned n = 0;
+    for(MapT::const_iterator
+        i = PixelOccurrenceCounts.begin();
+        i != PixelOccurrenceCounts.end();
+        ++i)
+    {
+        Palette[n++] = i->first;
+        if(n == PaletteSize) break;
     }
 }
 
@@ -359,34 +454,112 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     #pragma omp flush(was_identical)
     if(was_identical) return;
 
-    gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-    gdImageAlphaBlending(im, false);
-    gdImageSaveAlpha(im, true);
-
-    for(unsigned p=0, y=0; y<hei; ++y)
-        for(unsigned x=0; x<wid; ++x)
-        {
-            unsigned pix32 = screen[p++];
-            unsigned pix = pix32/*gdTrueColor
-            (
-                (pix32 >> 16) & 0xFF,
-                (pix32 >> 8) & 0xFF,
-                (pix32     ) & 0xFF
-            )*/;
-            gdImageSetPixel(im, x,y, pix);
-        }
-    FILE* fp = std::fopen(Filename, "wb");
     if(SaveGif == 1 || animated)
     {
-        gdImageTrueColorToPalette(im, false, 256);
+        bool palette_failed = false;
+
+        /* First try to create a paletted image */
+        gdImagePtr im = gdImageCreate(wid,hei);
+    reloop:;
+        gdImageAlphaBlending(im, false);
+        gdImageSaveAlpha(im, true);
+        if(!palette_failed)
+        {
+            for(unsigned a=0; a<PaletteSize; ++a)
+            {
+                unsigned pix = Palette[a];
+                gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
+            }
+            gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
+        }
+        for(unsigned p=0, y=0; y<hei; ++y)
+            for(unsigned x=0; x<wid; ++x)
+            {
+                uint32 pix = screen[p++];
+                if(pix == DefaultPixel)
+                    pix = 0x7F000000u;
+                if(!palette_failed)
+                {
+                    int r = (pix >> 16)&0xFF;
+                    int g = (pix >>  8)&0xFF;
+                    int b = (pix      )&0xFF;
+                    int a = (pix >> 24); if(a&0x80) a>>=1;
+                    int color = gdImageColorExactAlpha(im, r,g,b,a);
+                    if(color == -1)
+                    {
+                        if(true) // Find two closest entries from palette and use o4x4 dithering
+                        {
+                            static const int pattern[4][4] =
+                            {
+                                { 1, 9, 3,11},
+                                {13, 5,15, 7},
+                                { 4,12, 2,10},
+                                {16, 8,14, 6}
+                            };
+                            unsigned entry1=0, entry2=0, diff1=0, diff2=0;
+                            for(unsigned a=0; a<PaletteSize; ++a)
+                            {
+                                unsigned diff = ColorDiff(r,g,b, Palette[a]);
+                                if(diff < diff1 || diff1 == 0)
+                                    { diff2 = diff1; entry2 = entry1;
+                                      diff1 = diff; entry1 = a; }
+                                else if(diff < diff2)
+                                    { diff2 = diff; entry2 = a; }
+                            }
+                            // diff1   = difference between entry1 and pixel
+                            // maxdiff = difference between entry1 and entry2
+                            unsigned maxdiff = ColorDiff(Palette[entry1], Palette[entry2]);
+                            diff1 += pattern[y&3][x&3]*maxdiff/16;
+                            color = (diff1 >= maxdiff) ? entry2 : entry1;
+                        }
+                        else
+                        {
+                            color = gdImageColorAllocateAlpha(im, r,g,b,a);
+                        }
+                    }
+                    if(color == -1)
+                    {
+                        /* If palette is exhausted, try without palette */
+                        palette_failed = true;
+                        gdImageDestroy(im);
+                        im = gdImageCreateTrueColor(wid, hei);
+                        goto reloop;
+                    }
+                    if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
+                    gdImageSetPixel(im, x,y, color);
+                }
+                else
+                    gdImageSetPixel(im, x,y, pix);
+            }
+        FILE* fp = std::fopen(Filename, "wb");
+        if(palette_failed)
+        {
+            gdImageTrueColorToPalette(im, false, 256);
+            gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
+        }
         gdImageGif(im, fp);
+        std::fclose(fp);
+        gdImageDestroy(im);
     }
     else
     {
+        gdImagePtr im = gdImageCreateTrueColor(wid,hei);
+        gdImageAlphaBlending(im, false);
+        gdImageSaveAlpha(im, true);
+
+        for(unsigned p=0, y=0; y<hei; ++y)
+            for(unsigned x=0; x<wid; ++x)
+            {
+                uint32 pix = screen[p++];
+                if(pix == DefaultPixel)
+                    pix = 0x7F000000u;
+                gdImageSetPixel(im, x,y, pix);
+            }
+        FILE* fp = std::fopen(Filename, "wb");
         gdImagePngEx(im, fp, 1);
+        std::fclose(fp);
+        gdImageDestroy(im);
     }
-    std::fclose(fp);
-    gdImageDestroy(im);
 }
 
 AlignResult TILE_Tracker::TryAlignWithHotspots

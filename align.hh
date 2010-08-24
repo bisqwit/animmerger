@@ -2,7 +2,7 @@
 #define bqtTileTrackerAlignHH
 
 #include <vector>
-#include "types.hh"
+#include "pixel.hh"
 
 /* A two-dimensional coordinate */
 struct IntCoordinate
@@ -46,7 +46,7 @@ void FindInterestingSpots(
     const uint32* input,
     int xoffs, int yoffs,
     unsigned sx, unsigned sy,
-    bool force_all_pixels);
+    bool force_all_pixels) FastPixelMethod;
 
 /* Attempts to align the input picture into the background picture
  *    input_spots:
@@ -67,11 +67,13 @@ void FindInterestingSpots(
  *        Set to true if there's a reason to suspect
  *        that the images do not quite align right
  */
+// Using FastPixelMethod here avoids a GCC bug that causes wrong calling
+// mechanism to be used when pixels/averagepixel.hh is used in commit ___
 struct AlignResult Align(
     const std::vector<InterestingSpot>& input_spots,
     const std::vector<InterestingSpot>& reference_spots,
     int org_x,
-    int org_y);
+    int org_y) FastPixelMethod;
 
 /* Attempts to align the input picture into the background picture
  * by finding a position where, if the input picture is placed
@@ -121,7 +123,7 @@ struct AlignResult Align(
     const uint32* input,
     unsigned inputwidth, unsigned inputheight,
     int org_x,
-    int org_y);
+    int org_y) FastPixelMethod;
 
 struct AlignResult
 {

@@ -41,6 +41,11 @@ class TILE_Tracker
     unsigned SequenceBegin;
     unsigned CurrentTimer;
 
+    static const unsigned PaletteSize = 16;
+
+    uint32 Palette[PaletteSize];
+    
+
 public:
     TILE_Tracker() : LastFilename(), SequenceBegin(0), CurrentTimer(0)
     {
@@ -53,6 +58,7 @@ public:
 
     void Save(unsigned method = ~0u);
     void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
+    void CreatePalette(PixelMethod method, unsigned nframes);
 
     void Reset();
 
