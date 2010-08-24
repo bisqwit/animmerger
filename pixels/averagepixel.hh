@@ -103,6 +103,11 @@ public:
         (1ul << pm_AveragePixel);
     static const unsigned SizePenalty = 0;
 
-    static const unsigned Components =
-        (1ul << impl_Average);
+    // These properties are made conditional on pixel.cc's inclusion,
+    // because AveragePixel is also used by main.cc and canvas.cc
+  #ifdef DefinePixelImpls
+    static const unsigned Components = (1ul << impl_Average);
+  #else
+    static const unsigned Components = 0;
+  #endif
 };

@@ -4,7 +4,6 @@
 #include "align.hh"
 #include "openmp.hh"
 
-#define impl_Average 0 /* dummy constant for AveragePixel */
 #include "pixels/averagepixel.hh"
 
 #include <cstdio>
