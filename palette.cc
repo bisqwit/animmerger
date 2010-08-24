@@ -201,7 +201,7 @@ namespace
                 //Histogram.insert(chosen);
             }
         }
-        fprintf(stderr, "%s-reduced to %u colors (aimed for %u)\n",
+        std::fprintf(stderr, "%s-reduced to %u colors (aimed for %u)\n",
             blend ? "Blend-diversity" : "Diversity",
             (unsigned) Histogram.size(),
             nadapt);
@@ -321,7 +321,7 @@ namespace
             Histogram[ pix.get() ] += slot.pixels;
         }
 
-        fprintf(stderr, "Median-cut-reduced to %u colors (aimed for %u)\n",
+        std::fprintf(stderr, "Median-cut-reduced to %u colors (aimed for %u)\n",
             (unsigned) Histogram.size(),
             nadapt);
     }
@@ -333,7 +333,7 @@ namespace
     {
         while(Histogram.size() > target_colors)
         {
-            fprintf(stderr, "%u colors, %u wanted\n",
+            std::fprintf(stderr, "%u colors, %u wanted\n",
                 (unsigned) Histogram.size(),
                 target_colors);
 
@@ -373,39 +373,40 @@ namespace
             Histogram[ pix.get() ] += combined_count;
         }
     }
-    
+
+    struct Inserter
+    {
+        HistogramType& Histogram;
+        Inserter(HistogramType& h) : Histogram(h) { }
+        void operator() (uint32 pix)
+        {
+            Histogram[pix] += 1;
+        }
+    };
+
     namespace Octree
     {
-        struct PALETTEENTRY
-        {
-            unsigned peFlags, peBlue, peGreen, peRed;
-        };
-        template<size_t TREE_DEPT>
+        template<unsigned TREE_DEPT>
         class node {
         public:
-            size_t level;
-            size_t ref_count;
-            
-            long r,g,b;
-            node *child[8];
-            node *p;  //parent
+            unsigned level, ref_count;
+            AveragePixel result;
+            node *child[8], *parent;
 
-            node(long red,long green, long blue, node *parent)
-                : ref_count(1), r(red), g(green), b(blue), p(parent),
-                  level(parent==0 ? 0 : parent->level+1)
+            node(uint32 pix, node *p)
+                : level(p ? p->level+1 : 0), ref_count(1), parent(p)
             {
-                for(unsigned i=0; i<8; ++i)
-                    child[i] = 0;
+                result.set(pix);
+                for(unsigned i=0; i<8; ++i) child[i] = 0;
             }
-            node() : ref_count(0), r(0), g(0), b(0), level(0), p(0)
+            node() : level(0), ref_count(0), parent(0)
             {
-                for(unsigned i=0; i<8; ++i)
-                    child[i] = 0;
+                for(unsigned i=0; i<8; ++i) child[i] = 0;
             }
             ~node()
             {
                 reduce();
-                if (p != 0) p->reset_child(this);
+                if (parent) parent->reset_child(this);
             }
 
             void reset_child(node *c)
@@ -414,22 +415,25 @@ namespace
                     if (child[i] == c) { child[i] = 0; break; }
             }
 
-            void add_color(long red,long green, long blue) {
-                r+=red;
-                g+=green;
-                b+=blue;
+            void add_color(uint32 pix)
+            {
+                result.set(pix);
                 ++ref_count;
+
                 if (level<TREE_DEPT)
                 {
                     int mask=1<<(7-level);
                     size_t ndx=0;
+                    unsigned red   = (pix >> 16) & 0xFF;
+                    unsigned green = (pix >>  8) & 0xFF;
+                    unsigned blue  = pix & 0xFF;
                     if((red   & mask)>0) ndx=4;
                     if((green & mask)>0) ndx|=2;
                     if((blue  & mask)>0) ndx|=1;
                     if (!child[ndx])
-                        child[ndx] = new node(red,green,blue, this);
+                        child[ndx] = new node<TREE_DEPT>(pix, this);
                     else
-                        child[ndx]->add_color(red,green,blue);
+                        child[ndx]->add_color(pix);
                 }
             }
             void reduce()          //converts this node to be a leaf.
@@ -439,7 +443,7 @@ namespace
             void reduce_one_leaf() //makes this node to have one leaf less.
             {
                 if (is_leaf()) { delete this; return; }
-                node *n=0;
+                node *n = 0;
                 for (unsigned i=0; i<8; ++i)
                     if (!n)
                         { if (child[i]) n = child[i]; }
@@ -447,26 +451,18 @@ namespace
                           && child[i]->ref_count < n->ref_count)
                                 n = child[i];
                 if (num_leafs() > 1)
-                    n->reduce_one_leaf(); //always n must point to a node
+                    n->reduce_one_leaf(); // n must always point to a node
                 else
                     delete this;
             }
 
-            unsigned assign_palette_entries(PALETTEENTRY *pe, unsigned index=0)
+            template<typename Func>
+            void assign_palette_entries(Func func)
             {
-                if (is_leaf())
-                {
-                    pe[index].peFlags=0;
-                    pe[index].peBlue=b/ref_count;
-                    pe[index].peGreen=g/ref_count;
-                    pe[index].peRed=r/ref_count;
-                    return ++index;
-                }
-                else
-                    for (unsigned i=0; i<8; ++i)
-                        if (child[i])
-                            index = child[i]->assign_palette_entries(pe, index);
-                return index;
+                if (is_leaf()) { func( result.get() ); return; }
+                for (unsigned i=0; i<8; ++i)
+                    if (child[i])
+                        child[i]->assign_palette_entries( func );
             }
             bool is_leaf() const
             {
@@ -484,27 +480,253 @@ namespace
             }
         };
 
-        template<size_t DEPTH>
-        class octree_reducer: public node<DEPTH>
+        template<unsigned DEPTH>
+        class reducer: public node<DEPTH>
         {
         public:
-            void reduce(PALETTEENTRY *pe, size_t num_colors)
+            template<typename Func>
+            void reduce(Func func, unsigned num_colors)
             {
-                size_t num_leafs = node<DEPTH>::num_leafs();
+                unsigned num_leafs = node<DEPTH>::num_leafs();
                 while (num_leafs > num_colors)
                 {
                     node<DEPTH>::reduce_one_leaf();
                     --num_leafs;
                 }
-                node<DEPTH>::assign_palette_entries(pe, 0);
+                node<DEPTH>::assign_palette_entries(func);
             }
-            using node<DEPTH>::add_color;
         };
     }
 
     void ReduceHistogram_Octree
         (HistogramType& Histogram, unsigned target_colors)
     {
+        Octree::reducer<5> reducer;
+        for(HistogramType::iterator i = Histogram.begin(); i != Histogram.end(); ++i)
+            reducer.add_color( i->first );
+        Histogram.clear();
+        reducer.reduce( Inserter(Histogram), target_colors);
+    }
+
+    /* NeuQuant algorithm as implemented by Anthony Dekker in 1994.
+     * Minimal steps have been taken to improve the sanity of the
+     * code in this C++ port. Mandatory copyright blob below.
+     * The inxbuild() and inxsearch() functions were removed as redundant.
+     *-----------
+     * Copyright (c) 1994 Anthony Dekker
+     *
+     * NEUQUANT Neural-Net quantization algorithm by Anthony Dekker, 1994.
+     * See "Kohonen neural networks for optimal colour quantization"
+     * in "Network: Computation in Neural Systems" Vol. 5 (1994) pp 351-367.
+     * for a discussion of the algorithm.
+     * See also  http://members.ozemail.com.au/~dekker/NEUQUANT.HTML
+     *
+     * Any party obtaining a copy of these files from the author, directly or
+     * indirectly, is granted, free of charge, a full and unrestricted irrevocable,
+     * world-wide, paid up, royalty-free, nonexclusive right and license to deal
+     * in this software and documentation files (the "Software"), including without
+     * limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+     * and/or sell copies of the Software, and to permit persons who receive
+     * copies from any such party to do so, with the only requirement being
+     * that this copyright notice remain intact.
+     */
+    class NeuQuant
+    {
+        static const int netbiasshift	=4;			/* bias for colour values */
+        static const int ncycles		=100;		/* no. of learning cycles */
+
+        /* defs for freq and bias */
+        static const int intbiasshift    =16;		/* bias for fractions */
+        static const int intbias		=(((int) 1)<<intbiasshift);
+        static const int gammashift  	=10;		/* gamma = 1024 */
+        static const int gamma   	=(((int) 1)<<gammashift);
+        static const int betashift  =	10;
+        static const int beta		=(intbias>>betashift);	/* beta = 1/1024 */
+        static const int betagamma	=(intbias<<(gammashift-betashift));
+
+        /* defs for decreasing radius factor */
+        #define initrad		(netsize>>3)		/* for 256 cols, radius starts */
+        static const int radiusbiasshift=	6;		/* at 32.0 biased by 6 bits */
+        static const int radiusbias	=(((int) 1)<<radiusbiasshift);
+        #define initradius	(initrad*radiusbias)	/* and decreases by a */
+        static const int radiusdec	=30;			/* factor of 1/30 each cycle */
+
+        /* defs for decreasing alpha factor */
+        static const int alphabiasshift	=10;		/* alpha starts at 1.0 */
+        static const int initalpha	=(((int) 1)<<alphabiasshift);
+
+        /* radbias and alpharadbias used for radpower calculation */
+        static const int radbiasshift	=8;
+        static const int radbias		=(((int) 1)<<radbiasshift);
+        static const int alpharadbshift  =(alphabiasshift+radbiasshift);
+        static const int alpharadbias    =(((int) 1)<<alpharadbshift);
+
+        int netsize; // Number of colors
+        struct pixel { int c[3]; };
+        std::vector<pixel> network; /* the network itself */
+        std::vector<int>   bias;    /* bias and freq arrays for learning */
+        std::vector<int>   freq;
+        std::vector<int> radpower;	/* radpower for precomputation */
+
+    public:
+        NeuQuant(unsigned ncolors) : netsize(ncolors),
+            network(netsize),
+            bias(netsize),
+            freq(netsize),
+            radpower(initrad)
+        {
+            for(int i=0; i<netsize; ++i)
+            {
+                pixel& pix = network[i];
+                for(int n=0; n<3; ++n)
+                    pix.c[n] = (i << (netbiasshift+8)) / netsize;
+                freq[i] = intbias/netsize; /* 1/netsize */
+                bias[i] = 0;
+            }
+        }
+
+        /* Unbias network to give byte values 0..255 */
+        void UnbiasNet()
+        {
+            for (int i=0; i<netsize; i++)
+            {
+                for(int n=0; n<3; ++n)
+                { int temp = (network[i].c[n] + (1 << (netbiasshift - 1))) >> netbiasshift;
+                  network[i].c[n] = temp>=255 ? 255 : temp; }
+            }
+        }
+
+        /* Main Learning Loop */
+        void Learn(const uint32* all_pixels,
+                   int lengthcount,
+                   int samplefac /* sampling factor 1..30 */)
+        {
+            int alphadec = 30 + ((samplefac-1)/3); /* biased by 10 bits */
+            int samplepixels = lengthcount/samplefac;
+            int delta = samplepixels/ncycles;
+            int alpha = initalpha;
+            int radius = initradius;
+
+            int rad = radius >> radiusbiasshift;
+            if (rad <= 1) rad = 0;
+            for (int i=0; i<rad; i++)
+                radpower[i] = alpha*(((rad*rad - i*i)*radbias)/(rad*rad));
+
+            std::fprintf(stderr,"beginning 1D learning: initial radius=%d\n", rad);
+
+            /* Provide random pixels from the input image
+             * until approximately all pixels have been covered
+             */
+            for(int i=0; i < samplepixels; )
+            {
+                int c[3] =
+                    { ((all_pixels[i] >> 16) & 0xFF) << netbiasshift,
+                      ((all_pixels[i] >>  8) & 0xFF) << netbiasshift,
+                      ((all_pixels[i] >>  0) & 0xFF) << netbiasshift };
+                int j = contest(c);
+
+                altersingle<initalpha> (alpha,j, c);
+                if (rad) alterneigh(rad,j, c);   /* alter neighbours */
+
+                i++;
+                if (i%delta == 0)
+                {
+                    alpha -= alpha / alphadec;
+                    radius -= radius / radiusdec;
+                    rad = radius >> radiusbiasshift;
+                    if (rad <= 1) rad = 0;
+                    for (j=0; j<rad; j++)
+                        radpower[j] = alpha*(((rad*rad - j*j)*radbias)/(rad*rad));
+                }
+            }
+            std::fprintf(stderr,"finished 1D learning: final alpha=%f !\n",((float)alpha)/initalpha);
+        }
+
+        template<typename Func>
+        void Retrieve(Func func) const
+        {
+            for(int j=0; j<netsize; ++j)
+            {
+                const pixel& pix = network[j];
+                func( (pix.c[0]<<16) + (pix.c[1]<<8) + pix.c[2] );
+            }
+        }
+    private:
+        /* Search for biased BGR values */
+        int contest(int c[3])
+        {
+            /* finds closest neuron (min dist) and updates freq */
+            /* finds best neuron (min dist-bias) and returns position */
+            /* for frequently chosen neurons, freq[i] is high and bias[i] is negative */
+            /* bias[i] = gamma*((1/netsize)-freq[i]) */
+            int bestd = ~(((int) 1)<<31);
+            int bestbiasd = bestd;
+            int bestpos = -1;
+            int bestbiaspos = bestpos;
+            int *p = &bias[0];
+            int *f = &freq[0];
+            for (int i=0; i<netsize; i++)
+            {
+                pixel& pix = network[i];
+
+                int dist = 0;
+                for(int n=0; n<3; ++n)
+                    dist += std::abs(pix.c[n] - c[n]);
+
+                if (dist<bestd) {bestd=dist; bestpos=i;}
+                int biasdist = dist - ((*p)>>(intbiasshift-netbiasshift));
+                if (biasdist<bestbiasd) {bestbiasd=biasdist; bestbiaspos=i;}
+                int betafreq = (*f >> betashift);
+                *f++ -= betafreq;
+                *p++ += (betafreq<<gammashift);
+            }
+            freq[bestpos] += beta;
+            bias[bestpos] -= betagamma;
+            return(bestbiaspos);
+        }
+
+        /* Move neuron i towards biased (b,g,r) by factor alpha */
+        template<int value>
+        void altersingle(int alpha,int i, int c[3])
+        {
+            pixel& pix = network[i]; /* alter hit neuron */
+            for(int n=0; n<3; ++n)
+                pix.c[n] -= (alpha * (pix.c[n] - c[n])) / value;
+        }
+
+        /* Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|] */
+        void alterneigh(int rad,int i, int c[3])
+        {
+            int lo = i-rad;   if (lo<-1) lo=-1;
+            int hi = i+rad;   if (hi>netsize) hi=netsize;
+
+            int j = i+1;
+            int k = i-1;
+            int *q = &radpower[0];
+            while ((j<hi) || (k>lo))
+            {
+                int a = *++q;
+                if (j < hi) altersingle<alpharadbias> (a, j++, c);
+                if (k > lo) altersingle<alpharadbias> (a, k--, c);
+            }
+        }
+    };
+
+    void ReduceHistogram_NeuQuant
+        (HistogramType& Histogram, unsigned target_colors)
+    {
+        std::vector<uint32> all_pixels;
+        for(HistogramType::iterator i = Histogram.begin(); i != Histogram.end(); ++i)
+            for(unsigned pix=i->first, c=i->second; c-- > 0; )
+                all_pixels.push_back(pix);
+        std::random_shuffle( all_pixels.begin(), all_pixels.end() );
+
+        NeuQuant worker(target_colors);
+        worker.Learn(&all_pixels[0], all_pixels.size(), 1);
+        worker.UnbiasNet();
+
+        Histogram.clear();
+        worker.Retrieve( Inserter(Histogram) );
     }
 }
 

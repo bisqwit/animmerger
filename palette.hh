@@ -10,7 +10,9 @@
     callback(m,MedianCut) \
     callback(d,Diversity) \
     callback(b,BlendDiversity) \
-    callback(g,Merging)
+    callback(g,Merging) \
+    callback(o,Octree) \
+    callback(q,NeuQuant)
 
 #define MakeEnum(o,name) quant_##name,
 enum PaletteMethod { DefinePaletteMethods(MakeEnum) };
