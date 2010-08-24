@@ -316,23 +316,38 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
         unsigned best_diff=0;
         for(unsigned pa=0; pa<PaletteSize; ++pa)
         {
+            double luma1 = luma_table[pa];
+            if(luma1 > input_luma) continue;
             const uint32 pix1 = Palette[pa];
             int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-            double luma1 = luma_table[pa];
 
-            for(unsigned pb=pa+1; pb<PaletteSize; ++pb)
+            for(unsigned pb=0; pb<PaletteSize; ++pb)
             {
+                double luma2 = luma_table[pb];
+                if(luma2 < luma1) continue;
+                if(luma2 < input_luma) continue;
                 const uint32 pix2 = Palette[pb];
                 int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-                double luma2 = luma_table[pb];
+
                 /*if(ColorDiff(r1,g1,b1, r2,g2,b2) >= 255*255)
                 {
                     // Don't combine too different colors
                     continue;
                 }*/
                 /**/
-                double result = (luma1==luma2 ? 0.5 : ((luma1-input_luma) / (luma1-luma2)));
-                if(result < 0.0 || result > 1.0) continue;
+                double result;
+                if(luma1==luma2)
+                {
+                    double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
+                    double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
+                    double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
+                    if(result_r < 0 || result_r > 1) result_r = 0.5;
+                    if(result_g < 0 || result_g > 1) result_g = 0.5;
+                    if(result_b < 0 || result_b > 1) result_b = 0.5;
+                    result = (result_r + result_g + result_b) / 3.0;
+                }
+                else
+                    result = (luma1-input_luma) / (luma1-luma2);
                 // ^ Don't combine if the desired color is either darker or brighter
                 //   than both of the candidate colors.
 
@@ -347,15 +362,6 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
                   + ColorDiff(rin,gin,bin, r2,g2,b2)*2;
                 if(diff < best_diff || best_diff == 0)
                 {
-                    /*
-                    double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
-                    double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
-                    double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
-                    if(result_r < 0 || result_r > 1) result_r = result;
-                    if(result_g < 0 || result_g > 1) result_g = result;
-                    if(result_b < 0 || result_b > 1) result_b = result;
-                    result = (result_r + result_g + result_b) / 3.0;
-                    */
                     best_diff   = diff;
                     output.result = result;
                     output.entry1 = pa;

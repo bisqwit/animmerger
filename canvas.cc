@@ -488,7 +488,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                                 output = i->second;
 
                             #define d(x) x/64.0
-                            static const double pattern[8*8]
+                            static const float pattern[8*8]
     = { d(1 ), d(49), d(13), d(61), d( 4), d(52), d(16), d(64),
         d(33), d(17), d(45), d(29), d(36), d(20), d(48), d(32),
         d(9 ), d(57), d( 5), d(53), d(12), d(60), d( 8), d(56),
@@ -496,10 +496,9 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         d(3 ), d(51), d(15), d(63), d( 2), d(50), d(14), d(62),
         d(35), d(19), d(47), d(31), d(34), d(18), d(46), d(30),
         d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
-        d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22)
-                            };
+        d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
                             #undef d
-                            double position = output.result + pattern[(y&7)*8+(x&7)];
+                            float position = (float)output.result + pattern[(y&7)*8+(x&7)];
                             color = (position >= 1.0) ? output.entry2 : output.entry1;
                         }
                         else
