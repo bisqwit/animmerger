@@ -33,8 +33,8 @@ extern std::vector<PaletteMethodItem> PaletteReductionMethod;
  */
 struct PalettePair
 {
-    unsigned entry1, entry2;
-    double result;
+    unsigned short entry1, entry2;
+    float result;
 };
 PalettePair FindBestPalettePair(int r,int g,int b, const uint32* Palette, unsigned PaletteSize);
 

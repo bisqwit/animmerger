@@ -13,19 +13,8 @@ namespace
 
     unsigned ColorDiff(int r1,int g1,int b1, int r2,int g2,int b2)
     {
-        /*
-        double y1 = 0.299*r1+0.587*g1+0.114*b1;
-        double c1 =-0.299*r1-0.587*g1+0.886*b1;
-        double C1 = 0.701*r1-0.587*g1-0.114*b1;
-        double y2 = 0.299*r2+0.587*g2+0.114*b2;
-        double c2 =-0.299*r2-0.587*g2+0.886*b2;
-        double C2 = 0.701*r2-0.587*g2-0.114*b2;
-        double ydiff = y1-y2, cdiff = c1-c2, Cdiff = C1-C2;
-        return unsigned ( (ydiff*ydiff + (cdiff*cdiff + Cdiff*Cdiff)) + 0.5 );
-        */
         int rdiff = r1-r2, gdiff = g1-g2, bdiff = b1-b2;
         return rdiff*rdiff + gdiff*gdiff + bdiff*bdiff;
-        /**/
     }
     unsigned ColorDiff(int r1,int g1,int b1, uint32 pix2)
     {
@@ -73,8 +62,8 @@ namespace
     {
         int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
         int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-        const double luma1 = r1*0.299 + g1*0.587 + b1*0.114;
-        const double luma2 = r2*0.299 + g2*0.587 + b2*0.114;
+        const int luma1 = r1*/*0.*/299 + g1*/*0.*/587 + b1*/*0.*/114;
+        const int luma2 = r2*/*0.*/299 + g2*/*0.*/587 + b2*/*0.*/114;
         return luma1 < luma2;
     }
 
@@ -252,10 +241,11 @@ namespace
                 if(g<ming) ming=g; if(g>maxg) maxg=g;
                 if(b<minb) minb=b; if(b>maxb) maxb=b;
             }
-            /* 2.3. Sort colors according to the channel that has largest luminance */
-            double rdiff = 0.299 * (maxr-minr);
-            double gdiff = 0.587 * (maxg-ming);
-            double bdiff = 0.114 * (maxb-minb);
+            /* 2.3. Sort colors according to the channel that
+             * contains the largest distribution of luminance */
+            int rdiff = /*0.*/299 * (maxr-minr);
+            int gdiff = /*0.*/587 * (maxg-ming);
+            int bdiff = /*0.*/114 * (maxb-minb);
             std::sort(slice_begin, slice_end,
                 (rdiff >= gdiff && rdiff >= bdiff) ? CompareRed
               : (gdiff >= bdiff) ? CompareGreen
@@ -354,15 +344,15 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
     bool output_chosen = false;
     if(PaletteSize <= 64)
     {
-        const double input_luma = rin*0.299 + gin*0.587 + bin*0.114;
+        const int input_luma = rin*/*0.*/299 + gin*/*0.*/587 + bin*/*0.*/114;
 
         /* Note: Palette is sorted by luma by MakePalette(). */
-        std::vector<double> luma_table(PaletteSize);
+        std::vector<int> luma_table(PaletteSize);
         for(unsigned a=0; a<PaletteSize; ++a)
         {
             const uint32 pix = Palette[a];
             int r1 = (pix >> 16) & 0xFF, g1 = (pix >> 8) & 0xFF, b1 = (pix) & 0xFF;
-            luma_table[a] = r1*0.299 + g1*0.587 + b1*0.114;
+            luma_table[a] = r1*/*0.*/299 + g1*/*0.*/587 + b1*/*0.*/114;
         };
         /* lower_bound(k) = find the first element that is >= k */
         /* upper_bound(k) = find the first element that is > k */
@@ -376,17 +366,20 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
         unsigned best_diff=0;
         for(unsigned pa=0; pa<last_index_to_consider; ++pa)
         {
-            double luma1 = luma_table[pa];
+            int luma1 = luma_table[pa];
 
             const uint32 pix1 = Palette[pa];
             int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
 
             for(unsigned pb=first_index_to_consider; pb<PaletteSize; ++pb)
             {
-                double luma2 = luma_table[pb];
+                int luma2 = luma_table[pb];
                 /*
                   At this point,
-                     luma1 <= input_luma <= luma2
+                     luma1 <= input_luma <= luma2.
+                  There's no point in combining two colors,
+                  if the desired color can in no way become
+                  a product of those two colors.
                 */
 
                 const uint32 pix2 = Palette[pb];
@@ -410,9 +403,7 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
                     result = (result_r + result_g + result_b) / 3.0;
                 }
                 else
-                    result = (luma1-input_luma) / (luma1-luma2);
-                // ^ Don't combine if the desired color is either darker or brighter
-                //   than both of the candidate colors.
+                    result = (luma1-input_luma) / double(luma1-luma2);
 
                 //if(result < 0) result = 0; if(result > 1) result = 1;
                 //result = ((int)(result*64)) / 64.0;
@@ -426,7 +417,7 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
                 if(diff < best_diff || best_diff == 0)
                 {
                     best_diff   = diff;
-                    output.result = result;
+                    output.result = (float) result;
                     output.entry1 = pa;
                     output.entry2 = pb;
                     output_chosen = true;
@@ -459,7 +450,7 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
         if(result_r < 0) result_r = 0; else if(result_r > 1) result_r = 1;
         if(result_g < 0) result_g = 0; else if(result_g > 1) result_g = 1;
         if(result_b < 0) result_b = 0; else if(result_b > 1) result_b = 1;
-        output.result = (result_r + result_g + result_b) / 3.0;
+        output.result = (float) ((result_r + result_g + result_b) / 3.0);
     }
     return output;
 }

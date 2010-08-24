@@ -315,7 +315,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     const int xmi = xmin, xma = xmax;
     const unsigned wid = xma-xmi;
     const unsigned hei = yma-ymi;
-
+    fprintf(stderr, "Counting colors...\n");
     VecType<uint32> prev_frame;
     for(unsigned frameno=0; frameno<nframes; frameno+=1)
     {
@@ -498,8 +498,8 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
         d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
                             #undef d
-                            float position = (float)output.result + pattern[(y&7)*8+(x&7)];
-                            color = (position >= 1.0) ? output.entry2 : output.entry1;
+                            float position = output.result + pattern[(y&7)*8+(x&7)];
+                            color = (position >= 1.0f) ? output.entry2 : output.entry1;
                         }
                         else
                         {

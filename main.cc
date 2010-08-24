@@ -988,7 +988,7 @@ rate.\n\
                     if(method.size)
                     {
                         long ncolors = strtol(comma+1, 0, 10);
-                        if(ncolors < 1)
+                        if(ncolors < 1 || ncolors > 65536)
                             std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
                         else
                         {
