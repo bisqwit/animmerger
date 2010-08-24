@@ -69,94 +69,135 @@ namespace
         int b2 = (b.first) & 0xFF;
         return b1 < b2;
     }
+    bool CompareLuma(uint32 pix1, uint32 pix2)
+    {
+        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+        int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
+        const double luma1 = r1*0.299 + g1*0.587 + b1*0.114;
+        const double luma2 = r2*0.299 + g2*0.587 + b2*0.114;
+        return luma1 < luma2;
+    }
 
-    void ReduceHistogram_Diversity(HistogramType& Histogram, unsigned target_colors,
-                                   bool blend=false)
+    struct DiversityInfo
+    {
+        // Smallest distance from all so-far chosen colors
+        unsigned min_dist;
+        // Which color index (of so-far chosen colors) is most similar to this
+        unsigned closest;
+
+        DiversityInfo():  min_dist(~0u), closest(~0u) { }
+    };
+
+    // Code written based on implementation in GifSicle
+    void ReduceHistogram_Diversity
+        (HistogramType& Histogram, unsigned target_colors,
+         bool blend=false)
     {
         if(Histogram.size() <= target_colors) return;
 
         std::vector<HistItem> VecHistogram( Histogram.begin(), Histogram.end() );
-        std::vector<uint32> MinDist( VecHistogram.size(), 0x7FFFFFFFu );
-        std::vector<unsigned> Closest( VecHistogram.size() );
-        /* 1. initialize min_dist and sort the colors in order of popularity. */
+        /* 1. Initialize lore and sort the colors in order of popularity. */
         std::sort(VecHistogram.begin(), VecHistogram.end(), CompareSecondRev);
+        std::vector<DiversityInfo> Lore( VecHistogram.size() );
+        Histogram.clear();
         /* 2. Choose colors one at a time */
         unsigned nadapt;
         for(nadapt=0; nadapt<target_colors; ++nadapt)
         {
             /* 2.1. Choose the color to be added */
-            unsigned chosen = 0;
+            unsigned chosen, limit = VecHistogram.size();
             if(nadapt == 0 || (nadapt >= 10 && nadapt % 2 == 0))
             {
-                /* 2.1a. Choose based on popularity from unchosen colors; we've
-                 * sorted them on popularity, so just choose the first in the list */
-                for(; chosen < VecHistogram.size(); ++chosen)
-                    if(MinDist[chosen]) break;
+                /* 2.1a. Choose the most popular remaining color */
+                for(chosen=0; chosen < limit; ++chosen)
+                    if(Lore[chosen].min_dist != 0)
+                        break;
             }
             else
             {
-                /* 2.1b. Choose based on diversity from unchosen colors */
-                uint32 chosen_dist = 0;
-                for(unsigned i=0; i<VecHistogram.size(); ++i)
-                    if(MinDist[i] > chosen_dist)
-                        chosen_dist = MinDist[chosen = i];
+                /* 2.1b. Choose the color that is most different
+                 *       to any color chosen so far */
+                unsigned chosen_dist = 0;
+                chosen = limit;
+                for(unsigned i=0; i<limit; ++i)
+                    if(Lore[i].min_dist > chosen_dist)
+                        chosen_dist = Lore[chosen = i].min_dist;
             }
+            if(chosen >= limit) break;
             /* 2.2. Add the color */
-            MinDist[chosen] = 0;
-            Closest[chosen] = nadapt;
-            /* 2.3. Adjust the MinDist array */
+            Lore[chosen].min_dist = 0;
+            Lore[chosen].closest  = nadapt; // Closest to it is itself.
             uint32 chosencolor = VecHistogram[chosen].first;
-            for(unsigned i=0; i<VecHistogram.size(); ++i)
-                if(MinDist[i])
+            /* 2.3. Adjust the distances */
+            for(unsigned i=0; i<limit; ++i)
+                if(Lore[i].min_dist)
                 {
+                    // If the distance to the newest addition is shorter
+                    // than the previous one, mark it as the closest one.
                     unsigned dist = ColorDiff(chosencolor, VecHistogram[i].first);
-                    if(dist < MinDist[i])
+                    if(dist < Lore[i].min_dist)
                     {
-                        MinDist[i] = dist;
-                        Closest[i] = nadapt;
+                        Lore[i].min_dist = dist;
+                        Lore[i].closest  = nadapt;
                     }
                 }
         }
         /* 3. Make the new palette by choosing one color from each slot. */
-        Histogram.clear();
-        if(blend)
+        if(!blend)
         {
             for(unsigned i=0; i<nadapt; ++i)
             {
-                AveragePixel total;
-                unsigned match=0, pixel_total=0, mismatch_pixel_total=0;
+                HistItem chosen(DefaultPixel, 0);
                 for(unsigned j=0; j<VecHistogram.size(); ++j)
-                    if(Closest[j] == i)
+                    if(Lore[j].closest == i)
                     {
-                        total.set_n( VecHistogram[j].first,
-                                     VecHistogram[j].second );
-                        pixel_total += VecHistogram[j].second;
-                        if(MinDist[j])
-                            mismatch_pixel_total += VecHistogram[j].second;
-                        else
-                            match = j;
+                        chosen.second += VecHistogram[j].second;
+                        if(Lore[j].min_dist == 0)
+                            chosen.first = VecHistogram[j].first;
                     }
-                /* Only blend if total number of mismatched pixels
-                 * exceeds total number of matched pixels by a large margin. */
-                if(3*mismatch_pixel_total <= 2*pixel_total)
-                    Histogram[ VecHistogram[match].first ] += 1;
-                else
-                {
-                    unsigned pixel = VecHistogram[match].second * 2;
-                    total.set_n( VecHistogram[match].first, pixel );
-                    Histogram[ total.get() ] += 1;
-                }
+                Histogram.insert(chosen);
             }
         }
         else
         {
+            // Unblended palette has already been generated.
+            // If we enabled blending, the palette is generated
+            // a bit differently: For each selected palette entry,
+            // all palette entries that were _not_ chosen but were
+            // most similar to this one are blended together.
             for(unsigned i=0; i<nadapt; ++i)
             {
-                unsigned match = 0;
+                AveragePixel total;
+                HistItem chosen;
+                unsigned count_total=0, mismatch_count_total=0;
+                // For each original palette color
+                // that most resembles this one...
                 for(unsigned j=0; j<VecHistogram.size(); ++j)
-                    if(Closest[j] == i && !MinDist[j])
-                        { match = j; break; }
-                Histogram[ VecHistogram[match].first ] += 1;
+                    if(Lore[j].closest == i)
+                    {
+                        const HistItem& item = VecHistogram[j];
+                        total.set_n(item.first, item.second);
+                        count_total += item.second;
+                        if(Lore[j].min_dist == 0)
+                            chosen = item;
+                        else
+                            mismatch_count_total += item.second;
+                    }
+                /* Only blend if total number of mismatched pixels
+                 * exceeds total number of matched pixels by a large margin. */
+                if(3*mismatch_count_total > 2*count_total)
+                {
+                    // Favor, by a small margin, the color the plain
+                    // diversity algorithm would pick.
+                    total.set_n( chosen.first, chosen.second * 2 );
+                    chosen.first = total.get();
+                }
+                chosen.second = count_total;
+                // By chance, it might be possible that blending produces
+                // colors that are identical to other non-blended colors.
+                // To not lose color-use counts, use []+= rather than insert.
+                Histogram[chosen.first] += chosen.second;
+                //Histogram.insert(chosen);
             }
         }
         fprintf(stderr, "%s-reduced to %u colors (aimed for %u)\n",
@@ -165,12 +206,15 @@ namespace
             nadapt);
     }
 
-    void ReduceHistogram_BlendDiversity(HistogramType& Histogram, unsigned target_colors)
+    void ReduceHistogram_BlendDiversity
+        (HistogramType& Histogram, unsigned target_colors)
     {
         ReduceHistogram_Diversity(Histogram, target_colors, true);
     }
 
-    void ReduceHistogram_MedianCut(HistogramType& Histogram, unsigned target_colors)
+    // Code written based on implementation in GifSicle
+    void ReduceHistogram_MedianCut
+        (HistogramType& Histogram, unsigned target_colors)
     {
         if(Histogram.size() <= target_colors) return;
 
@@ -236,10 +280,15 @@ namespace
         for(unsigned i=0; i<nadapt; ++i)
         {
             AveragePixel pix;
-            for(unsigned a=0; a<slots[i].count; ++a)
-                pix.set_n( VecHistogram[ slots[i].begin+a ].first,
-                           VecHistogram[ slots[i].begin+a ].second );
-            Histogram[ pix.get() ] += 1;
+            HistItem* slice_begin = &VecHistogram[slots[i].begin];
+            HistItem* slice_end   = slice_begin + slots[i].count;
+            unsigned count_total = 0;
+            for(; slice_begin != slice_end; ++slice_begin)
+            {
+                count_total += slice_begin->second;
+                pix.set_n(slice_begin->first, slice_begin->second);
+            }
+            Histogram[ pix.get() ] += count_total;
         }
 
         fprintf(stderr, "Median-cut-reduced to %u colors (aimed for %u)\n",
@@ -247,7 +296,9 @@ namespace
             nadapt);
     }
 
-    void ReduceHistogram_Merging(HistogramType& Histogram, unsigned target_colors)
+    // Original implementation
+    void ReduceHistogram_Merging
+        (HistogramType& Histogram, unsigned target_colors)
     {
         while(Histogram.size() > target_colors)
         {
@@ -284,8 +335,8 @@ namespace
             HistogramType::iterator j = best_pair.second;
             unsigned combined_count = i->second + j->second;
             AveragePixel pix;
-            pix.set(i->first);
-            pix.set(j->first);
+            pix.set_n(i->first, i->second);
+            pix.set_n(j->first, j->second);
             Histogram.erase(i);
             Histogram.erase(j);
             Histogram[ pix.get() ] += combined_count;
@@ -301,10 +352,11 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
     output.entry2 = 0;
     output.result = 0.5;
     bool output_chosen = false;
-    if(PaletteSize <= 32)
+    if(PaletteSize <= 64)
     {
         const double input_luma = rin*0.299 + gin*0.587 + bin*0.114;
 
+        /* Note: Palette is sorted by luma by MakePalette(). */
         std::vector<double> luma_table(PaletteSize);
         for(unsigned a=0; a<PaletteSize; ++a)
         {
@@ -312,20 +364,31 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
             int r1 = (pix >> 16) & 0xFF, g1 = (pix >> 8) & 0xFF, b1 = (pix) & 0xFF;
             luma_table[a] = r1*0.299 + g1*0.587 + b1*0.114;
         };
+        /* lower_bound(k) = find the first element that is >= k */
+        /* upper_bound(k) = find the first element that is > k */
+        unsigned first_index_to_consider = // First where luma >= input_luma
+            std::lower_bound(luma_table.begin(), luma_table.end(),
+                input_luma) - luma_table.begin();
+        unsigned last_index_to_consider = // First where luma  > input_luma
+            std::upper_bound(luma_table.begin(), luma_table.end(),
+                input_luma) - luma_table.begin();
 
         unsigned best_diff=0;
-        for(unsigned pa=0; pa<PaletteSize; ++pa)
+        for(unsigned pa=0; pa<last_index_to_consider; ++pa)
         {
             double luma1 = luma_table[pa];
-            if(luma1 > input_luma) continue;
+
             const uint32 pix1 = Palette[pa];
             int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
 
-            for(unsigned pb=0; pb<PaletteSize; ++pb)
+            for(unsigned pb=first_index_to_consider; pb<PaletteSize; ++pb)
             {
                 double luma2 = luma_table[pb];
-                if(luma2 < luma1) continue;
-                if(luma2 < input_luma) continue;
+                /*
+                  At this point,
+                     luma1 <= input_luma <= luma2
+                */
+
                 const uint32 pix2 = Palette[pb];
                 int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
 
@@ -425,9 +488,9 @@ unsigned MakePalette(uint32* Palette, const HistogramType& Histogram, unsigned M
         std::sort(VecHistogram.begin(), VecHistogram.end(), CompareSecondRev);
         for(unsigned n=0; n<MaxColors; ++n)
             Palette[n] = VecHistogram[n].first;
+        std::sort(Palette, Palette+MaxColors, CompareLuma);
         return MaxColors;
     }
-
     unsigned n = 0;
     for(HistogramType::const_iterator
         i = Histogram.begin();
@@ -437,5 +500,6 @@ unsigned MakePalette(uint32* Palette, const HistogramType& Histogram, unsigned M
         if(n >= MaxColors) break;
         Palette[n++] = i->first;
     }
+    std::sort(Palette, Palette+n, CompareLuma);
     return n;
 }
