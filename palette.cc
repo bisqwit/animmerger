@@ -31,11 +31,6 @@ namespace
     {
         return a.second > b.second;
     }
-    struct AdaptiveSlot
-    {
-        unsigned begin, count;
-        unsigned pixels;
-    };
     inline bool CompareSecond(const HistItem& a, const HistItem& b)
     {
         return a.second < b.second;
@@ -73,8 +68,19 @@ namespace
         unsigned min_dist;
         // Which color index (of so-far chosen colors) is most similar to this
         unsigned closest;
+        // Color and use count
+        unsigned count;
+        uint32   color;
 
-        DiversityInfo():  min_dist(~0u), closest(~0u) { }
+        DiversityInfo(const HistItem& i)
+            : min_dist(~0u), closest(~0u),
+              count(i.second), color(i.first) { }
+
+        // Comparator for sorting by popularity
+        bool operator< (const DiversityInfo& b) const
+        {
+            return count > b.count;
+        }
     };
 
     // Code written based on implementation in GifSicle
@@ -82,23 +88,27 @@ namespace
         (HistogramType& Histogram, unsigned target_colors,
          bool blend=false)
     {
-        if(Histogram.size() <= target_colors) return;
+        const unsigned colors_originally = Histogram.size();
+        if(colors_originally <= target_colors) return;
 
-        std::vector<HistItem> VecHistogram( Histogram.begin(), Histogram.end() );
         /* 1. Initialize lore and sort the colors in order of popularity. */
-        std::sort(VecHistogram.begin(), VecHistogram.end(), CompareSecondRev);
-        std::vector<DiversityInfo> Lore( VecHistogram.size() );
+        std::vector<DiversityInfo> Lore;
+        Lore.reserve( colors_originally );
+        for(HistogramType::iterator i = Histogram.begin(); i != Histogram.end(); ++i)
+            Lore.push_back( DiversityInfo(*i) );
+        std::sort(Lore.begin(), Lore.end());
+
         Histogram.clear();
         /* 2. Choose colors one at a time */
         unsigned nadapt;
         for(nadapt=0; nadapt<target_colors; ++nadapt)
         {
             /* 2.1. Choose the color to be added */
-            unsigned chosen, limit = VecHistogram.size();
+            unsigned chosen;
             if(nadapt == 0 || (nadapt >= 10 && nadapt % 2 == 0))
             {
                 /* 2.1a. Choose the most popular remaining color */
-                for(chosen=0; chosen < limit; ++chosen)
+                for(chosen=0; chosen < colors_originally; ++chosen)
                     if(Lore[chosen].min_dist != 0)
                         break;
             }
@@ -107,23 +117,23 @@ namespace
                 /* 2.1b. Choose the color that is most different
                  *       to any color chosen so far */
                 unsigned chosen_dist = 0;
-                chosen = limit;
-                for(unsigned i=0; i<limit; ++i)
+                chosen = colors_originally;
+                for(unsigned i=0; i<colors_originally; ++i)
                     if(Lore[i].min_dist > chosen_dist)
                         chosen_dist = Lore[chosen = i].min_dist;
             }
-            if(chosen >= limit) break;
+            if(chosen >= colors_originally) break;
             /* 2.2. Add the color */
             Lore[chosen].min_dist = 0;
             Lore[chosen].closest  = nadapt; // Closest to it is itself.
-            uint32 chosencolor = VecHistogram[chosen].first;
-            /* 2.3. Adjust the distances */
-            for(unsigned i=0; i<limit; ++i)
-                if(Lore[i].min_dist)
+            uint32 chosencolor = Lore[chosen].color;
+            /* 2.3. Adjust the distances for remaining colors */
+            for(unsigned i=0; i<colors_originally; ++i)
+                if(Lore[i].min_dist != 0)
                 {
                     // If the distance to the newest addition is shorter
                     // than the previous one, mark it as the closest one.
-                    unsigned dist = ColorDiff(chosencolor, VecHistogram[i].first);
+                    unsigned dist = ColorDiff(chosencolor, Lore[i].color);
                     if(dist < Lore[i].min_dist)
                     {
                         Lore[i].min_dist = dist;
@@ -137,12 +147,12 @@ namespace
             for(unsigned i=0; i<nadapt; ++i)
             {
                 HistItem chosen(DefaultPixel, 0);
-                for(unsigned j=0; j<VecHistogram.size(); ++j)
+                for(unsigned j=0; j<Lore.size(); ++j)
                     if(Lore[j].closest == i)
                     {
-                        chosen.second += VecHistogram[j].second;
+                        chosen.second += Lore[j].count;
                         if(Lore[j].min_dist == 0)
-                            chosen.first = VecHistogram[j].first;
+                            chosen.first = Lore[j].color;
                     }
                 Histogram.insert(chosen);
             }
@@ -161,16 +171,18 @@ namespace
                 unsigned count_total=0, mismatch_count_total=0;
                 // For each original palette color
                 // that most resembles this one...
-                for(unsigned j=0; j<VecHistogram.size(); ++j)
+                for(unsigned j=0; j<Lore.size(); ++j)
                     if(Lore[j].closest == i)
                     {
-                        const HistItem& item = VecHistogram[j];
-                        total.set_n(item.first, item.second);
-                        count_total += item.second;
+                        total.set_n( Lore[j].color, Lore[j].count );
+                        count_total += Lore[j].count;
                         if(Lore[j].min_dist == 0)
-                            chosen = item;
+                        {
+                            chosen.first = Lore[j].color;
+                            chosen.second = Lore[j].count;
+                        }
                         else
-                            mismatch_count_total += item.second;
+                            mismatch_count_total += Lore[j].count;
                     }
                 /* Only blend if total number of mismatched pixels
                  * exceeds total number of matched pixels by a large margin. */
@@ -201,42 +213,61 @@ namespace
         ReduceHistogram_Diversity(Histogram, target_colors, true);
     }
 
+    struct AdaptiveSlot
+    {
+        std::vector<HistItem> items;
+        unsigned pixels;
+
+        AdaptiveSlot(): items(), pixels(0) { }
+
+        template<typename T>
+        void Sort(T func)
+        {
+            std::sort(items.begin(), items.end(), func);
+        }
+    };
+
     // Code written based on implementation in GifSicle
     void ReduceHistogram_MedianCut
         (HistogramType& Histogram, unsigned target_colors)
     {
-        if(Histogram.size() <= target_colors) return;
+        const unsigned colors_originally = Histogram.size();
+        if(colors_originally <= target_colors) return;
 
-        std::vector<AdaptiveSlot> slots(target_colors);
-        std::vector<HistItem> VecHistogram( Histogram.begin(), Histogram.end() );
-        std::sort(VecHistogram.begin(), VecHistogram.end(), CompareSecond);
-
-        unsigned n_pixels = 0;
-        for(unsigned a=0; a<VecHistogram.size(); ++a)
-            n_pixels += VecHistogram[a].second;
+        std::vector<AdaptiveSlot> slots( target_colors );
 
         /* 1. Set up the first slot, containing all pixels */
-        slots[0].begin  = 0;
-        slots[0].count  = VecHistogram.size();
-        slots[0].pixels = n_pixels;
+        slots[0].items.reserve(colors_originally);
+        for(HistogramType::iterator
+            i = Histogram.begin();
+            i != Histogram.end(); )
+        {
+            HistogramType::iterator j(i); ++i;
+            slots[0].items.push_back(*j);
+            slots[0].pixels += j->second;
+            Histogram.erase(j);
+        }
+
         /* 2. Split slots until we have enough */
         unsigned nadapt;
         for(nadapt=1; nadapt<target_colors; ++nadapt)
         {
-            /* 2.1. Pick the slot to split. */
-            unsigned splitpos=0, splitpixels=0;
+            /* 2.1. Pick the slot with largest population, to split it. */
+            unsigned splitpos=0, largestsize=0;
             for(unsigned i=0; i<nadapt; ++i)
-                if(slots[i].count >= 2 && slots[i].pixels >= splitpixels)
-                    { splitpos=i; splitpixels=slots[i].pixels; }
-            if(!splitpixels) break;
+                if(slots[i].items.size() >= 2
+                && slots[i].pixels > largestsize)
+                    largestsize = slots[splitpos = i].pixels;
+
+            if(!largestsize) break;
+            AdaptiveSlot& slot = slots[splitpos];
+
             /* 2.2. Find its extent. */
-            AdaptiveSlot& split = slots[splitpos];
-            HistItem* slice_begin = &VecHistogram[split.begin];
-            HistItem* slice_end   = slice_begin + split.count;
             int minr=255,ming=255,minb=255, maxr=0,maxg=0,maxb=0;
-            for(HistItem* s = slice_begin; s != slice_end; ++s)
+            for(size_t b=slot.items.size(), a=0; a<b; ++a)
             {
-                int r=(s->first>>16)&0xFF, g=(s->first>>8)&0xFF, b=s->first&0xFF;
+                const uint32 pix = slot.items[a].first;
+                int r=(pix>>16)&0xFF, g=(pix>>8)&0xFF, b=pix&0xFF;
                 if(r<minr) minr=r; if(r>maxr) maxr=r;
                 if(g<ming) ming=g; if(g>maxg) maxg=g;
                 if(b<minb) minb=b; if(b>maxb) maxb=b;
@@ -246,39 +277,48 @@ namespace
             int rdiff = /*0.*/299 * (maxr-minr);
             int gdiff = /*0.*/587 * (maxg-ming);
             int bdiff = /*0.*/114 * (maxb-minb);
-            std::sort(slice_begin, slice_end,
+            slot.Sort(
                 (rdiff >= gdiff && rdiff >= bdiff) ? CompareRed
               : (gdiff >= bdiff) ? CompareGreen
               : CompareBlue);
             /* 2.4 Decide where to split the slot and split it there. */
-            unsigned half_pixels = split.pixels/2;
-            unsigned pixel_accum = slice_begin->second;
-            unsigned i=1;
-            for(; i<split.count-1 && pixel_accum<half_pixels; ++i)
-                pixel_accum += slice_begin[i].second;
-            unsigned diff1 = 2*pixel_accum - split.count;
-            unsigned diff2 = split.count - 2*(pixel_accum - slice_begin[i-1].second);
-            if(diff2 < diff1 && i > 1) pixel_accum -= slice_begin[--i].second;
-            slots[nadapt].begin = split.begin + i;
-            slots[nadapt].count = split.count - i;
-            slots[nadapt].pixels = split.pixels - pixel_accum;
-            split.count  = i;
-            split.pixels = pixel_accum;
+            /*     Split so that both sides have roughly the same number of pixels. */
+            AdaptiveSlot& nextslot = slots[nadapt];
+            for(;;)
+            {
+                const HistItem& p = slot.items.back();
+                unsigned cur_transaction = p.second;
+
+                bool finished_splitting = false;
+                if( nextslot.pixels+cur_transaction*2 >= slot.pixels)
+                {
+                    // This transaction would change the balances.
+                    // Only do it unless it results in a more crooked
+                    // balance than was before it.
+                    unsigned balance_before = slot.pixels - nextslot.pixels;
+                    unsigned balance_after  =
+                        nextslot.pixels+cur_transaction*2 - slot.pixels;
+                    if(nextslot.pixels
+                    && balance_after >= balance_before) break;
+                    finished_splitting = true;
+                }
+
+                nextslot.items.push_back(p);
+                nextslot.pixels += cur_transaction;
+                slot.items.pop_back();
+                slot.pixels -= cur_transaction;
+
+                if(finished_splitting) break;
+            }
         }
         /* 3. Make a new palette by choosing one color from each slot. */
-        Histogram.clear();
         for(unsigned i=0; i<nadapt; ++i)
         {
             AveragePixel pix;
-            HistItem* slice_begin = &VecHistogram[slots[i].begin];
-            HistItem* slice_end   = slice_begin + slots[i].count;
-            unsigned count_total = 0;
-            for(; slice_begin != slice_end; ++slice_begin)
-            {
-                count_total += slice_begin->second;
-                pix.set_n(slice_begin->first, slice_begin->second);
-            }
-            Histogram[ pix.get() ] += count_total;
+            const AdaptiveSlot& slot = slots[i];
+            for(size_t b = slot.items.size(), a=0; a<b; ++a)
+                pix.set_n( slot.items[a].first, slot.items[a].second );
+            Histogram[ pix.get() ] += slot.pixels;
         }
 
         fprintf(stderr, "Median-cut-reduced to %u colors (aimed for %u)\n",
