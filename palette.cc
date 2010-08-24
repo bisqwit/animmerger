@@ -326,7 +326,8 @@ namespace
             nadapt);
     }
 
-    // Original implementation
+    // Original implementation.
+    // Note: Complexity is O(n^2) so only use on tiny palettes.
     void ReduceHistogram_Merging
         (HistogramType& Histogram, unsigned target_colors)
     {
@@ -371,6 +372,139 @@ namespace
             Histogram.erase(j);
             Histogram[ pix.get() ] += combined_count;
         }
+    }
+    
+    namespace Octree
+    {
+        struct PALETTEENTRY
+        {
+            unsigned peFlags, peBlue, peGreen, peRed;
+        };
+        template<size_t TREE_DEPT>
+        class node {
+        public:
+            size_t level;
+            size_t ref_count;
+            
+            long r,g,b;
+            node *child[8];
+            node *p;  //parent
+
+            node(long red,long green, long blue, node *parent)
+                : ref_count(1), r(red), g(green), b(blue), p(parent),
+                  level(parent==0 ? 0 : parent->level+1)
+            {
+                for(unsigned i=0; i<8; ++i)
+                    child[i] = 0;
+            }
+            node() : ref_count(0), r(0), g(0), b(0), level(0), p(0)
+            {
+                for(unsigned i=0; i<8; ++i)
+                    child[i] = 0;
+            }
+            ~node()
+            {
+                reduce();
+                if (p != 0) p->reset_child(this);
+            }
+
+            void reset_child(node *c)
+            {
+                for (unsigned i=0; i<8;++i)
+                    if (child[i] == c) { child[i] = 0; break; }
+            }
+
+            void add_color(long red,long green, long blue) {
+                r+=red;
+                g+=green;
+                b+=blue;
+                ++ref_count;
+                if (level<TREE_DEPT)
+                {
+                    int mask=1<<(7-level);
+                    size_t ndx=0;
+                    if((red   & mask)>0) ndx=4;
+                    if((green & mask)>0) ndx|=2;
+                    if((blue  & mask)>0) ndx|=1;
+                    if (!child[ndx])
+                        child[ndx] = new node(red,green,blue, this);
+                    else
+                        child[ndx]->add_color(red,green,blue);
+                }
+            }
+            void reduce()          //converts this node to be a leaf.
+            {
+                for (unsigned i=0; i<8; ++i) delete child[i];
+            }
+            void reduce_one_leaf() //makes this node to have one leaf less.
+            {
+                if (is_leaf()) { delete this; return; }
+                node *n=0;
+                for (unsigned i=0; i<8; ++i)
+                    if (!n)
+                        { if (child[i]) n = child[i]; }
+                    else if (child[i]
+                          && child[i]->ref_count < n->ref_count)
+                                n = child[i];
+                if (num_leafs() > 1)
+                    n->reduce_one_leaf(); //always n must point to a node
+                else
+                    delete this;
+            }
+
+            unsigned assign_palette_entries(PALETTEENTRY *pe, unsigned index=0)
+            {
+                if (is_leaf())
+                {
+                    pe[index].peFlags=0;
+                    pe[index].peBlue=b/ref_count;
+                    pe[index].peGreen=g/ref_count;
+                    pe[index].peRed=r/ref_count;
+                    return ++index;
+                }
+                else
+                    for (unsigned i=0; i<8; ++i)
+                        if (child[i])
+                            index = child[i]->assign_palette_entries(pe, index);
+                return index;
+            }
+            bool is_leaf() const
+            {
+                for (unsigned i=0; i<8; ++i) if (child[i]) return false;
+                return true;
+            }
+            unsigned num_leafs() const
+            {
+                if (is_leaf()) return 1;
+                unsigned n=0;
+                for (unsigned i=0; i<8; ++i)
+                    if (child[i])
+                        n += child[i]->num_leafs();
+                return n;
+            }
+        };
+
+        template<size_t DEPTH>
+        class octree_reducer: public node<DEPTH>
+        {
+        public:
+            void reduce(PALETTEENTRY *pe, size_t num_colors)
+            {
+                size_t num_leafs = node<DEPTH>::num_leafs();
+                while (num_leafs > num_colors)
+                {
+                    node<DEPTH>::reduce_one_leaf();
+                    --num_leafs;
+                }
+                node<DEPTH>::assign_palette_entries(pe, 0);
+            }
+            using node<DEPTH>::add_color;
+        };
+    }
+
+    void ReduceHistogram_Octree
+        (HistogramType& Histogram, unsigned target_colors)
+    {
     }
 }
 
