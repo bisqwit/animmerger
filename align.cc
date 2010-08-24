@@ -214,8 +214,8 @@ AlignResult Align(
     SpotLocSetType input_spot_locations;
     for(size_t b=input_spots.size(), a=0; a<b; ++a)
     {
-        /*std::fprintf(stderr, "in[%3u]: %16llX,%16llX @ %d,%d\n",
-            (unsigned)a,
+        /*std::fprintf(stderr, "in[%3u/%3u]: %16llX,%16llX @ %d,%d\n",
+            (unsigned)a, (unsigned)b,
             input_spots[a].data.first,
             input_spots[a].data.second,
             input_spots[a].where.x,

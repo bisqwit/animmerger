@@ -13,8 +13,19 @@ namespace
 
     unsigned ColorDiff(int r1,int g1,int b1, int r2,int g2,int b2)
     {
+        /*
+        double y1 = 0.299*r1+0.587*g1+0.114*b1;
+        double c1 =-0.299*r1-0.587*g1+0.886*b1;
+        double C1 = 0.701*r1-0.587*g1-0.114*b1;
+        double y2 = 0.299*r2+0.587*g2+0.114*b2;
+        double c2 =-0.299*r2-0.587*g2+0.886*b2;
+        double C2 = 0.701*r2-0.587*g2-0.114*b2;
+        double ydiff = y1-y2, cdiff = c1-c2, Cdiff = C1-C2;
+        return unsigned ( (ydiff*ydiff + (cdiff*cdiff + Cdiff*Cdiff)) + 0.5 );
+        */
         int rdiff = r1-r2, gdiff = g1-g2, bdiff = b1-b2;
         return rdiff*rdiff + gdiff*gdiff + bdiff*bdiff;
+        /**/
     }
     unsigned ColorDiff(int r1,int g1,int b1, uint32 pix2)
     {
@@ -282,7 +293,7 @@ namespace
     }
 }
 
-PalettePair FindBestPalettePair(int r,int g,int b,
+PalettePair FindBestPalettePair(int rin,int gin,int bin,
     const uint32* Palette, unsigned PaletteSize)
 {
     PalettePair output;
@@ -292,54 +303,63 @@ PalettePair FindBestPalettePair(int r,int g,int b,
     bool output_chosen = false;
     if(PaletteSize <= 32)
     {
-        double input_luma = r*0.299 + g*0.587 + b*0.114;
+        const double input_luma = rin*0.299 + gin*0.587 + bin*0.114;
 
-        unsigned best_diff=0;
+        std::vector<double> luma_table(PaletteSize);
         for(unsigned a=0; a<PaletteSize; ++a)
         {
-            const uint32 pix1 = Palette[a];
-            int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-            double luma1 = r1*0.299 + g1*0.587 + b1*0.114;
+            const uint32 pix = Palette[a];
+            int r1 = (pix >> 16) & 0xFF, g1 = (pix >> 8) & 0xFF, b1 = (pix) & 0xFF;
+            luma_table[a] = r1*0.299 + g1*0.587 + b1*0.114;
+        };
 
-            for(unsigned b=a+1; b<PaletteSize; ++b)
+        unsigned best_diff=0;
+        for(unsigned pa=0; pa<PaletteSize; ++pa)
+        {
+            const uint32 pix1 = Palette[pa];
+            int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+            double luma1 = luma_table[pa];
+
+            for(unsigned pb=pa+1; pb<PaletteSize; ++pb)
             {
-                const uint32 pix2 = Palette[b];
+                const uint32 pix2 = Palette[pb];
                 int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-                double luma2 = r2*0.299 + g2*0.587 + b2*0.114;
+                double luma2 = luma_table[pb];
                 /*if(ColorDiff(r1,g1,b1, r2,g2,b2) >= 255*255)
                 {
                     // Don't combine too different colors
                     continue;
                 }*/
-                /*
-                double result_r = (r1==r2 ? 0.5 : ((r1-r) / double(r1-r2)));
-                double result_g = (g1==g2 ? 0.5 : ((g1-g) / double(g1-g2)));
-                double result_b = (b1==b2 ? 0.5 : ((b1-b) / double(b1-b2)));
-                if(result_r < 0) result_r = 0; else if(result_r > 1) result_r = 1;
-                if(result_g < 0) result_g = 0; else if(result_g > 1) result_g = 1;
-                if(result_b < 0) result_b = 0; else if(result_b > 1) result_b = 1;
-                double result = (result_r*0.299 + result_g*0.587 + result_b*0.114);
-                */
+                /**/
                 double result = (luma1==luma2 ? 0.5 : ((luma1-input_luma) / (luma1-luma2)));
-                if(result < 0 || result > 1) continue;
+                if(result < 0.0 || result > 1.0) continue;
                 // ^ Don't combine if the desired color is either darker or brighter
                 //   than both of the candidate colors.
 
                 //if(result < 0) result = 0; if(result > 1) result = 1;
-                result = ((int)(result*64)) / 64.0;
+                //result = ((int)(result*64)) / 64.0;
                 int got_r = r1 + result*(r2-r1);
                 int got_g = g1 + result*(g2-g1);
                 int got_b = b1 + result*(b2-b1);
                 unsigned diff =
-                    ColorDiff(r,g,b, got_r,got_g,got_b)
-                  + ColorDiff(r,g,b, r1,g1,b1)
-                  + ColorDiff(r,g,b, r2,g2,b2);
+                    ColorDiff(rin,gin,bin, got_r,got_g,got_b)
+                  + ColorDiff(rin,gin,bin, r1,g1,b1)*2
+                  + ColorDiff(rin,gin,bin, r2,g2,b2)*2;
                 if(diff < best_diff || best_diff == 0)
                 {
+                    /*
+                    double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
+                    double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
+                    double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
+                    if(result_r < 0 || result_r > 1) result_r = result;
+                    if(result_g < 0 || result_g > 1) result_g = result;
+                    if(result_b < 0 || result_b > 1) result_b = result;
+                    result = (result_r + result_g + result_b) / 3.0;
+                    */
                     best_diff   = diff;
                     output.result = result;
-                    output.entry1 = a;
-                    output.entry2 = b;
+                    output.entry1 = pa;
+                    output.entry2 = pb;
                     output_chosen = true;
                 }
             }
@@ -351,7 +371,7 @@ PalettePair FindBestPalettePair(int r,int g,int b,
         unsigned diff1=0, diff2=0;
         for(unsigned a=0; a<PaletteSize; ++a)
         {
-            unsigned diff = ColorDiff(r,g,b, Palette[a]);
+            unsigned diff = ColorDiff(rin,gin,bin, Palette[a]);
             if(diff < diff1 || diff1 == 0)
                 { diff2 = diff1; output.entry2 = output.entry1;
                   diff1 = diff; output.entry1 = a; }
@@ -364,9 +384,9 @@ PalettePair FindBestPalettePair(int r,int g,int b,
         int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
         int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
 
-        double result_r = (r1==r2 ? 0.5 : ((r1-r) / double(r1-r2)));
-        double result_g = (g1==g2 ? 0.5 : ((g1-g) / double(g1-g2)));
-        double result_b = (b1==b2 ? 0.5 : ((b1-b) / double(b1-b2)));
+        double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
+        double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
+        double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
         if(result_r < 0) result_r = 0; else if(result_r > 1) result_r = 1;
         if(result_g < 0) result_g = 0; else if(result_g > 1) result_g = 1;
         if(result_b < 0) result_b = 0; else if(result_b > 1) result_b = 1;

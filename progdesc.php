@@ -429,6 +429,11 @@ Loop length 30 frames, blur length 20, with YUV calculations:<br>
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
      alt=\"Loop-Avg 30 through YUV, blur 8\">
 <p>
+Loop length 30 frames, blur length 20, with YUV calculations, and diversity-quantized palette of 16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20Qd16.gif\"
+     alt=\"Loop-Avg 30 through YUV, blur 8, 16 colors\">
+<p>
 Loop length 10 frames, blur length 4:<br>
 <img width=724 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
@@ -478,6 +483,98 @@ on the exact selection of pixel methods requested and the memory
 allocation overhead. Animmerger strives
 to always select the smallest combination of pixel methods
 (memoryconsumptionwise) that can implement all the requested methods.
+
+", 'maskmethods:1. Masking methods' => "
+
+Masked areas can be removed with a number of different methods.
+To best demonstrate them, I added an extra huge mask in the middle of the image.<br>
+It is best seen in the \"black\" masking, below.
+<p>
+These images were produced with this commandline:<br>
+<code>
+# for method in censor hole interpolate extrapolate; do<br>
+# &nbsp; rm *-*.gif *-*.png<br>
+# &nbsp; ./animmerger -r4,4 --mvrange 0,0,4,0 --bgmethod0=first --bgmethod1=last \\<br>
+# &nbsp;     -u\$method -p* pano3/*.png \\<br>
+# &nbsp;     -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
+# &nbsp;     -m3,128,250,72  -m0,73,256,2<br>
+# &nbsp; gifsicle -O2 -o demo/mask-\$method.gif -l0 -d3 ChangeLog-*.gif<br>
+# &nbsp; cp -p Average-0000.png demo/mask-\$method.png<br>
+# done</code>
+
+", 'maskmethod_black:1.1. BLACK/BLANK/CENSOR' => "
+
+This method shows clearly which areas were affected by the mask.
+Specifically, the HUD, and a huge rectangle,
+and a narrower line extending from the very left edge to the very right
+edge of the screen at all times, effectively blocking the contents of
+the entire scanline from ever being seen.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-censor.gif\"
+     alt=\"Masked with CENSOR, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-censor.png\"
+     alt=\"Masked with CENSOR, average\">
+
+", 'maskmethod_hole:1.1. HOLE/ALPHA/TRANSPARENT' => "
+
+This method is what animmerger does by default. The transparent regions
+are simply treated as holes; there is no content on the affected areas.
+If the hidden content becomes available when the camera moves, then those
+pixels are recorded.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-hole.gif\"
+     alt=\"Masked with HOLE, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-hole.png\"
+     alt=\"Masked with HOLE, average\">
+
+", 'maskmethod_interpolate:1.1. DELOGO/BLUR/INTERPOLATE' => "
+
+This method removes the content with a circular blur pattern. The method
+is almost identical to the <i>delogo</i> filter that can be used in
+<a href=\"http://mplayerhq.hu/\">MPlayer</a>
+to remove a tv station logo from video. Content that coindices with the
+removed part is replaced with interpolated surrounding pixels;
+original pixels of the affected area are not sampled.
+<p>
+Animation (palette-reduced and dithered with -Qd,16 in order to make the 1.5 MB GIF file smaller):<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-interpolate.gif\"
+     alt=\"Masked with DELOGO, animation\">
+</a><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-interpolate.png\"
+     alt=\"Masked with DELOGO, average\">
+
+", 'maskmethod_extrapolate:1.1. PATTERN/EXTRAPOLATE' => "
+
+The extrapolate filter tries to extrapolate the content of the masked
+areas by detecting repeating tile patterns outside the masked area, and
+extrapolating those patterns over the masked area.
+The results of this method vary a lot from frame to frame,
+so it is not very suitable to be used over large unknown areas.
+For small areas, it works nicely.
+<!--Of these four, this is the only filter for which the
+    thin entire-scanline mask did not pose any kind of problem.-->
+ <p>
+Note that this algorithm is rather slow on large areas like this.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-extrapolate.gif\"
+     alt=\"Masked with PATTERN, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-extrapolate.png\"
+     alt=\"Masked with PATTERN, average\">
 
 ", 'caveats:1. Caveats' => "
 

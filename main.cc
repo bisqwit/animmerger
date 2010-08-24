@@ -31,7 +31,8 @@ enum MaskMethod
 {
     MaskHole,
     MaskCircularBlur,
-    MaskPattern
+    MaskPattern,
+    MaskBlack
 };
 
 namespace
@@ -228,14 +229,13 @@ namespace
 
     unsigned CompareTiles(
         const uint32* gfx, unsigned sx,unsigned sy,
-        int a_x, int a_y,
-        int b_x, int b_y,
+        int a_x, int a_y, // target
+        int b_x, int b_y, // source
         unsigned tilesizex, unsigned tilesizey)
     {
         /* Compare two tiles of size tilesize
          * centered at a and b respectively.
          */
-        unsigned n_match = 0;
         a_x -= tilesizex/2; if(a_x < 0) a_x = 0;
         a_y -= tilesizey/2; if(a_y < 0) a_y = 0;
         b_x -= tilesizex/2; if(b_x < 0) b_x = 0;
@@ -247,6 +247,8 @@ namespace
         const uint32* a_ptr = gfx + a_y * sx + a_x;
         const uint32* b_ptr = gfx + b_y * sx + b_x;
         const uint32* a_ptr_end = a_ptr + tilesizey*sx;
+
+        unsigned n_match = 0;
         for(; a_ptr < a_ptr_end; a_ptr += sx, b_ptr += sx)
             for(unsigned x=0; x<tilesizex; ++x)
             {
@@ -260,11 +262,86 @@ namespace
                  */
                 bool a_hud = is_masked_pixel(a_pix);
                 bool b_hud = is_masked_pixel(b_pix);
+                if(b_hud) return 0;
+                if(a_hud || a_pix == b_pix) ++n_match;
+                /*
                 if(!(a_hud && b_hud)
                 && (a_hud || b_hud || a_pix == b_pix))
-                    ++n_match;
+                    ++n_match;*/
             }
         return n_match;
+    }
+
+    /*unsigned EvaluateDistinctiveness(
+        const uint32* gfx, unsigned sx,unsigned sy,
+        int a_x, int a_y,
+        int b_x, int b_y,
+        unsigned tilesizex, unsigned tilesizey)
+    {
+        a_x -= tilesizex/2; if(a_x < 0) a_x = 0;
+        a_y -= tilesizey/2; if(a_y < 0) a_y = 0;
+        b_x -= tilesizex/2; if(b_x < 0) b_x = 0;
+        b_y -= tilesizey/2; if(b_y < 0) b_y = 0;
+        if(a_x + tilesizex > sx) a_x = sx-tilesizex;
+        if(a_y + tilesizey > sy) a_y = sy-tilesizey;
+        if(b_x + tilesizex > sx) b_x = sx-tilesizex;
+        if(b_y + tilesizey > sy) b_y = sy-tilesizey;
+        const uint32* a_ptr = gfx + a_y * sx + a_x;
+        const uint32* b_ptr = gfx + b_y * sx + b_x;
+        const uint32* a_ptr_end = a_ptr + tilesizey*sx;
+
+        SetType<uint32> distinct_pixels;
+        distinct_pixels.reserve(16);
+        //std::set<uint32, std::less<uint32>, FSBAllocator<uint32> > distinct_pixels;
+        for(; a_ptr < a_ptr_end; a_ptr += sx, b_ptr += sx)
+            for(unsigned x=0; x<tilesizex; ++x)
+            {
+                uint32 a_pix = a_ptr[x];
+                uint32 b_pix = b_ptr[x];
+                if(!is_masked_pixel(a_pix)) distinct_pixels.insert(a_pix);
+                if(!is_masked_pixel(b_pix)) distinct_pixels.insert(b_pix);
+            }
+        return distinct_pixels.size();
+    }*/
+
+    double EvaluatePatternedness(const uint32* gfx, unsigned stride, unsigned npixels)
+    {
+        /* Evaluate how patterned the pixels along the given line are. */
+        const uint32* const gfx_end = gfx + stride*npixels;
+
+        double result = 0.0;
+        for(unsigned pattern_width = 3;
+                     pattern_width <= 32;
+                     pattern_width <<= 1)
+        {
+            int match = 0, combo = 0;
+            for(unsigned startpos = 0; startpos < pattern_width; ++startpos)
+            {
+                const uint32* p = gfx + stride*startpos;
+                for(;;)
+                {
+                    const uint32* q = p + stride*pattern_width;
+                    if(q >= gfx_end) break;
+                    if(*p == *q)
+                    {
+                        // Count a combo unless all pixels between *q and *p are identical.
+                        for(; &p[stride] != q; p+=stride)
+                            if(p[stride] != *p)
+                                goto combo_ok;
+                        goto failed_combo;
+                    combo_ok:;
+                        ++combo;
+                    }
+                    else failed_combo:
+                        { match += combo*combo; combo=0; }
+                    p = q;
+                }
+            }
+            match += combo*combo;
+            double this_score = match * pattern_width;
+            result += this_score;
+        }
+        return result / (double)npixels;
     }
 
     uint32 DecideExtrapolateHUD(
@@ -276,7 +353,7 @@ namespace
         const int absy = bounds.y1 + y;
 
         const unsigned min_tilesize_power = 4;
-        unsigned max_tilesize_power = 5;
+        unsigned max_tilesize_power = 4;
     try_again:;
         int best_source_x=0, best_source_y=0;
         unsigned best_score=0;
@@ -289,59 +366,69 @@ namespace
         const unsigned n_tilesize_powers_squared =
             n_tilesize_powers * n_tilesize_powers;
 
+        /* TODO: It is not very smart to do this decision individually
+         *       for each and every pixel. Devise some way to use the
+         *       same stamping-source for larger areas successively.
+         */
         #pragma omp parallel for schedule(static)
         for(unsigned tilesize_counter=0;
             tilesize_counter < n_tilesize_powers_squared;
             ++tilesize_counter)
         {
-            unsigned tilesize_x = 1 << (min_tilesize_power + tilesize_counter/n_tilesize_powers);
-            unsigned tilesize_y = 1 << (min_tilesize_power + tilesize_counter%n_tilesize_powers);
+            int tilesize_x = 1 << (min_tilesize_power + tilesize_counter/n_tilesize_powers);
+            int tilesize_y = 1 << (min_tilesize_power + tilesize_counter%n_tilesize_powers);
 
-            int peek_x_min = -1;
-            while(peek_x_min*int(tilesize_x) > int(tilesize_x)*-1)
-                --peek_x_min;
-            int peek_x_max = 1;
-            while(peek_x_max*int(tilesize_x) < int(bounds.width+tilesize_x))
-                ++peek_x_max;
+            int peek_depth = 2;
 
-            int peek_y_min = -1;
-            while(peek_y_min*int(tilesize_y) > int(tilesize_y)*-1)
-                --peek_y_min;
-            int peek_y_max = 1;
-            while(peek_y_max*int(tilesize_x) < int(bounds.height+tilesize_y))
-                ++peek_y_max;
+            int min_x = absx, max_x = absx, min_y = absy, max_y = absy;
+            while(min_x > int(bounds.x1)-tilesize_x*peek_depth) min_x -= tilesize_x;
+            while(min_y > int(bounds.y1)-tilesize_y*peek_depth) min_y -= tilesize_y;
+            while(max_x < int(bounds.x1+bounds.width)+tilesize_x*peek_depth) max_x += tilesize_x;
+            while(max_y < int(bounds.y1+bounds.width)+tilesize_y*peek_depth) max_y += tilesize_y;
 
-            for(int extend_x=peek_x_min;
-                    extend_x<=peek_x_max;
-                    ++extend_x)
-            for(int extend_y=peek_y_min;
-                    extend_y<=peek_y_max;
-                    ++extend_y)
+            int loop_mode = 0;
+            int source_x = min_x;
+            int source_y = absy;
+            for(;; loop_mode ? (source_y+=tilesize_y) : (source_x+=tilesize_x) )
             {
-                if(!extend_x && !extend_y) continue;
-                int source_x = absx + extend_x * int(tilesize_x);
-                int source_y = absy + extend_y * int(tilesize_y);
+                switch(loop_mode)
+                {
+                    case 0:
+                        if(source_x <= max_x) break;
+                        source_x = absx;
+                        source_y = min_y;
+                        loop_mode = 1; // passthru
+                    default: case 1:
+                        if(source_y <= max_y) break;
+                        goto done_loop;
+                }
+                //std::fprintf(stderr, "try %d,%d (mode=%d, %d..%d,%d..%d)\n", source_x,source_y, loop_mode, min_x,max_x, min_y,max_y);
                 if(source_x < 0 || source_x >= int(sx)
-                || source_y < 0 || source_y >= int(sy))
+                || source_y < 0 || source_y >= int(sy)
+                || is_masked_pixel( gfx[source_y*sx + source_x] ))
+                {
                     continue;
-                if(is_masked_pixel( gfx[source_y*sx + source_x] ))
-                    continue;
-
-                unsigned score = CompareTiles(
-                    gfx,sx,sy,
-                    absx,absy,
-                    source_x,source_y,
-                    8,8 /*tilesize_x,tilesize_y*/);
+                }
+                unsigned score = CompareTiles(gfx,sx,sy, absx,absy, source_x,source_y, 8,8);
               #ifdef _OPENMP
                 ScopedLock lck(score_lock);
               #endif
-                if(score > best_score)
+                #pragma omp flush(best_score,best_source_x,best_source_y)
+                if(score > best_score
+                || (score == best_score &&
+                        (best_source_y < source_y
+                      || (best_source_y == source_y && best_source_x < source_x))
+                  ))
                 {
+                    // The coordinate comparison above is simply a tie-breaker
+                    // in order to produce consistent results despite multithreading.
                     best_source_x = source_x;
                     best_source_y = source_y;
                     best_score = score;
+                    #pragma omp flush(best_score,best_source_x,best_source_y)
                 }
             }
+         done_loop:;
         }
         if(best_score == 0)
         {
@@ -349,6 +436,7 @@ namespace
              * retry with a larger tile size limit.
              */
             max_tilesize_power += 1;
+            //std::fprintf(stderr, "Extend tilesize to %u\n", 1u << max_tilesize_power);
             goto try_again;
         }
         /*fprintf(stderr, "Copy from %d,%d\n",
@@ -361,52 +449,162 @@ namespace
         uint32* gfx, unsigned sx,unsigned sy,
         AlphaRange& bounds)
     {
-        int carry = (int)bounds.height - (int)bounds.width;
+        /* Reduce one edge at time, choosing that edge
+         * which neighbors the most patterned-looking data.
+         */
+      #if 0
         while(bounds.width >= 2
            && bounds.height >= 2)
         {
+            uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
+            unsigned y2 = bounds.height-1;
+            unsigned x2 = bounds.width-1;
+
+            int selected_edge = 0;
+            double best_score = 0;
+
+            if(bounds.y1 > 0)
+            {   double score = EvaluatePatternedness(q0-sx,1, bounds.width);
+                if(score > best_score) { selected_edge = 0; best_score = score; } }
+            if(bounds.x1 > 0)
+            {   double score = EvaluatePatternedness(q0-1,sx, bounds.height);
+                if(score > best_score) { selected_edge = 2; best_score = score; } }
+            if(bounds.y1 + bounds.height < sy)
+            {   double score = EvaluatePatternedness(q0+bounds.height*sx,1, bounds.width);
+                if(score > best_score) { selected_edge = 1; best_score = score; } }
+            if(bounds.x1 + bounds.width < sx)
+            {   double score = EvaluatePatternedness(q0+bounds.width,sx, bounds.height);
+                if(score > best_score) { selected_edge = 3; best_score = score; } }
+
+            switch(selected_edge)
+            {
+                case 0: /* Top edge */
+                    for(unsigned x=0; x<bounds.width; ++x)
+                        if(is_masked_pixel(q0[x]))
+                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
+                    bounds.y1 += 1;
+                    bounds.height -= 1;
+                    break;
+                case 1: /* Bottom edge */
+                    q0 += y2*sx;
+                    for(unsigned x=0; x<bounds.width; ++x)
+                        if(is_masked_pixel(q0[x]))
+                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
+                    bounds.height -= 1;
+                    break;
+                case 2: /* Left edge */
+                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
+                        if(is_masked_pixel(*q0))
+                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
+                    bounds.x1 += 1;
+                    bounds.width -= 1;
+                    break;
+                case 3: /* Right edge */
+                    q0 += x2;
+                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
+                        if(is_masked_pixel(*q0))
+                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
+                    bounds.width -= 1;
+                    break;
+            }
+        }
+      #endif
+      #if 1
+        /* Now reducing all edges roughly at a constant rate. */
+        //int carry = (int)bounds.height - (int)bounds.width;
+        while(bounds.width >= 2
+           && bounds.height >= 2)
+        {
+            uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
+            unsigned y2 = bounds.height-1;
+            unsigned x2 = bounds.width-1;
             //fprintf(stderr, "%ux%u+%u+%u\n",
             //    bounds.width,bounds.height, bounds.x1,bounds.y1);
-            if(carry >= 0)
+            double score_topbottom = 0;
+            double score_leftright = 0;
+            if(bounds.y1 > 0)
+                score_topbottom += EvaluatePatternedness(q0-sx,1, bounds.width);
+            if(bounds.x1 > 0)
+                score_leftright += EvaluatePatternedness(q0-1,sx, bounds.height);
+            if(bounds.y1 + bounds.height < sy)
+                score_topbottom += EvaluatePatternedness(q0+bounds.height*sx,1, bounds.width);
+            if(bounds.x1 + bounds.width < sx)
+                score_leftright += EvaluatePatternedness(q0+bounds.width,sx, bounds.height);
+            //if(carry >= 0)
+            if(score_topbottom > score_leftright)
             {
-                carry -= bounds.width;
-
-                unsigned y2 = bounds.height-1;
-                uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
-                uint32* q1 = q0 + y2 * sx;
-
-                // Do top & bottom horizontal edges
-                for(unsigned x=0; x<bounds.width; ++x)
+                //carry -= bounds.width;
+                if(bounds.y1 == 0 && bounds.height != sy)
                 {
-                    if(is_masked_pixel(q0[x]))
-                        q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
-                    if(is_masked_pixel(q1[x]))
-                        q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
+                    uint32* q1 = q0 + y2 * sx;
+                    // Do bottom edge only
+                    for(unsigned x=0; x<bounds.width; ++x)
+                        if(is_masked_pixel(q1[x]))
+                            q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
+                    bounds.height -= 1;
                 }
-                bounds.y1 += 1;
-                bounds.height -= 2;
+                else if(bounds.y1 != 0 && bounds.y1+bounds.height == sy)
+                {
+                    // Do top edge only
+                    for(unsigned x=0; x<bounds.width; ++x)
+                        if(is_masked_pixel(q0[x]))
+                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
+                    bounds.y1 += 1;
+                    bounds.height -= 1;
+                }
+                else
+                {
+                    uint32* q1 = q0 + y2 * sx;
+                    // Do top & bottom horizontal edges
+                    for(unsigned x=0; x<bounds.width; ++x)
+                    {
+                        if(is_masked_pixel(q0[x]))
+                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
+                        if(is_masked_pixel(q1[x]))
+                            q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
+                    }
+                    bounds.y1 += 1;
+                    bounds.height -= 2;
+                }
             }
             else
             {
-                carry += bounds.height;
-
-                unsigned x2 = bounds.width-1;
-                uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
-                uint32* q1 = q0 + x2;
-
-                // Do left & right vertical edges
-                for(unsigned y=0; y<bounds.height; ++y, q0+=sx, q1+=sx)
+                //carry += bounds.height;
+                if(bounds.x1 == 0 && bounds.width != sx)
                 {
-                    if(is_masked_pixel(*q0))
-                        *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
-                    if(is_masked_pixel(*q1))
-                        *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
+                    uint32* q1 = q0 + x2;
+                    // Do right edge only
+                    for(unsigned y=0; y<bounds.height; ++y, q1+=sx)
+                        if(is_masked_pixel(*q1))
+                            *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
+                    bounds.width -= 1;
                 }
-                bounds.x1 += 1;
-                bounds.width -= 2;
+                else if(bounds.x1 != 0 && bounds.x1+bounds.width == sx)
+                {
+                    // Do left edge only
+                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
+                        if(is_masked_pixel(*q0))
+                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
+                    bounds.x1 += 1;
+                    bounds.width -= 1;
+                }
+                else
+                {
+                    uint32* q1 = q0 + x2;
+                    // Do left & right vertical edges
+                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx, q1+=sx)
+                    {
+                        if(is_masked_pixel(*q0))
+                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
+                        if(is_masked_pixel(*q1))
+                            *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
+                    }
+                    bounds.x1 += 1;
+                    bounds.width -= 2;
+                }
             }
         }
-
+      #endif
         /* bounds.width or bounds.height may still be 1. */
         for(unsigned y=0; y<bounds.height; ++y)
         {
@@ -604,6 +802,10 @@ DEFINING MASKS\n\
          Hide masked areas by extrapolating a surrounding\n\
          pattern over the masked areas.\n\
          Alias: pattern, extrapolate\n\
+\n\
+     --maskmethod=blank or -ublack\n\
+         Replace the masked areas with black pixels, \"censoring\" them.\n\
+         Alias: blank, black, censor\n\
 \n\
 REDUCING PALETTE\n\
 \n\
@@ -828,6 +1030,11 @@ rate.\n\
                      || strcasecmp(optarg, "extrapolate") == 0
                        )
                     maskmethod = MaskPattern;
+                else if(strcasecmp(optarg, "blank") == 0
+                     || strcasecmp(optarg, "black") == 0
+                     || strcasecmp(optarg, "censor") == 0
+                       )
+                    maskmethod = MaskBlack;
                 else
                 {
                     std::fprintf(stderr,
@@ -1018,14 +1225,20 @@ rate.\n\
                     if(a.colors.empty()
                     || a.colors.find(pixels[p+x]) != a.colors.end())
                     {
-                        pixels[p+x] |= 0xFF000000u;
-                        ++BlankCount;
+                        if(maskmethod == MaskBlack)
+                            pixels[p+x] = 0;
+                        else
+                        {
+                            pixels[p+x] |= 0xFF000000u;
+                            ++BlankCount;
+                        }
                     }
                 }
             if(BlankCount != 0)
                 switch(maskmethod)
                 {
                     case MaskHole:
+                    case MaskBlack:
                         break;
                     case MaskCircularBlur:
                         BlurHUD(&pixels[0], sx, sy, tmp);

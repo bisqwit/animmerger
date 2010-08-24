@@ -308,10 +308,6 @@ void TILE_Tracker::Save(unsigned method)
     }
 }
 
-namespace
-{
-}
-
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
     HistogramType Histogram;
@@ -332,7 +328,10 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         for(; a < prev_frame.size() && a < frame.size(); ++a)
         {
             if(frame[a] != prev_frame[a])
+            {
+                ++Histogram[prev_frame[a]];
                 ++Histogram[frame[a]];
+            }
         }
         for(; a < frame.size(); ++a)
         {
@@ -357,8 +356,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         }
       #endif
     }
-
-    // If there are _way_ too many colors, reduce them with Gifsicle's method
+    // Reduce the histogram into a usable palette
     fprintf(stderr, "%u colors detected\n",(unsigned) Histogram.size());
     ReduceHistogram(Histogram);
     PaletteSize = MakePalette(Palette, Histogram, 256);
@@ -457,13 +455,20 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                     pix = 0x7F000000u;
                 if(!palette_failed)
                 {
+                    if(false) // test color palette
+                    {
+                    /*r = 256*y/hei; // test color scale dithering
+                      g = 256*x/wid;
+                      b = 0;*/
+                        if(y < 32)
+                            pix = Palette[x * PaletteSize / wid];
+                    }
+
                     int r = (pix >> 16)&0xFF;
                     int g = (pix >>  8)&0xFF;
                     int b = (pix      )&0xFF;
                     int a = (pix >> 24); if(a&0x80) a>>=1;
-                    /*r = 256*y/hei; // test color scale dithering
-                      g = 256*x/wid;
-                      b = 0;*/
+
                     int color = gdImageColorExactAlpha(im, r,g,b,a);
                     if(color == -1)
                     {
@@ -656,6 +661,7 @@ TILE_Tracker::FitScreenAutomatic
     (const uint32* input, unsigned sx,unsigned sy)
 {
     static VecType<uint32> prev_frame;
+    //fprintf(stderr, "sx=%u,sy=%u, prev_frame size=%u\n", sx,sy, prev_frame.size());
     if(prev_frame.size() == sx*sy)
     {
         AlignResult align = TryAlignWithPrevFrame(&prev_frame[0], input,sx,sy);
