@@ -3,6 +3,7 @@
 #include "settype.hh"
 #include "align.hh"
 #include "openmp.hh"
+#include "palette.hh"
 
 #include "pixels/averagepixel.hh"
 
@@ -66,7 +67,7 @@ namespace
             {
                 for(unsigned a=0; a < sizeof(opts)/sizeof(*opts); ++a)
                 {
-                    if(strcasecmp(arg, opts[a].shortopt) == 0
+                    if(strcmp(arg, opts[a].shortopt) == 0
                     || strcasecmp(arg, opts[a].longopt) == 0)
                     {
                         if(!allow_animated && opts[a].animated) goto is_animated;
@@ -436,6 +437,7 @@ int main(int argc, char** argv)
             {"help",       0,0,'h'},
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
+            {"quantize",   1,0,'Q'},
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"bgmethod0",  1,0,4000},
@@ -452,7 +454,7 @@ int main(int argc, char** argv)
             {"noalign",    0,0,4002},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:Q:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -508,6 +510,8 @@ Options:\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
      only scroll horizontally and by 4 pixels at most per frame.\n\
+ --quantize <method>,<num_colors>\n\
+     Reduce palette, see instructions below\n\
  --noalign\n\
      Disable automatic image aligner\n\
  --gif, -g\n\
@@ -601,6 +605,42 @@ DEFINING MASKS\n\
          pattern over the masked areas.\n\
          Alias: pattern, extrapolate\n\
 \n\
+REDUCING PALETTE\n\
+\n\
+  When making GIF images, the means on how the palette is reduced\n\
+  can be controlled with the --quantize option.\n\
+  The following quantization methods are defined:\n\
+\n\
+    Median cut ( example: --quantize=mediancut,32  or -Qm,32 )\n\
+      Heckbert quantization. Progressively bisects the colorspace\n\
+      into roughly equal sizes per population until the number of\n\
+      sections matches the required size. Then chooses the weighted\n\
+      average of each section.\n\
+\n\
+    Diversity ( example: --quantize=diversity,10 or -Qd,10 )\n\
+      XV's modified diversity algorithm. Tries to choose the\n\
+      most diverse set of the original colors.\n\
+\n\
+    Blend-diversity ( example: --quantize=blenddiversity,64 or -Qb,64 )\n\
+      Same as diversity, but sometimes makes up new colors by blending.\n\
+\n\
+    Merging ( example: --quantize=merging,4 or -Qg,4 )\n\
+      A last-resort method which progressively finds two most similar\n\
+      colors in the remaining colormap and averages them together.\n\
+      Very slow, thus not recommended.\n\
+\n\
+  Multiple quantization phases can be performed in a sequence.\n\
+  For example, -Qb,32 -Qd,16 first reduces with \"blend-diversity\"\n\
+  to 32 colors, then reduces the remaining set with \"diversity\" to 16 colors.\n\
+  It is not an error to reduce to a larger set than 256 colors.\n\
+  If the last explicitly chosen quantization method yields more than 256\n\
+  than 256 colors, the colormap will be implicitly reduced\n\
+  with a method that picks the 256 most-used colors.\n\
+  If necessary, the image will be dithered using a positional dithering method.\n\
+  If no quantization methods are explicitly selected, animmerger\n\
+  will use whatever method GD graphics library happens to use.\n\
+  Note that the blending quantization methods are subject to the YUV selection.\n\
+\n\
 TIPS\n\
 \n\
 Converting a GIF animation into individual frame files:\n\
@@ -668,7 +708,7 @@ rate.\n\
                 FirstLastLength = tmp;
                 if(tmp != FirstLastLength)
                 {
-                    fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
+                    std::fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
                     FirstLastLength = 1;
                 }
                 break;
@@ -680,7 +720,7 @@ rate.\n\
                 LoopingLogLength = tmp;
                 if(LoopingLogLength < 1 || tmp != LoopingLogLength)
                 {
-                    fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
+                    std::fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
                     LoopingLogLength = 1;
                 }
                 break;
@@ -692,7 +732,7 @@ rate.\n\
                 AnimationBlurLength = tmp;
                 if(tmp < 0 || tmp != AnimationBlurLength)
                 {
-                    fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
+                    std::fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
                     AnimationBlurLength = 0;
                 }
                 break;
@@ -705,7 +745,7 @@ rate.\n\
                 || x_divide_reference > 1024 || y_divide_reference > 1024
                 || n != 2)
                 {
-                    fprintf(stderr, "animmerger: Invalid parameter to -r: %s\n", arg);
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -r: %s\n", arg);
                     x_divide_reference=32;
                     y_divide_reference=32;
                 }
@@ -719,7 +759,42 @@ rate.\n\
                     &mv_xmax,&mv_ymax);
                 if(n != 4)
                 {
-                    fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
+                }
+                break;
+            }
+            case 'Q':
+            {
+                char *arg = optarg;
+                char *comma = std::strchr(arg, ',');
+                if(!comma)
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                else
+                {
+                    *comma = '\0';
+                    PaletteMethodItem method;
+                    method.size = 0;
+                    #define AddOption(optchar,name) \
+                        else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                            { method.size = 1; method.method = quant_##name; }
+                    if(false) {}
+                    DefinePaletteMethods(AddOption)
+                    else
+                    {
+                        std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                    }
+                    if(method.size)
+                    {
+                        long ncolors = strtol(comma+1, 0, 10);
+                        if(ncolors < 1)
+                            std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
+                        else
+                        {
+                            method.size = ncolors;
+                            PaletteReductionMethod.push_back(method);
+                        }
+                    }
+                    #undef AddOption
                 }
                 break;
             }
@@ -844,6 +919,36 @@ rate.\n\
             std::printf("\tAverage color is calculated in: %s\n",
                 AveragesInYUV ? "YUV" : "RGB");
 
+        if(SaveGif == 1 || (AllUsedMethods & AnimatedPixelMethodsMask))
+        {
+            if(PaletteReductionMethod.empty())
+                std::printf("\tPalette reduction done by libGD if necessary\n");
+            else
+            {
+                std::printf("\tPalette reduction if necessary: ");
+                for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
+                {
+                    if(a) std::printf(", followed by ");
+                    switch(PaletteReductionMethod[a].method)
+                    {
+                        #define MakeCase(o,name) \
+                            case quant_##name: std::printf("%s", #name); break;
+                        DefinePaletteMethods(MakeCase)
+                        #undef MakeCase
+                    }
+                    std::printf(" to %u", PaletteReductionMethod[a].size);
+                }
+                std::printf("\n");
+            }
+        }
+        else
+        {
+            if(PaletteReductionMethod.empty())
+                std::printf(
+                    "\tPalette reduction was specified, but it will be ignored,\n"
+                    "\tbecause only truecolor PNGs will be generated.\n");
+        }
+
         unsigned size = GetPixelSizeInBytes();
         int penalty = GetPixelSizePenaltyInBytes();
         std::printf("\tPixel size in bytes: %u", size);
@@ -866,7 +971,7 @@ rate.\n\
     for(int a=optind; a<argc; ++a)
     {
         const char* fn = argv[a];
-        if(verbose) fprintf(stderr, "Reading %s\n", fn);
+        if(verbose) std::fprintf(stderr, "Reading %s\n", fn);
         FILE* fp = std::fopen(fn, "rb");
         if(!fp)
         {
@@ -903,7 +1008,7 @@ rate.\n\
             /*std::fprintf(stderr, "%u,%u, %u,%u\n",
                 tmp.x1,tmp.y1, tmp.width,tmp.height);
             for(size_t b=0; b<a.colors.size(); ++b)
-                fprintf(stderr, "- %06X\n", a.colors[b]);*/
+                std::fprintf(stderr, "- %06X\n", a.colors[b]);*/
 
             unsigned BlankCount = 0;
             unsigned p = tmp.y1 * sx + tmp.x1;

@@ -41,10 +41,8 @@ class TILE_Tracker
     unsigned SequenceBegin;
     unsigned CurrentTimer;
 
-    static const unsigned PaletteSize = 16;
-
-    uint32 Palette[PaletteSize];
-    
+    uint32 Palette[256];
+    unsigned PaletteSize;
 
 public:
     TILE_Tracker() : LastFilename(), SequenceBegin(0), CurrentTimer(0)

@@ -1,12 +1,11 @@
-#include "pixel.hh"
-#include "pixels/averagepixel.hh"
-
 #include <gd.h>
 #include <cstdio>
+#include <cmath>
 
 #include "openmp.hh"
 #include "canvas.hh"
 #include "align.hh"
+#include "palette.hh"
 
 int SaveGif = -1;
 
@@ -283,7 +282,8 @@ void TILE_Tracker::Save(unsigned method)
 
         if(SaveGif == 1 || animated)
         {
-            CreatePalette( (PixelMethod) method, SavedTimer );
+            if(!PaletteReductionMethod.empty())
+                CreatePalette( (PixelMethod) method, SavedTimer );
         }
 
         #pragma omp parallel for schedule(dynamic) ordered
@@ -310,25 +310,36 @@ void TILE_Tracker::Save(unsigned method)
 
 namespace
 {
-    unsigned ColorDiff(int r1,int g1,int b1, uint32 pix2)
-    {
-        int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-        int rdiff = r1-r2, gdiff = g1-g2, bdiff = b1-b2;
-        return rdiff*rdiff + gdiff*gdiff + bdiff*bdiff;
-    }
-    unsigned ColorDiff(uint32 pix1, uint32 pix2)
-    {
-        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-        return ColorDiff(r1,g1,b1, pix2);
-    }
 }
 
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
-    typedef std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> > MapT;
-    MapT PixelOccurrenceCounts;
-    for(unsigned frame=0; frame<nframes; frame+=1)
+    HistogramType Histogram;
+    const int ymi = ymin, yma = ymax;
+    const int xmi = xmin, xma = xmax;
+    const unsigned wid = xma-xmi;
+    const unsigned hei = yma-ymi;
+
+    VecType<uint32> prev_frame;
+    for(unsigned frameno=0; frameno<nframes; frameno+=1)
     {
+      #if 1
+        /* Only count histogram from content that
+         * changes between previous and current frame
+         */
+        VecType<uint32> frame ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
+        unsigned a=0;
+        for(; a < prev_frame.size() && a < frame.size(); ++a)
+        {
+            if(frame[a] != prev_frame[a])
+                ++Histogram[frame[a]];
+        }
+        for(; a < frame.size(); ++a)
+        {
+            ++Histogram[frame[a]];
+        }
+        prev_frame.swap(frame);
+      #else
         for(ymaptype::const_iterator
             yi = screens.begin();
             yi != screens.end();
@@ -340,59 +351,17 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         {
             const cubetype& cube      = xi->second;
             uint32 result[256*256];
-            cube.pixels->GetLiveSectionInto(method, frame, result,256, 0,0, 256,256);
+            cube.pixels->GetLiveSectionInto(method, frameno, result,256, 0,0, 256,256);
             for(unsigned a=0; a<256*256; ++a)
-                ++PixelOccurrenceCounts[ result[a] ];
+                ++Histogram[ result[a] ];
         }
+      #endif
     }
 
-    while(PixelOccurrenceCounts.size() > PaletteSize)
-    {
-        /* Find two colors that are nearly identical, and merge them */
-        std::pair<MapT::iterator, MapT::iterator> best_pair;
-        unsigned best_difference = 0;
-
-        for(MapT::iterator
-            i = PixelOccurrenceCounts.begin();
-            i != PixelOccurrenceCounts.end();
-            ++i)
-        {
-            uint32 pix1 = i->first;
-            int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-
-            for(MapT::iterator j = i;
-                ++j != PixelOccurrenceCounts.end(); )
-            {
-                uint32 pix2 = j->first;
-                unsigned diff = ColorDiff(r1,g1,b1, pix2);
-                if(diff < best_difference || best_difference == 0)
-                {
-                    best_pair.first  = i;
-                    best_pair.second = j;
-                    best_difference = diff;
-                }
-            }
-        }
-        MapT::iterator i = best_pair.first;
-        MapT::iterator j = best_pair.second;
-        unsigned combined_count = i->second + j->second;
-        AveragePixel pix;
-        pix.set(i->first/*, i->second*/);
-        pix.set(j->first/*, j->second*/);
-        PixelOccurrenceCounts.erase(i);
-        PixelOccurrenceCounts.erase(j);
-        PixelOccurrenceCounts[ pix.get() ] += combined_count;
-    }
-
-    unsigned n = 0;
-    for(MapT::const_iterator
-        i = PixelOccurrenceCounts.begin();
-        i != PixelOccurrenceCounts.end();
-        ++i)
-    {
-        Palette[n++] = i->first;
-        if(n == PaletteSize) break;
-    }
+    // If there are _way_ too many colors, reduce them with Gifsicle's method
+    fprintf(stderr, "%u colors detected\n",(unsigned) Histogram.size());
+    ReduceHistogram(Histogram);
+    PaletteSize = MakePalette(Palette, Histogram, 256);
 }
 
 void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_counter)
@@ -458,6 +427,10 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     {
         bool palette_failed = false;
 
+        typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
+            pixel_cache_t;
+        pixel_cache_t pixel_cache;
+
         /* First try to create a paletted image */
         gdImagePtr im = gdImageCreate(wid,hei);
     reloop:;
@@ -465,13 +438,17 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         gdImageSaveAlpha(im, true);
         if(!palette_failed)
         {
-            for(unsigned a=0; a<PaletteSize; ++a)
+            if(!PaletteReductionMethod.empty())
             {
-                unsigned pix = Palette[a];
-                gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
+                for(unsigned a=0; a<PaletteSize; ++a)
+                {
+                    unsigned pix = Palette[a];
+                    gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
+                }
+                gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
             }
-            gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
         }
+
         for(unsigned p=0, y=0; y<hei; ++y)
             for(unsigned x=0; x<wid; ++x)
             {
@@ -484,33 +461,41 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                     int g = (pix >>  8)&0xFF;
                     int b = (pix      )&0xFF;
                     int a = (pix >> 24); if(a&0x80) a>>=1;
+                    /*r = 256*y/hei; // test color scale dithering
+                      g = 256*x/wid;
+                      b = 0;*/
                     int color = gdImageColorExactAlpha(im, r,g,b,a);
                     if(color == -1)
                     {
-                        if(true) // Find two closest entries from palette and use o4x4 dithering
+                        if(!PaletteReductionMethod.empty())
                         {
-                            static const int pattern[4][4] =
+                            // Find two closest entries from palette and use o8x8 dithering
+                            PalettePair output;
+                            pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
+                            if(i == pixel_cache.end() || i->first != pix)
                             {
-                                { 1, 9, 3,11},
-                                {13, 5,15, 7},
-                                { 4,12, 2,10},
-                                {16, 8,14, 6}
-                            };
-                            unsigned entry1=0, entry2=0, diff1=0, diff2=0;
-                            for(unsigned a=0; a<PaletteSize; ++a)
-                            {
-                                unsigned diff = ColorDiff(r,g,b, Palette[a]);
-                                if(diff < diff1 || diff1 == 0)
-                                    { diff2 = diff1; entry2 = entry1;
-                                      diff1 = diff; entry1 = a; }
-                                else if(diff < diff2)
-                                    { diff2 = diff; entry2 = a; }
+                                output = FindBestPalettePair(
+                                    r,g,b,
+                                    Palette,PaletteSize);
+                                pixel_cache.insert(i, std::make_pair(pix, output));
                             }
-                            // diff1   = difference between entry1 and pixel
-                            // maxdiff = difference between entry1 and entry2
-                            unsigned maxdiff = ColorDiff(Palette[entry1], Palette[entry2]);
-                            diff1 += pattern[y&3][x&3]*maxdiff/16;
-                            color = (diff1 >= maxdiff) ? entry2 : entry1;
+                            else
+                                output = i->second;
+
+                            #define d(x) x/64.0
+                            static const double pattern[8*8]
+    = { d(1 ), d(49), d(13), d(61), d( 4), d(52), d(16), d(64),
+        d(33), d(17), d(45), d(29), d(36), d(20), d(48), d(32),
+        d(9 ), d(57), d( 5), d(53), d(12), d(60), d( 8), d(56),
+        d(41), d(25), d(37), d(21), d(44), d(28), d(40), d(24),
+        d(3 ), d(51), d(15), d(63), d( 2), d(50), d(14), d(62),
+        d(35), d(19), d(47), d(31), d(34), d(18), d(46), d(30),
+        d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
+        d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22)
+                            };
+                            #undef d
+                            double position = output.result + pattern[(y&7)*8+(x&7)];
+                            color = (position >= 1.0) ? output.entry2 : output.entry1;
                         }
                         else
                         {

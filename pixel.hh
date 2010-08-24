@@ -37,7 +37,6 @@ enum PixelMethod { DefinePixelMethods(MakeEnum) };
 enum { NPixelMethods = 0 DefinePixelMethods(CountMethods) };
 #undef CountMethods
 
-
 extern bool OptimizeChangeLog;
 extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
@@ -69,7 +68,7 @@ static const unsigned long YUVCapablePixelMethodsMask = 0 DefinePixelMethods(Mak
    /* The optimize attribute does not work with LTO,
     * which is only available on g++-4.5 onwards.
     */
-# if (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 5))
+# if (0 && (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 5)))
 #  define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
 # else
 #  define FastPixelMethod __attribute__((regparm(3)))
