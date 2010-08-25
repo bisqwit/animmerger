@@ -563,16 +563,14 @@ namespace
 
         int netsize; // Number of colors
         struct pixel { int c[3]; };
-        std::vector<pixel> network; /* the network itself */
-        std::vector<int>   bias;    /* bias and freq arrays for learning */
-        std::vector<int>   freq;
-        std::vector<int> radpower;	/* radpower for precomputation */
-
+        std::vector<pixel> network;  /* the network itself */
+        std::vector<int> bias, freq; /* bias and freq arrays for learning */
+        std::vector<int> radpower;	 /* radpower for precomputation */
     public:
         NeuQuant(unsigned ncolors) : netsize(ncolors),
             network(netsize),
-            bias(netsize),
-            freq(netsize),
+            bias(netsize, 0),
+            freq(netsize, intbias/netsize) /*1/netsize*/,
             radpower(initrad)
         {
             for(int i=0; i<netsize; ++i)
@@ -580,8 +578,6 @@ namespace
                 pixel& pix = network[i];
                 for(int n=0; n<3; ++n)
                     pix.c[n] = (i << (netbiasshift+8)) / netsize;
-                freq[i] = intbias/netsize; /* 1/netsize */
-                bias[i] = 0;
             }
         }
 
@@ -589,11 +585,11 @@ namespace
         void UnbiasNet()
         {
             for (int i=0; i<netsize; i++)
-            {
                 for(int n=0; n<3; ++n)
-                { int temp = (network[i].c[n] + (1 << (netbiasshift - 1))) >> netbiasshift;
-                  network[i].c[n] = temp>=255 ? 255 : temp; }
-            }
+                {
+                    int temp = (network[i].c[n] + (1 << (netbiasshift - 1))) >> netbiasshift;
+                    network[i].c[n] = std::min(temp, 255);
+                }
         }
 
         /* Main Learning Loop */
@@ -653,7 +649,7 @@ namespace
         }
     private:
         /* Search for biased BGR values */
-        int contest(int c[3])
+        int contest(const int c[3])
         {
             /* finds closest neuron (min dist) and updates freq */
             /* finds best neuron (min dist-bias) and returns position */
@@ -663,8 +659,6 @@ namespace
             int bestbiasd = bestd;
             int bestpos = -1;
             int bestbiaspos = bestpos;
-            int *p = &bias[0];
-            int *f = &freq[0];
             for (int i=0; i<netsize; i++)
             {
                 pixel& pix = network[i];
@@ -674,11 +668,11 @@ namespace
                     dist += std::abs(pix.c[n] - c[n]);
 
                 if (dist<bestd) {bestd=dist; bestpos=i;}
-                int biasdist = dist - ((*p)>>(intbiasshift-netbiasshift));
+                int biasdist = dist - ((bias[i]) >> (intbiasshift-netbiasshift));
                 if (biasdist<bestbiasd) {bestbiasd=biasdist; bestbiaspos=i;}
-                int betafreq = (*f >> betashift);
-                *f++ -= betafreq;
-                *p++ += (betafreq<<gammashift);
+                int betafreq = (freq[i] >> betashift);
+                freq[i] -= betafreq;
+                bias[i] += (betafreq<<gammashift);
             }
             freq[bestpos] += beta;
             bias[bestpos] -= betagamma;
@@ -687,7 +681,7 @@ namespace
 
         /* Move neuron i towards biased (b,g,r) by factor alpha */
         template<int value>
-        void altersingle(int alpha,int i, int c[3])
+        void altersingle(int alpha,int i, const int c[3])
         {
             pixel& pix = network[i]; /* alter hit neuron */
             for(int n=0; n<3; ++n)
@@ -695,7 +689,7 @@ namespace
         }
 
         /* Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|] */
-        void alterneigh(int rad,int i, int c[3])
+        void alterneigh(int rad,int i, const int c[3])
         {
             int lo = i-rad;   if (lo<-1) lo=-1;
             int hi = i+rad;   if (hi>netsize) hi=netsize;
@@ -720,7 +714,11 @@ namespace
             for(unsigned pix=i->first, c=i->second; c-- > 0; )
                 all_pixels.push_back(pix);
         std::random_shuffle( all_pixels.begin(), all_pixels.end() );
-
+        /* Randomly shuffle the input pixels to provide the most unbiased
+         * learning method for the network. In original NeuQuant code,
+         * the array was traversed with intervals decided by a set of
+         * prime numbers, which achieved more or less the same effect.
+         */
         NeuQuant worker(target_colors);
         worker.Learn(&all_pixels[0], all_pixels.size(), 1);
         worker.UnbiasNet();
