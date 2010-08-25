@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <algorithm>
+#include <cmath>
 
 #include "palette.hh"
 #include "pixel.hh"
@@ -738,6 +739,23 @@ namespace
         std::fprintf(stderr, "NeuQuant-reduced to %u colors (aimed for %u)\n",
             (unsigned) Histogram.size(), target_colors);
     }
+
+    // Finds the smallest value of n where value is a multiple of (2^-n).
+    int FindNegativePowerOfTwoMultiple(double value)
+    {
+        int result = 0;
+        double factor = 1.0;
+        for(;;)
+        {
+            double remainder = std::fmod(value, factor);
+            remainder = std::min(remainder, factor-remainder);
+            if( remainder < (1/64.0) )  break;
+
+            factor *= 0.5;
+            result += 1;
+        }
+        return result;
+    }
 }
 
 PalettePair FindBestPalettePair(int rin,int gin,int bin,
@@ -750,6 +768,12 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
     bool output_chosen = false;
     if(PaletteSize >= 2 && PaletteSize <= 64)
     {
+        /* O(n^2) algorithm description: Choose a pair of colors that
+         * form a 3D line segment that is closest to the input color.
+         * To optimize this, we use luma values rather than geometrical
+         * transformations to scalarize the different coordinates.
+         */
+
         int input_luma = rin*/*0.*/299 + gin*/*0.*/587 + bin*/*0.*/114;
 
         /* Note: Palette is sorted by luma by MakePalette(). */
@@ -805,12 +829,6 @@ retry_modified_luma:;
                 const uint32 pix2 = Palette[pb];
                 int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
 
-                /*if(ColorDiff(r1,g1,b1, r2,g2,b2) >= 255*255)
-                {
-                    // Don't combine too different colors
-                    continue;
-                }*/
-                /**/
                 double result;
                 if(luma1==luma2)
                 {
@@ -826,14 +844,21 @@ retry_modified_luma:;
                     result = (luma1-input_luma) / double(luma1-luma2);
 
                 //if(result < 0) result = 0; if(result > 1) result = 1;
-                //result = ((int)(result*64)) / 64.0;
+
+                int DifferenceFromEitherEnd = 2;//1+FindNegativePowerOfTwoMultiple(result);
+                // The farther the "result" is from 0.0, 0.5, 0.25/0.75, etc,
+                // the more striking the individual pixels become and thus
+                // the more important it becomes that they resemble the
+                // intended pixel more closely.
+
                 int got_r = r1 + result*(r2-r1);
                 int got_g = g1 + result*(g2-g1);
                 int got_b = b1 + result*(b2-b1);
                 unsigned diff =
                     ColorDiff(rin,gin,bin, got_r,got_g,got_b)
-                  + ColorDiff(rin,gin,bin, r1,g1,b1)*2
-                  + ColorDiff(rin,gin,bin, r2,g2,b2)*2;
+                  + ( ColorDiff(rin,gin,bin, r1,g1,b1)
+                    + ColorDiff(rin,gin,bin, r2,g2,b2)
+                    ) * DifferenceFromEitherEnd;
                 if(diff < best_diff || best_diff == 0)
                 {
                     best_diff   = diff;
@@ -848,6 +873,10 @@ retry_modified_luma:;
 
     if(!output_chosen)
     {
+        /* O(n) algorithm: Choose two colors that are most similar to input. */
+        /* Note: There is no guarantee that mixing them can produce
+         * an approximation of the input.
+         */
         unsigned diff1=0, diff2=0;
         for(unsigned a=0; a<PaletteSize; ++a)
         {
