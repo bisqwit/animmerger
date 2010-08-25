@@ -748,9 +748,9 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
     output.entry2 = 0;
     output.result = 0.5;
     bool output_chosen = false;
-    if(PaletteSize <= 64)
+    if(PaletteSize >= 2 && PaletteSize <= 64)
     {
-        const int input_luma = rin*/*0.*/299 + gin*/*0.*/587 + bin*/*0.*/114;
+        int input_luma = rin*/*0.*/299 + gin*/*0.*/587 + bin*/*0.*/114;
 
         /* Note: Palette is sorted by luma by MakePalette(). */
         std::vector<int> luma_table(PaletteSize);
@@ -760,6 +760,7 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
             int r1 = (pix >> 16) & 0xFF, g1 = (pix >> 8) & 0xFF, b1 = (pix) & 0xFF;
             luma_table[a] = r1*/*0.*/299 + g1*/*0.*/587 + b1*/*0.*/114;
         };
+retry_modified_luma:;
         /* lower_bound(k) = find the first element that is >= k */
         /* upper_bound(k) = find the first element that is > k */
         unsigned first_index_to_consider = // First where luma >= input_luma
@@ -768,6 +769,19 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
         unsigned last_index_to_consider = // First where luma  > input_luma
             std::upper_bound(luma_table.begin(), luma_table.end(),
                 input_luma) - luma_table.begin();
+
+        if(first_index_to_consider >= PaletteSize && input_luma != luma_table.back())
+        {
+            // If all palette colors are darker than the color that was
+            // requested, accept a loss of luma and try again.
+            input_luma = luma_table.back();
+            goto retry_modified_luma;
+        }
+        if(last_index_to_consider <= 0 && input_luma != luma_table.front()+1)
+        {
+            input_luma = luma_table.front()+1;
+            goto retry_modified_luma;
+        }
 
         unsigned best_diff=0;
         for(unsigned pa=0; pa<last_index_to_consider; ++pa)
@@ -803,9 +817,9 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin,
                     double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
                     double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
                     double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
-                    if(result_r < 0 || result_r > 1) result_r = 0.5;
-                    if(result_g < 0 || result_g > 1) result_g = 0.5;
-                    if(result_b < 0 || result_b > 1) result_b = 0.5;
+                    if(result_r < 0) result_r = 0; if(result_r > 1) result_r = 1;
+                    if(result_g < 0) result_g = 0; if(result_g > 1) result_g = 1;
+                    if(result_b < 0) result_b = 0; if(result_b > 1) result_b = 1;
                     result = (result_r + result_g + result_b) / 3.0;
                 }
                 else
