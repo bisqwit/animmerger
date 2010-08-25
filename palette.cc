@@ -9,6 +9,7 @@ std::vector<PaletteMethodItem> PaletteReductionMethod;
 
 namespace
 {
+    // A histogram item contains a pixel value and an occurrence count.
     typedef std::pair<uint32, unsigned> HistItem;
 
     unsigned ColorDiff(int r1,int g1,int b1, int r2,int g2,int b2)
@@ -372,6 +373,9 @@ namespace
             Histogram.erase(j);
             Histogram[ pix.get() ] += combined_count;
         }
+
+        std::fprintf(stderr, "Merging-reduced to %u colors (aimed for %u)\n",
+            (unsigned) Histogram.size(), target_colors);
     }
 
     struct Inserter
@@ -386,8 +390,9 @@ namespace
 
     namespace Octree
     {
-        template<unsigned TREE_DEPT>
-        class node {
+        class node
+        {
+            static const unsigned TREE_DEPTH = 5;
         public:
             unsigned level, ref_count;
             AveragePixel result;
@@ -420,9 +425,9 @@ namespace
                 result.set(pix);
                 ++ref_count;
 
-                if (level<TREE_DEPT)
+                if (level < TREE_DEPTH)
                 {
-                    int mask=1<<(7-level);
+                    int mask = 1 << (7-level);
                     size_t ndx=0;
                     unsigned red   = (pix >> 16) & 0xFF;
                     unsigned green = (pix >>  8) & 0xFF;
@@ -431,7 +436,7 @@ namespace
                     if((green & mask)>0) ndx|=2;
                     if((blue  & mask)>0) ndx|=1;
                     if (!child[ndx])
-                        child[ndx] = new node<TREE_DEPT>(pix, this);
+                        child[ndx] = new node(pix, this);
                     else
                         child[ndx]->add_color(pix);
                 }
@@ -480,20 +485,19 @@ namespace
             }
         };
 
-        template<unsigned DEPTH>
-        class reducer: public node<DEPTH>
+        class reducer: public node
         {
         public:
             template<typename Func>
             void reduce(Func func, unsigned num_colors)
             {
-                unsigned num_leafs = node<DEPTH>::num_leafs();
+                unsigned num_leafs = node::num_leafs();
                 while (num_leafs > num_colors)
                 {
-                    node<DEPTH>::reduce_one_leaf();
+                    node::reduce_one_leaf();
                     --num_leafs;
                 }
-                node<DEPTH>::assign_palette_entries(func);
+                node::assign_palette_entries(func);
             }
         };
     }
@@ -501,11 +505,14 @@ namespace
     void ReduceHistogram_Octree
         (HistogramType& Histogram, unsigned target_colors)
     {
-        Octree::reducer<5> reducer;
+        Octree::reducer reducer;
         for(HistogramType::iterator i = Histogram.begin(); i != Histogram.end(); ++i)
             reducer.add_color( i->first );
         Histogram.clear();
         reducer.reduce( Inserter(Histogram), target_colors);
+
+        std::fprintf(stderr, "Octree-reduced to %u colors (aimed for %u)\n",
+            (unsigned) Histogram.size(), target_colors);
     }
 
     /* NeuQuant algorithm as implemented by Anthony Dekker in 1994.
@@ -704,6 +711,8 @@ namespace
                 if (k > lo) altersingle<alpharadbias> (a, k--, c);
             }
         }
+        #undef initrad
+        #undef initradius
     };
 
     void ReduceHistogram_NeuQuant
@@ -725,6 +734,9 @@ namespace
 
         Histogram.clear();
         worker.Retrieve( Inserter(Histogram) );
+
+        std::fprintf(stderr, "NeuQuant-reduced to %u colors (aimed for %u)\n",
+            (unsigned) Histogram.size(), target_colors);
     }
 }
 

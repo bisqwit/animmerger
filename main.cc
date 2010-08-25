@@ -831,6 +831,14 @@ REDUCING PALETTE\n\
       colors in the remaining colormap and averages them together.\n\
       Very slow, thus not recommended.\n\
 \n\
+    Octree ( example: --quantize=octree,4 or -Qo,4 )\n\
+      Currently broken, don't use\n\
+\n\
+    NeuQuant ( example: --quantize=neuquant,16 or -Qq,16 )\n\
+      A self-balancing Kohonen neural network is used to generate\n\
+      an optimal palette for the imageset. Fast and very high quality.\n\
+      Especially good with color gradients. Not useful for smallest palettes.\n\
+\n\
   Multiple quantization phases can be performed in a sequence.\n\
   For example, -Qb,32 -Qd,16 first reduces with \"blend-diversity\"\n\
   to 32 colors, then reduces the remaining set with \"diversity\" to 16 colors.\n\
