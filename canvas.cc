@@ -499,7 +499,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
                             #undef d
                             float position = output.result + pattern[(y&7)*8+(x&7)];
-                            color = (position >= 1.0f) ? output.entry2 : output.entry1;
+                            color = (position > 1.0f) ? output.entry2 : output.entry1;
                         }
                         else
                         {
