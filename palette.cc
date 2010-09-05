@@ -540,110 +540,25 @@ namespace
      */
     class NeuQuant
     {
-        static const int netbiasshift	=4;			/* bias for colour values */
         static const int ncycles		=100;		/* no. of learning cycles */
 
-        /* defs for freq and bias */
-        static const int intbiasshift    =16;		/* bias for fractions */
-        static const int intbias		=(((int) 1)<<intbiasshift);
-        static const int gammashift  	=10;		/* gamma = 1024 */
-        static const int gamma   	=(((int) 1)<<gammashift);
-        static const int betashift  =	10;
-        static const int beta		=(intbias>>betashift);	/* beta = 1/1024 */
-        static const int betagamma	=(intbias<<(gammashift-betashift));
-
-        /* defs for decreasing radius factor */
-        #define initrad		(netsize>>3)		/* for 256 cols, radius starts */
-        static const int radiusbiasshift=	6;		/* at 32.0 biased by 6 bits */
-        static const int radiusbias	=(((int) 1)<<radiusbiasshift);
-        #define initradius	(initrad*radiusbias)	/* and decreases by a */
-        static const int radiusdec	=30;			/* factor of 1/30 each cycle */
-
-        /* defs for decreasing alpha factor */
-        static const int alphabiasshift	=10;		/* alpha starts at 1.0 */
-        static const int initalpha	=(((int) 1)<<alphabiasshift);
-
-        /* radbias and alpharadbias used for radpower calculation */
-        static const int radbiasshift	=8;
-        static const int radbias		=(((int) 1)<<radbiasshift);
-        static const int alpharadbshift  =(alphabiasshift+radbiasshift);
-        static const int alpharadbias    =(((int) 1)<<alpharadbshift);
-
         int netsize; // Number of colors
-        struct pixel { int c[3]; };
+        struct pixel { double c[3]; };
         std::vector<pixel> network;  /* the network itself */
-        std::vector<int> bias, freq; /* bias and freq arrays for learning */
-        std::vector<int> radpower;	 /* radpower for precomputation */
+        std::vector<double> bias;
+        std::vector<double> freq;     /* bias and freq arrays for learning */
     public:
         NeuQuant(unsigned ncolors) : netsize(ncolors),
             network(netsize),
-            bias(netsize, 0),
-            freq(netsize, intbias/netsize) /*1/netsize*/,
-            radpower(initrad)
+            bias(netsize, 0.0),
+            freq(netsize, 1.0/netsize)
         {
             for(int i=0; i<netsize; ++i)
             {
                 pixel& pix = network[i];
-                for(int n=0; n<3; ++n)
-                    pix.c[n] = (i << (netbiasshift+8)) / netsize;
+                double grayscale = i*256.0/netsize;
+                for(int n=0; n<3; ++n) pix.c[n] = grayscale;
             }
-        }
-
-        /* Unbias network to give byte values 0..255 */
-        void UnbiasNet()
-        {
-            for (int i=0; i<netsize; i++)
-                for(int n=0; n<3; ++n)
-                {
-                    int temp = (network[i].c[n] + (1 << (netbiasshift - 1))) >> netbiasshift;
-                    network[i].c[n] = std::min(temp, 255);
-                }
-        }
-
-        /* Main Learning Loop */
-        void Learn(const uint32* all_pixels,
-                   int lengthcount,
-                   int samplefac /* sampling factor 1..30 */)
-        {
-            int alphadec = 30 + ((samplefac-1)/3); /* biased by 10 bits */
-            int samplepixels = lengthcount/samplefac;
-            int delta = samplepixels/ncycles;
-            int alpha = initalpha;
-            int radius = initradius;
-
-            int rad = radius >> radiusbiasshift;
-            if (rad <= 1) rad = 0;
-            for (int i=0; i<rad; i++)
-                radpower[i] = alpha*(((rad*rad - i*i)*radbias)/(rad*rad));
-
-            std::fprintf(stderr,"beginning 1D learning: initial radius=%d\n", rad);
-
-            /* Provide random pixels from the input image
-             * until approximately all pixels have been covered
-             */
-            for(int i=0; i < samplepixels; )
-            {
-                int c[3] =
-                    { ((all_pixels[i] >> 16) & 0xFF) << netbiasshift,
-                      ((all_pixels[i] >>  8) & 0xFF) << netbiasshift,
-                      ((all_pixels[i] >>  0) & 0xFF) << netbiasshift };
-                int j = contest(c);
-
-                altersingle<initalpha> (alpha,j, c);
-                if (rad) alterneigh(rad,j, c);   /* alter neighbours */
-
-                i++;
-                if (i%delta == 0)
-                {
-                    alpha -= alpha / alphadec;
-                    radius -= radius / radiusdec;
-                    rad = radius >> radiusbiasshift;
-                    if (rad <= 1) rad = 0;
-                    for (j=0; j<rad; j++)
-                        radpower[j] = alpha*(((rad*rad - j*j)*radbias)/(rad*rad));
-                }
-            }
-            std::fprintf(stderr,"finished 1D learning: final alpha=%f !\n",((float)alpha)/initalpha);
         }
 
         template<typename Func>
@@ -652,35 +567,84 @@ namespace
             for(int j=0; j<netsize; ++j)
             {
                 const pixel& pix = network[j];
-                func( (pix.c[0]<<16) + (pix.c[1]<<8) + pix.c[2] );
+                int c0 = pix.c[0]+0.5; if(c0 > 255) c0 = 255;
+                int c1 = pix.c[1]+0.5; if(c1 > 255) c1 = 255;
+                int c2 = pix.c[2]+0.5; if(c2 > 255) c2 = 255;
+                func( (c0<<16) + (c1<<8) + c2 );
             }
+        }
+
+        /* Main Learning Loop */
+        void Learn(const uint32* all_pixels,
+                   int lengthcount,
+                   int samplefac /* sampling factor 1..30 */)
+        {
+            int alphadec = 30 + ((samplefac-1)/3);
+            int samplepixels = lengthcount/samplefac;
+            int delta = samplepixels/ncycles;
+            double alpha  = 1.0;
+            double radius = netsize / 8.0; // For 256 colors, radius starts at 32
+
+            int rad = radius;
+            if (rad <= 1) rad = 0;
+
+            std::fprintf(stderr,"beginning 1D learning: initial radius=%d\n", rad);
+
+            /* Provide random pixels from the input image
+             * until approximately all pixels have been covered
+             */
+            for(int i=0; i < samplepixels; )
+            {
+                double c[3] =
+                    { (double) ((all_pixels[i] >> 16) & 0xFF),
+                      (double) ((all_pixels[i] >>  8) & 0xFF),
+                      (double) ((all_pixels[i] >>  0) & 0xFF) };
+                int j = contest(c);
+
+                altersingle (alpha, j, c);
+                if (rad) alterneigh(alpha, rad,j, c);   /* alter neighbours */
+
+                i++;
+                if (i%delta == 0)
+                {
+                    alpha -= alpha / alphadec;
+                    radius *= (29.0 / 30.0); // Decreases by a factor of 1/30 each cycle
+                    rad = radius;
+                    if (rad <= 1) rad = 0;
+                }
+            }
+            std::fprintf(stderr,"finished 1D learning: final alpha=%f !\n", alpha);
         }
     private:
         /* Search for biased BGR values */
-        int contest(const int c[3])
+        int contest(const double c[3])
         {
             /* finds closest neuron (min dist) and updates freq */
             /* finds best neuron (min dist-bias) and returns position */
             /* for frequently chosen neurons, freq[i] is high and bias[i] is negative */
-            /* bias[i] = gamma*((1/netsize)-freq[i]) */
-            int bestd = ~(((int) 1)<<31);
-            int bestbiasd = bestd;
+            /* bias[i] = gamma * ((1/netsize) - freq[i]) */
+            const double beta = 1.0 /  1024.0;
+            const double gamma = 1024.0;
+            const double betagamma = beta * gamma;
+
+            double bestd     = 1e99;
+            double bestbiasd = bestd;
             int bestpos = -1;
             int bestbiaspos = bestpos;
             for (int i=0; i<netsize; i++)
             {
                 pixel& pix = network[i];
 
-                int dist = 0;
+                double dist = 0;
                 for(int n=0; n<3; ++n)
                     dist += std::abs(pix.c[n] - c[n]);
 
                 if (dist<bestd) {bestd=dist; bestpos=i;}
-                int biasdist = dist - ((bias[i]) >> (intbiasshift-netbiasshift));
+                double biasdist = dist - bias[i];
                 if (biasdist<bestbiasd) {bestbiasd=biasdist; bestbiaspos=i;}
-                int betafreq = (freq[i] >> betashift);
-                freq[i] -= betafreq;
-                bias[i] += (betafreq<<gammashift);
+
+                freq[i] -= beta      * freq[i];
+                bias[i] += betagamma * freq[i];
             }
             freq[bestpos] += beta;
             bias[bestpos] -= betagamma;
@@ -688,32 +652,31 @@ namespace
         }
 
         /* Move neuron i towards biased (b,g,r) by factor alpha */
-        template<int value>
-        void altersingle(int alpha,int i, const int c[3])
+        void altersingle(double alpha, int i, const double c[3])
         {
             pixel& pix = network[i]; /* alter hit neuron */
             for(int n=0; n<3; ++n)
-                pix.c[n] -= (alpha * (pix.c[n] - c[n])) / value;
+                pix.c[n] += (alpha * (c[n] - pix.c[n]));
         }
 
         /* Move adjacent neurons by precomputed alpha*(1-((i-j)^2/[r]^2)) in radpower[|i-j|] */
-        void alterneigh(int rad,int i, const int c[3])
+        void alterneigh(double alpha, int rad,int i, const double c[3])
         {
             int lo = i-rad;   if (lo<-1) lo=-1;
             int hi = i+rad;   if (hi>netsize) hi=netsize;
 
             int j = i+1;
             int k = i-1;
-            int *q = &radpower[0];
-            while ((j<hi) || (k>lo))
+            int radsquared = rad*rad;
+            double alpha_div_radsquared = alpha / radsquared;
+            for(int q=0; (j<hi) || (k>lo); ++q)
             {
-                int a = *++q;
-                if (j < hi) altersingle<alpharadbias> (a, j++, c);
-                if (k > lo) altersingle<alpharadbias> (a, k--, c);
+                double a = alpha_div_radsquared * (radsquared - q*q);
+                // Escape the center of change at both sides
+                if (j < hi) altersingle(a, j++, c);
+                if (k > lo) altersingle(a, k--, c);
             }
         }
-        #undef initrad
-        #undef initradius
     };
 
     void ReduceHistogram_NeuQuant
@@ -731,7 +694,6 @@ namespace
          */
         NeuQuant worker(target_colors);
         worker.Learn(&all_pixels[0], all_pixels.size(), 1);
-        worker.UnbiasNet();
 
         Histogram.clear();
         worker.Retrieve( Inserter(Histogram) );
