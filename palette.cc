@@ -540,8 +540,6 @@ namespace
      */
     class NeuQuant
     {
-        static const int ncycles		=100;		/* no. of learning cycles */
-
         int netsize; // Number of colors
         struct pixel { double c[3]; };
         std::vector<pixel> network;  /* the network itself */
@@ -575,25 +573,26 @@ namespace
         }
 
         /* Main Learning Loop */
-        void Learn(const uint32* all_pixels,
-                   int lengthcount,
-                   int samplefac /* sampling factor 1..30 */)
+        void Learn(const uint32* all_pixels, unsigned lengthcount)
         {
-            int alphadec = 30 + ((samplefac-1)/3);
-            int samplepixels = lengthcount/samplefac;
-            int delta = samplepixels/ncycles;
+            // Note: "samplefac" hardcoded as 1 here. We give all pixels a fair chance...
+            const unsigned ncycles = 100; /* no. of learning cycles */
+            unsigned samplepixels = lengthcount;
+            unsigned delta        = samplepixels/ncycles; // Interval to achieve ncycles
             double alpha  = 1.0;
             double radius = netsize / 8.0; // For 256 colors, radius starts at 32
+            /* Alpha: How strongly the value is imprinted into affected neurons
+             * Radius: How many neurons, around the chosen victim, are affected too
+             */
 
             int rad = radius;
-            if (rad <= 1) rad = 0;
 
             std::fprintf(stderr,"beginning 1D learning: initial radius=%d\n", rad);
 
             /* Provide random pixels from the input image
              * until approximately all pixels have been covered
              */
-            for(int i=0; i < samplepixels; )
+            for(unsigned i=0; i < samplepixels; )
             {
                 double c[3] =
                     { (double) ((all_pixels[i] >> 16) & 0xFF),
@@ -602,15 +601,14 @@ namespace
                 int j = contest(c);
 
                 altersingle (alpha, j, c);
-                if (rad) alterneigh(alpha, rad,j, c);   /* alter neighbours */
+                if (rad > 1) alterneigh(alpha, rad,j, c);   /* alter neighbours */
 
                 i++;
-                if (i%delta == 0)
+                if (i % delta == 0)
                 {
-                    alpha -= alpha / alphadec;
+                    alpha -= alpha / 30.0;
                     radius *= (29.0 / 30.0); // Decreases by a factor of 1/30 each cycle
                     rad = radius;
-                    if (rad <= 1) rad = 0;
                 }
             }
             std::fprintf(stderr,"finished 1D learning: final alpha=%f !\n", alpha);
@@ -643,8 +641,8 @@ namespace
                 double biasdist = dist - bias[i];
                 if (biasdist<bestbiasd) {bestbiasd=biasdist; bestbiaspos=i;}
 
-                freq[i] -= beta      * freq[i];
                 bias[i] += betagamma * freq[i];
+                freq[i] -= beta      * freq[i];
             }
             freq[bestpos] += beta;
             bias[bestpos] -= betagamma;
@@ -693,7 +691,7 @@ namespace
          * prime numbers, which achieved more or less the same effect.
          */
         NeuQuant worker(target_colors);
-        worker.Learn(&all_pixels[0], all_pixels.size(), 1);
+        worker.Learn(&all_pixels[0], all_pixels.size());
 
         Histogram.clear();
         worker.Retrieve( Inserter(Histogram) );
