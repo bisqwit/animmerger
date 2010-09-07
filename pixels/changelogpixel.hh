@@ -119,11 +119,23 @@ public:
         return Find(timer, DefaultPixel);
     }
 
+    inline uint32 GetChangeLogBackground(int sign=0) const
+    {
+        #define DoCase(o,f,name) \
+            case pm_##name##Pixel: \
+                if(f&1) break; else return Get##name(0);
+        switch((sign <= 0 ? bgmethod0 : bgmethod1))
+        {
+            DefinePixelMethods(DoCase)
+        }
+        #undef DoCase
+        return GetMostUsed();
+    }
     uint32 GetChangeLog(unsigned timer) const FastPixelMethod
     {
         if(AnimationBlurLength == 0) return Find(timer);
 
-        const uint32 most = GetMostUsed();
+        const uint32 most = GetChangeLogBackground();
         uint32 pix = Find(timer, most);
 
         if(pix != most) return pix;
@@ -371,6 +383,10 @@ public:
     {
         return GetAggregate<TinyAveragePixel> ();
     }
+    inline uint32 GetSolid(unsigned=0) const FastPixelMethod
+    {
+        return GetAggregate<SolidPixel> ();
+    }
     inline uint32 GetLast(unsigned=0) const FastPixelMethod
     {
         return history.empty() ? DefaultPixel : history.rbegin()->second;
@@ -431,7 +447,7 @@ private:
             MapType<unsigned, uint32>::const_iterator
                 i = history.find(timer);
             if(i == history.end() || i->first != timer)
-                return GetMostUsed();
+                return GetChangeLogBackground();
             return i->second;
         }
         // Find the pixel value that was present at the given time.
@@ -450,7 +466,7 @@ private:
         /* Pre-begin value: Use background */
         if(i == history.begin())
         {
-            return GetMostUsed();
+            return GetChangeLogBackground(-1);
         }
 
         bool last = (i == history.end());
@@ -462,7 +478,7 @@ private:
           )
         {
             /* Post-end value: Use background */
-            return GetMostUsed();
+            return GetChangeLogBackground(+1);
         }
         /* Anything else. Take the value. */
         return i->second;
@@ -523,6 +539,7 @@ public:
     | (1ul << pm_LeastUsedPixel)
     | (1ul << pm_AveragePixel)
     | (1ul << pm_TinyAveragePixel)
+    | (1ul << pm_SolidPixel)
     | (1ul << pm_LastPixel)
     | (1ul << pm_FirstPixel)
     | (1ul << pm_FirstNMostPixel)

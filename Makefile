@@ -1,8 +1,9 @@
-VERSION=1.4.2
+VERSION=1.4.3
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
 ARCHFILES=\
+	palette.cc palette.hh \
 	canvas.cc canvas.hh \
 	align.cc align.hh \
 	types.hh \
@@ -34,7 +35,7 @@ ARCHFILES=\
 include Makefile.sets
 
 OBJS=\
-	main.o canvas.o pixel.o align.o
+	main.o canvas.o pixel.o align.o palette.o
 PROGS=\
 	animmerger
 
@@ -50,6 +51,11 @@ CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 
 #CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
 # ^ Apparently, cannot be helped
+
+#CXX=g++-4.5
+#CXXFLAGS += -flto
+
+LDLIBS += -lm
 
 all: $(PROGS) doc/README.html
 

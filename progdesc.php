@@ -30,7 +30,8 @@ different pixel methods, and a simulated infinite 2D canvas
 
 <table>
 <tr><td valign=top>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/original.gif\"
+<img width=256 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/original.gif\"
      alt=\"Original animation\">
 </td><td valign=top>
 As a sample, here is the original animation (712100 bytes).
@@ -73,7 +74,8 @@ But you knew that, right?</small>
 The \"average\" method produces a \"motion blur\" effect of the entire
 input, reducing it into a single frame.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-a.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-a.png\"
      alt=\"Average\">
 <p>
 You can see a faint trace of all animated actors that appeared in
@@ -97,7 +99,8 @@ The \"actionavg\" method attempts to fix the faintness problem with
 (using the \"mostused\" method) and adding it only once to the
 average of moving actors.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-t.png\"
      alt=\"Action average\">
 <p>
 Produced with commandline:<br>
@@ -112,7 +115,8 @@ rather than the RGB colorspace, add the --yuv option.
 The \"most used\" method produces what might be the background
 image for the entire animation.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-m.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-m.png\"
      alt=\"Most used\">
 <p>
 Note: If there is an actor that sits in a certain location
@@ -127,10 +131,11 @@ Produced with commandline:<br>
 
 ", 'last:1.1.1. LAST'=> "
 
-The \"last\" method is a simpler implementation of the \"most used\"
+The \"last\" method is a simpler implementation of the MostUsed
 method, simply recording the last pixel value in any location.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-l.png\"
      alt=\"Last\">
 <p>
 Produced with commandline:<br>
@@ -142,7 +147,8 @@ Produced with commandline:<br>
 The \"first\" method is analogous to \"last\".
 It shows whatever first appeared in a particular pixel location.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-f.png\"
      alt=\"First\">
 <p>
 The turtles are distorted, because they moved while the screen scrolled.<br>
@@ -151,6 +157,25 @@ It is the same effect as if you move the paper in a desktop scanner during the s
 Produced with commandline:<br>
 <code># animmerger -pf snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # mv tile-0000.png demo/method-f.png</code>
+
+", 'solid:1.1.1. SOLID'=> "
+
+The \"solid\" method is an experimental light-weight replacement
+to the \"mostused\" method. It simply ignores anything that moves
+and retains whatever stays still for the longest time.<br>
+Unlike \"mostused\",
+it does not sum separate appearances together; it only finds the maximum
+length of consecutive sameness.
+<p>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-O.png\"
+     alt=\"Solid\">
+<p>
+As seen here, it has shortcomings, too.
+<p>
+Produced with commandline:<br>
+<code># animmerger -pO snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# mv tile-0000.png demo/method-O.png</code>
 
 ", 'firstnmost:1.1.1. FIRSTNMOST'=> "
 
@@ -161,23 +186,28 @@ If N is 0, instead gets last uncommon pixel.<br>
 If N is negative, using least common values rather than most common.
 <p>
 Most common of first 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff4.png\"
      alt=\"Most common of first 4\">
 <p>
 Most common of first 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff10.png\"
      alt=\"Most common of first 10\">
 <p>
 Most common of first 16:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff16.png\"
      alt=\"Most common of first 16\">
 <p>
 First uncommon:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff0.png\"
      alt=\"First uncommon\">
 <p>
 Least common of first 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Ff-10.png\"
      alt=\"Least common of first 10\">
 <p>
 Produced with commandline:<br>
@@ -195,15 +225,18 @@ If N is 0, instead gets last uncommon pixel.<br>
 If N is negative, using least common values rather than most common.
 <p>
 Most common of last 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf10.png\"
      alt=\"Most common of last 10\">
 <p>
 Last uncommon:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf0.png\"
      alt=\"Last uncommon\">
 <p>
 Least common of last 10:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-Lf-10.png\"
      alt=\"Least common of last 10\">
 <p>
 Produced with commandline:<br>
@@ -218,7 +251,8 @@ The \"least used\" method is analogous to \"most used\".<br>
 It can be used to find graphical artifacts and teleporting actors,
 but for the most part, the output is not very useful.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-e.png\"
      alt=\"Least used\">
 <p>
 Produced with commandline:<br>
@@ -232,7 +266,8 @@ Produced with commandline:<br>
 The \"changelog\" method records the entire animation (121995 bytes in this example).<br>
 It takes considerably less disk space (and is faster to load) than the original animation, because now the background does not scroll.
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-c.gif\"
      alt=\"Changelog\">
 <p>
 You see some artifacts in the turtle and in Mario when they appear
@@ -247,11 +282,12 @@ in the original animation either.
 <p>
 Here is how the animation looks like, if the HUD is not removed. (246643 bytes)
 <p>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-tc.gif\"
+<img width=725 height=225
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-tc.gif\"
      alt=\"Changelog, with HUD intact\">
 <p>
 Exteriors, i.e. content outside the \"current\" viewport of the animation
-are colored as in the \"most used\" pixel method.<br>
+are colored as in the MostUsed pixel method.<br>
 This is evident in the trails left by the HUD as it scrolls by at different speeds.
 <p>
 Produced with commandline:<br>
@@ -261,6 +297,17 @@ Produced with commandline:<br>
 # <a href=\"http://www.lcdf.org/gifsicle/\">gifsicle</a> -O2 -o demo/method-c.gif -l0 -d3 tile-*.gif</code><br>
 The version with HUD intact was created with the same commandline,
 except with the -m option removed.
+ <p>
+The background for ChangeLog is normally generated with the MostUsed method, but it can be
+explicitly controlled with the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> options.<br>
+Here is how the above animation (HUD-less) looks like with <tt>--bgmethod0 first --bgmethod1 last</tt>:
+ <p>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cfl.gif\"
+     alt=\"Changelog with first&amp;last\">
+<br>
+Note that the <tt>--bgmethod0</tt> and <tt>--bgmethod1</tt> options
+only affect the ChangeLog method, and only when motion blur is not used.
 
 ", 'motionblur:1.1.1.1. Motion blur' => "
 
@@ -268,15 +315,18 @@ The changelog method also supports motion blur. Use the --motionblur (-B) option
 Value 0 disables motion blur (default: 0).
 <p>
 Blur length 1:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB1.gif\"
      alt=\"Changelog, blur 1\">
 <p>
 Blur length 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB4.gif\"
      alt=\"Changelog, blur 4\">
 <p>
 Blur length 20:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-cB20.gif\"
      alt=\"Changelog, blur 1\">
 <p>
 Produced with commandline:<br>
@@ -297,15 +347,18 @@ is in the number of frames, but the more pronounced
 is the \"lemmings\" effect.
 <p>
 30 frames (94895 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
 10 frames (66738 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl10.gif\"
      alt=\"Loop, 10 frames\">
 <p>
 4 frames (40372 bytes):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-sl4.gif\"
      alt=\"Loop, 4 frames\">
 <p>
 Produced with commandline:<br>
@@ -334,15 +387,18 @@ In comparison, \"loopinglog\" only uses pixel colors present
 in the original images.
 <p>
 30 frames (file size depends on selected palette size):<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30.gif\"
      alt=\"Loop, 30 frames\">
 <p>
 10 frames:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10.gif\"
      alt=\"Loop, 10 frames\">
 <p>
 4 frames:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl4.gif\"
      alt=\"Loop, 4 frames\">
 <p>
 Produced with commandline:<br>
@@ -364,15 +420,23 @@ Use the --motionblur (-B) option to set it.
 Value 0 disables motion blur (default: 0).
 <p>
 Loop length 30 frames, blur length 20:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30B20.gif\"
      alt=\"Loop-Avg 30, blur 8\">
 <p>
 Loop length 30 frames, blur length 20, with YUV calculations:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20.gif\"
      alt=\"Loop-Avg 30 through YUV, blur 8\">
 <p>
+Loop length 30 frames, blur length 20, with YUV calculations, and diversity-quantized palette of 16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl30yB20Qd16.gif\"
+     alt=\"Loop-Avg 30 through YUV, blur 8, 16 colors\">
+<p>
 Loop length 10 frames, blur length 4:<br>
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/method-vl10B4.gif\"
      alt=\"Loop-Avg 10, blur 4\">
 <p>
 Produced with commandline:<br>
@@ -420,6 +484,256 @@ allocation overhead. Animmerger strives
 to always select the smallest combination of pixel methods
 (memoryconsumptionwise) that can implement all the requested methods.
 
+", 'maskmethods:1. Masking methods' => "
+
+Masked areas can be removed with a number of different methods.
+To best demonstrate them, I added an extra huge mask in the middle of the image.<br>
+It is best seen in the \"black\" masking, below.
+<p>
+These images were produced with this commandline:<br>
+<code>
+# for method in censor hole interpolate extrapolate; do<br>
+# &nbsp; rm *-*.gif *-*.png<br>
+# &nbsp; ./animmerger -r4,4 --mvrange 0,0,4,0 --bgmethod0=first --bgmethod1=last \\<br>
+# &nbsp;     -u\$method -p* pano3/*.png \\<br>
+# &nbsp;     -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
+# &nbsp;     -m3,128,250,72  -m0,73,256,2<br>
+# &nbsp; gifsicle -O2 -o demo/mask-\$method.gif -l0 -d3 ChangeLog-*.gif<br>
+# &nbsp; cp -p Average-0000.png demo/mask-\$method.png<br>
+# done</code>
+
+", 'maskmethod_black:1.1. BLACK/BLANK/CENSOR' => "
+
+This method shows clearly which areas were affected by the mask.
+Specifically, the HUD, and a huge rectangle,
+and a narrower line extending from the very left edge to the very right
+edge of the screen at all times, effectively blocking the contents of
+the entire scanline from ever being seen.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-censor.gif\"
+     alt=\"Masked with CENSOR, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-censor.png\"
+     alt=\"Masked with CENSOR, average\">
+
+", 'maskmethod_hole:1.1. HOLE/ALPHA/TRANSPARENT' => "
+
+This method is what animmerger does by default. The transparent regions
+are simply treated as holes; there is no content on the affected areas.
+If the hidden content becomes available when the camera moves, then those
+pixels are recorded.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-hole.gif\"
+     alt=\"Masked with HOLE, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-hole.png\"
+     alt=\"Masked with HOLE, average\">
+
+", 'maskmethod_interpolate:1.1. DELOGO/BLUR/INTERPOLATE' => "
+
+This method removes the content with a circular blur pattern. The method
+is almost identical to the <i>delogo</i> filter that can be used in
+<a href=\"http://mplayerhq.hu/\">MPlayer</a>
+to remove a tv station logo from video. Content that coindices with the
+removed part is replaced with interpolated surrounding pixels;
+original pixels of the affected area are not sampled.
+<p>
+Animation (palette-reduced and dithered with -Qd,16 in order to make the 1.5 MB GIF file smaller):<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-interpolate.gif\"
+     alt=\"Masked with DELOGO, animation\">
+</a><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-interpolate.png\"
+     alt=\"Masked with DELOGO, average\">
+
+", 'maskmethod_extrapolate:1.1. PATTERN/EXTRAPOLATE' => "
+
+The extrapolate filter tries to extrapolate the content of the masked
+areas by detecting repeating tile patterns outside the masked area, and
+extrapolating those patterns over the masked area.
+The results of this method vary a lot from frame to frame,
+so it is not very suitable to be used over large unknown areas.
+For small areas, it works nicely.
+<!--Of these four, this is the only filter for which the
+    thin entire-scanline mask did not pose any kind of problem.-->
+ <p>
+Note that this algorithm is rather slow on large areas like this.
+<p>
+Animation:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-extrapolate.gif\"
+     alt=\"Masked with PATTERN, animation\"><br>
+Averaged:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/mask-extrapolate.png\"
+     alt=\"Masked with PATTERN, average\">
+
+", 'palettemethods:1. Color quantization methods' => "
+
+Animations are always created as GIF files.<br>
+GIF files however are limited to a palette of 256 colors,
+while it is possible that animmerger creates images with more
+colors than 256. Therefore, the colormap must be reduced
+before the GIF image can be generated. animmerger supports
+a number of different color reduction methods, which are
+listed below.<br>
+If no method is chosen, whatever is libGD default will be used.
+ <p>
+The images in this section were generated by making a 30-frame <a href=\"#loopingavg\">LoopingAvg</a>
+animation with <a href=\"#avgblur\">blur length</a> of 20, rendering it with different palettization
+parameters and picking the 11th frame.
+ <p>
+The exact commandline to produce the images was:<br>
+<code># for m in m d b o q; do<br>
+# &nbsp;for q in 2 4 8 16 32 64 128; do<br>
+# &nbsp; rm tile-*.png tile-*.gif<br>
+# &nbsp; ./animmerger --gif --yuv -Q\"\$m\",\$q -B20 -l30 -pv pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; gifsicle -O2 -k128 -o demo/method-vl30yB20Q\"\$m\"\$q.gif -l0 -d3 tile-*.gif<br>
+# &nbsp; convert tile-0010.gif -quality 100 demo/dither-\"\$c\"\$q.png<br>
+# &nbsp;done<br>
+# done</code>
+ <p>
+Palette reduction methods can be chained in order to take benefits
+of the differently-appearing strengths of the different methods,
+but in this test set, each method was used alone.
+ <p>
+When palette reduction methods have been explicitly selected, animmerger
+always uses an ordered-dithering method (crosshatch artifacts) to optimize
+the rendering. This is better for animation than other methods such
+as Floyd-Steinberg are, because the dithering patterns do not jitter
+between frames. Currently it is not possible to disable this dithering.
+
+", 'palette_heckbert:1.1. Median-cut (aka. Heckbert)' => "
+
+Heckbert median-cut quantization method repeatedly splits the palette
+into two roughly equal-proportion sections (\"low\" and \"high\" part
+in any of red/green/blue channels) until the desired number of sections
+have been generated; the palette is generated by averaging the values
+in each section together.<br>
+It is good at generating relevant palettes, but at smallest palette
+sizes, it suffers from a blurring problem.
+<p>
+
+4 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m4.png\"
+     alt=\"Heckbert quantization, 4 colors\"><br>
+8 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m8.png\"
+     alt=\"Heckbert quantization, 8 colors\"><br>
+16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m16.png\"
+     alt=\"Heckbert quantization, 8 colors\"><br>
+32 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m32.png\"
+     alt=\"Heckbert quantization, 32 colors\">
+
+", 'palette_diversity:1.1. Diversity' => "
+
+Diversity quantization method alternates between choosing the most popular
+remaining color in the image for a \"seed\" and choosing of the remaining
+colors the one that is most distant to any colors selected so far.<br>
+The result is generally a very good representation of the original
+image's colors.<br> At the smallest palette sizes, the colors are
+of course off, but the contrast is still sharp.
+<p>
+
+4 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d4.png\"
+     alt=\"Diversity quantization, 4 colors\"><br>
+8 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d8.png\"
+     alt=\"Diversity quantization, 8 colors\"><br>
+16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d16.png\"
+     alt=\"Diversity quantization, 16 colors\"><br>
+32 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d32.png\"
+     alt=\"Diversity quantization, 32 colors\">
+
+", 'palette_blenddiversity:1.1. Blend-diversity' => "
+
+The blend-diversity method is a variation to the diversity method; after
+the colors have been chosen, they are merged together with the remaining
+colors that are most similar to the chosen one.
+<p>
+
+4 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b4.png\"
+     alt=\"Blend-diversity quantization, 4 colors\"><br>
+8 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b8.png\"
+     alt=\"Blend-diversity quantization, 8 colors\"><br>
+16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b16.png\"
+     alt=\"Blend-diversity quantization, 16 colors\"><br>
+32 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b32.png\"
+     alt=\"Blend-diversity quantization, 32 colors\">
+
+",/* 'palette_octree:1.1. Octree' => "
+
+4 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o4.png\"
+     alt=\"Octree quantization, 4 colors\"><br>
+8 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o8.png\"
+     alt=\"Octree quantization, 8 colors\"><br>
+16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o16.png\"
+      alt=\"Octree quantization, 16 colors\"><br>
+32 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o32.png\"
+     alt=\"Octree quantization, 32 colors\">
+
+",*/ 'palette_neuquant:1.1. NeuQuant' => "
+
+The NeuQuant method, developed by Anthony Dekker in 1994, uses a Kohonen
+self-balancing neural network to quickly come up with an optimized palette.
+It is especially powerful with optimizing smooth gradients, such as the
+motion-blur trails in this pictureset.
+<p>
+
+4 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q4.png\"
+     alt=\"NeuQuant quantization, 4 colors\"><br>
+8 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q8.png\"
+     alt=\"NeuQuant quantization, 8 colors\"><br>
+16 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q16.png\"
+     alt=\"NeuQuant quantization, 16 colors\"><br>
+32 colors:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q32.png\"
+     alt=\"NeuQuant quantization, 32 colors\">
+
 ", 'caveats:1. Caveats' => "
 
 ", 'caveat_parallax:1.1. Parallax motion' => "
@@ -444,11 +758,13 @@ and fps halved to make the file slightly smaller for web distribution.
  </tr>
  <tr valign=top>
   <td width=\"480\">
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
+<img width=480 height=400
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-cl.gif\"
      alt=\"Super Mario World with parallax motion\">
   </td>
   <td width=\"480\">
-<img src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
+<img width=480 height=400
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/pano5-fl.gif\"
      alt=\"Super Mario World with parallax fix\"><br>
   </td>
  </tr>

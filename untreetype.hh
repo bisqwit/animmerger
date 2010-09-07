@@ -33,6 +33,8 @@ public:
     using rep::insert;
     using rep::erase;
 
+    using rep::reserve; // extension
+
     template<typename Kt>
     typename rep::iterator lower_bound(Kt key)
     {

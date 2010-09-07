@@ -15,6 +15,7 @@
 #define DefinePixelMethods(callback) \
     callback(f,0x00,First) \
     callback(l,0x00,Last) \
+    callback(O,0x00,Solid) \
     callback(F,0x08,FirstNMost) \
     callback(L,0x08,LastNMost) \
     callback(a,0x10,Average) \
@@ -36,15 +37,15 @@ enum PixelMethod { DefinePixelMethods(MakeEnum) };
 enum { NPixelMethods = 0 DefinePixelMethods(CountMethods) };
 #undef CountMethods
 
-
 extern bool OptimizeChangeLog;
 extern unsigned AnimationBlurLength;
 extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 extern bool AveragesInYUV;
+extern int verbose;
 
 extern unsigned long pixelmethods_result;
-extern PixelMethod bgmethod;
+extern PixelMethod bgmethod, bgmethod0, bgmethod1;
 
 #define MakeMask(o,flags,name) | ((flags&1) ? (1ul << pm_##name##Pixel) : 0)
 static const unsigned long AnimatedPixelMethodsMask = 0 DefinePixelMethods(MakeMask);
@@ -64,7 +65,14 @@ static const unsigned long YUVCapablePixelMethodsMask = 0 DefinePixelMethods(Mak
 
 
 #ifdef __GNUC__
-# define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+   /* The optimize attribute does not work with LTO,
+    * which is only available on g++-4.5 onwards.
+    */
+# if (0 && (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 5)))
+#  define FastPixelMethod __attribute__((regparm(3),optimize("O3,omit-frame-pointer")))
+# else
+#  define FastPixelMethod __attribute__((regparm(3)))
+# endif
 # define FasterPixelMethod FastPixelMethod __attribute__((always_inline))
 #else
 # define FastPixelMethod
@@ -92,6 +100,11 @@ struct Array256x256of_Base
     virtual void GetLiveSectionInto
         (PixelMethod method, unsigned timer,
         uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const FastPixelMethod;
+
+    virtual void GetStaticSectionInto
+        (uint32* target, unsigned target_stride,
         unsigned x1, unsigned y1,
         unsigned width, unsigned height) const FastPixelMethod;
 

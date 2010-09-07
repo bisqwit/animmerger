@@ -72,6 +72,57 @@ struct AlignResult Align(
     const std::vector<InterestingSpot>& reference_spots,
     int org_x,
     int org_y);
+
+/* Attempts to align the input picture into the background picture
+ * by finding a position where, if the input picture is placed
+ * there over the background picture, the background picture
+ * changes the least amount. The goal is to match the static
+ * scene in the background with the static scene in the input
+ * image, ignoring anything that moves
+ *
+ *    input, inputwidth, inputheight:
+ *        Input bitmap (rgb32 array, width, height)
+ *        May contain holes, indicated by (pixel value >> 24) != 0
+ *        Anything outside the boundaries is also considered a hole.
+ *    background, backwidth, backheight:
+ *        Background bitmap (rgb32 array, width, height)
+ *        May contain holes, indicated by (pixel value >> 24) != 0
+ *        Anything outside the boundaries is also considered a hole.
+ *    org_x, org_y:
+ *        Previous frame's placement within the background picture,
+ *        relative to the background picture's upper-left corner.
+ *        This can be used for optimization: It is usually likely
+ *        that the next frame will be located a short distance
+ *        away from the previous frame.
+ * Pixel order is like this (for a bitmap where width=4, height=2):
+ *    0123     upper-left coordinate is 0,0
+ *    4567     bottom-right coordinate is 3,1
+ * Result:
+ *    offs_x, offs_y:
+ *        Suggested placement of the input picture
+ *        within the background picture. For example,
+ *        set to (-1,0) to indicate that the top-left
+ *        corner of the input image belongs one pixel
+ *        to the left from the top-left corner of the
+ *        background image (and the rest of the input
+ *        image logically extends right and down from there).
+ *        Note that it is legal (and completely normal)
+ *        that the input image's placement lays partially
+ *        outside the background image's boundaries.
+ *    suspect_reset:
+ *        Set to true if there's a strong reason to suspect
+ *        that the input image belongs to nowhere in the
+ *        background image, i.e. it represents entirely
+ *        new scenery.
+ */
+struct AlignResult Align(
+    const uint32* background,
+    unsigned backwidth, unsigned backheight,
+    const uint32* input,
+    unsigned inputwidth, unsigned inputheight,
+    int org_x,
+    int org_y);
+
 struct AlignResult
 {
     int  offs_x;

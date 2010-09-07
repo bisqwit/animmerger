@@ -5,11 +5,14 @@ unsigned AnimationBlurLength = 0;
 unsigned LoopingLogLength    = 16;
 int      FirstLastLength     = 16;
 bool     AveragesInYUV       = false;
+int      verbose             = 0;
 
 #include "pixel.hh"
 
 unsigned long pixelmethods_result = 1ul << pm_MostUsedPixel;
-enum PixelMethod bgmethod = pm_MostUsedPixel;
+enum PixelMethod bgmethod  = pm_MostUsedPixel;
+enum PixelMethod bgmethod0 = pm_MostUsedPixel;
+enum PixelMethod bgmethod1 = pm_MostUsedPixel;
 
 #define DO_VERY_SPECIALIZED -1
 /* Specialization values:
@@ -30,6 +33,7 @@ struct Array256x256of;
 #define DefinePixelImpls(callback) \
     callback(Last) \
     callback(First) \
+    callback(Solid) \
     callback(TinyAverage) \
     callback(Average) \
     callback(MostUsed) \
@@ -41,6 +45,7 @@ enum PixelMethodImpl { DefinePixelImpls(MakeEnum) };
 
 #include "pixels/lastpixel.hh"
 #include "pixels/firstpixel.hh"
+#include "pixels/solidpixel.hh"
 #include "pixels/averagepixel.hh"
 #include "pixels/tinyaveragepixel.hh"
 #include "pixels/mostusedpixel.hh"
@@ -102,13 +107,16 @@ namespace
     struct CallGet##name##Helper \
     { \
         static uint32 call(const T& obj, unsigned timer=0) FasterPixelMethod \
-            { return obj.Get##name(timer); } \
+        { \
+            return obj.Get##name(timer); \
+        } \
     }; \
     template<typename T> \
     struct CallGet##name##Helper<T,false> \
     { \
+        /* If the method does not exist, use default method. */ \
         static uint32 call(const T&, unsigned=0) FasterPixelMethod \
-            { return DefaultPixel; } \
+        { return DefaultPixel; } \
     }; \
     template<typename T> \
     uint32 CallGet##name(const T& obj, unsigned timer=0) FasterPixelMethod; \
@@ -356,7 +364,10 @@ namespace
 
     const FactoryType* Get256x256pixelFactory()
     {
-        unsigned long Traits = pixelmethods_result | (1ul << bgmethod);
+        unsigned long Traits = pixelmethods_result
+                            | (1ul << bgmethod)
+                            | (1ul << bgmethod0)
+                            | (1ul << bgmethod1);
 
         static unsigned long Prev = ~0ul;
         static const FactoryType* cache = 0;
@@ -399,6 +410,22 @@ void Array256x256of_Base::GetLiveSectionInto
     {
         for(unsigned x=0; x<width; ++x)
             target[p++] = GetLive(method, index+x, timer);
+    }
+}
+
+void Array256x256of_Base::GetStaticSectionInto
+    (uint32* target, unsigned target_stride,
+    unsigned x1, unsigned y1,
+    unsigned width, unsigned height) const
+{
+    unsigned index    = y1*256+x1;
+    unsigned endindex = index + height*256;
+    for(unsigned p=0; index<endindex;
+            index += 256,
+            p += target_stride-width)
+    {
+        for(unsigned x=0; x<width; ++x)
+            target[p++] = GetStatic(index+x);
     }
 }
 
@@ -471,6 +498,40 @@ public:
                databegin += 256-width)
             for(unsigned x=width; x-->0; )
                 *target++ = databegin++->get(timer);
+    #endif
+    }
+
+    virtual void GetStaticSectionInto(
+        uint32* target, unsigned target_stride,
+        unsigned x1, unsigned y1,
+        unsigned width, unsigned height) const FastPixelMethod
+    {
+        const T* databegin = data      + (y1*256+x1);
+        const T* dataend   = databegin + height*256;
+    #if DO_VERY_SPECIALIZED>0
+        #define MakeMethodCase(n,f,name) \
+            case pm_##name##Pixel: \
+                if(T::Traits & (1ul<<pm_##name##Pixel)) \
+                    for(; databegin<dataend; \
+                           target += target_stride-width, \
+                           databegin += 256-width) \
+                        for(unsigned x=width; x-->0; ) \
+                            *target++ = CallGet##name(*databegin++, 0); \
+                break;
+        switch(bgmethod)
+        {
+            DefinePixelMethods(MakeMethodCase);
+            default: break;
+        }
+        #undef MakeMethodCase
+    #else
+        // This implementation works when T only has one feature
+        method=method;
+        for(; databegin<dataend;
+               target += target_stride-width,
+               databegin += 256-width)
+            for(unsigned x=width; x-->0; )
+                *target++ = databegin++->get(0);
     #endif
     }
 
