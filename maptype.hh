@@ -2,7 +2,7 @@
 #define bqtAnimMergerMapTypeHH
 
 #include <utility>
-#include "untreetype.hh"
+#include "binaryheap.hh"
 
 template<typename K,typename V>
 struct MapKeyMethod
@@ -12,7 +12,7 @@ struct MapKeyMethod
 
 template<typename K,typename V, bool Multiple>
 class MapBaseType: public
-    UntreeType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >
+    BinaryHeapType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >
 {
 public:
     typedef K key_type;
@@ -21,12 +21,12 @@ public:
     template<typename Kt>
     V& operator[] (Kt key)
     {
-        typename UntreeType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
+        typename BinaryHeapType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
         iterator i = lower_bound(key);
         if(i == this->end() || !(key==i->first))
         {
             i = insert(i,
-                typename UntreeType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
+                typename BinaryHeapType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
                     value_type(key, V()));
         }
         return i->second;

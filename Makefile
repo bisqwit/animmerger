@@ -10,7 +10,7 @@ ARCHFILES=\
 	settype.hh \
 	maptype.hh \
 	vectype.hh \
-	untreetype.hh \
+	binaryheap.hh \
 	openmp.hh \
 	pixel.cc pixel.hh \
 	pixels/firstpixel.hh \

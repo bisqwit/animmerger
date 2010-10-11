@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <iterator>
 
-template<typename T>
+template<typename T, typename SizeType = unsigned>
 class VecType
 {
 public:
@@ -22,7 +22,7 @@ public:
     typedef const T* const_pointer;
     typedef T& reference;
     typedef const T& const_reference;
-    typedef unsigned size_type;
+    typedef SizeType size_type;
 
 public:
     VecType() : data(0),len(0),cap(0) { }
@@ -163,6 +163,45 @@ public:
         cap  = newcap;
         return data+ins_pos;
     }
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+    template<typename K>
+    iterator insert_move(iterator pos, K&& value)
+    {
+        size_type ins_pos = pos - begin();
+        if(len < cap)
+        {
+            if(ins_pos == len)
+                new(&data[ins_pos]) T( std::move(value) );
+            else
+            {
+                move_construct(&data[len], &data[len-1], 1);
+                move_assign_backwards(&data[ins_pos+1], &data[ins_pos], len-ins_pos);
+                data[ins_pos] = std::move(value);
+            }
+            ++len;
+            return data+ins_pos;
+        }
+        size_type newcap = cap ? cap*2 : default_size();
+        if(ins_pos == len)
+        {
+            reserve(newcap);
+            new(&data[ins_pos]) T( std::move(value) );
+            ++len;
+            return data+ins_pos;
+        }
+        T* newdata = getalloc().allocate(newcap);
+        move_construct(&newdata[0], &data[0], ins_pos);
+        new(&newdata[ins_pos]) T( std::move(value) );
+        move_construct(&newdata[ins_pos+1], &data[ins_pos], len-ins_pos);
+        destroy(&data[0], len);
+        getalloc().deallocate(data, cap);
+        ++len;
+        data = newdata;
+        cap  = newcap;
+        return data+ins_pos;
+    }
+#endif
 
     template<typename It>
     void insert(iterator pos, It first, It last)

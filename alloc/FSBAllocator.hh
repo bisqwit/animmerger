@@ -124,7 +124,7 @@ class FSBAllocator_ElemAllocator
         MemBlock():
             block(0),
             firstFreeUnitIndex(Data_t(-1)),
-            allocatedElementsAmount(0)
+            allocatedElementsAmount(0), endIndex()
         {}
 
         bool isFull() const
@@ -177,15 +177,20 @@ class FSBAllocator_ElemAllocator
 
     struct BlocksVector
     {
-        std::vector<MemBlock> data;
+        // Dynamically allocated and intentionally leaked in order
+        // to avoid BlocksVector being released before any global
+        // object that may refer to it
+        std::vector<MemBlock>* data;
 
-        BlocksVector() { data.reserve(1024); }
-
+        BlocksVector() : data(new std::vector<MemBlock>)
+            { data->reserve(1024); }
+    /*
         ~BlocksVector()
         {
             for(size_t i = 0; i < data.size(); ++i)
                 data[i].clear();
         }
+    */
     };
 
     static BlocksVector blocksVector;
@@ -217,12 +222,12 @@ class FSBAllocator_ElemAllocator
 
         if(blocksWithFree.empty())
         {
-            blocksWithFree.push_back(blocksVector.data.size());
-            blocksVector.data.push_back(MemBlock());
+            blocksWithFree.push_back(blocksVector.data->size());
+            blocksVector.data->push_back(MemBlock());
         }
 
         const Data_t index = blocksWithFree.back();
-        MemBlock& block = blocksVector.data[index];
+        MemBlock& block = blocksVector.data->operator[](index);
         void* retval = block.allocate(index);
 
         if(block.isFull())
@@ -241,7 +246,7 @@ class FSBAllocator_ElemAllocator
 
         Data_t* unitPtr = (Data_t*)ptr;
         const Data_t blockIndex = unitPtr[ElemSizeInDSize];
-        MemBlock& block = blocksVector.data[blockIndex];
+        MemBlock& block = blocksVector.data->operator[](blockIndex);
 
         if(block.isFull())
             blocksWithFree.push_back(blockIndex);
