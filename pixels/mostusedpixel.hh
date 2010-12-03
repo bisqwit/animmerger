@@ -79,16 +79,7 @@ public:
         return res;
     }
 /////////
-    static const unsigned long Traits =
-        (1ul << pm_MostUsedPixel)
-      | (1ul << pm_LeastUsedPixel)
-      | (1ul << pm_AveragePixel)
-      | (1ul << pm_TinyAveragePixel)
-      | (1ul << pm_ActionAvgPixel);
     static const unsigned SizePenalty = 16;
-
-    static const unsigned Components =
-        (1ul << impl_MostUsed);
 };
 
 // These variants are needed by ChangeLog to simplify templates

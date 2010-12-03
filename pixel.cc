@@ -74,14 +74,51 @@ namespace
             return "ERROR: NO IMPLEMENTATION FOUND FOR THIS SET OF FEATURES";
         }*/
     };
+    struct PixelMetaInfoAux
+    {
+        template<size_t n> struct aux { char dummy[n]; };
+        #define MakeTest(o,f,name) \
+            template<typename C> \
+            static char ttest##name(aux<sizeof(&C::Get##name)>*); \
+            template<typename> \
+            static aux<2> ttest##name(...);
+        DefinePixelMethods(MakeTest)
+        #undef MakeTest
+
+        #define MakeTest(name) \
+            static char ctest##name(const name##Pixel *); \
+            static aux<2> ctest##name(...);
+        DefinePixelImpls(MakeTest)
+        #undef MakeTest
+    };
     template<typename T>
     struct PixelMetaInfo
     {
         typedef T result;
-        static const unsigned long Traits = T::Traits;
-        static const unsigned Size        = sizeof(T);
-        static const unsigned Cost        = Size + T::SizePenalty;
-        static const unsigned Components  = T::Components;
+
+        // Determine traits
+        // E.g. Trait pm_FirstPixel is set if the class defines GetFirst().
+        static const unsigned long Traits = 0
+        #define MakeTest(o,f,name) \
+             | ((sizeof(PixelMetaInfoAux::ttest##name<T> (0))==sizeof(char)) \
+                  ? (1ul << pm_##name##Pixel) : 0ul)
+        DefinePixelMethods(MakeTest)
+        #undef MakeTest
+        ;
+
+        // Determine components
+        // E.g. Component impl_First is set if the class is or inherits FirstPixel.
+        static const unsigned Components = 0
+        #define MakeTest(name) \
+             | ((sizeof(PixelMetaInfoAux::ctest##name( (const T*) 0))==sizeof(char)) \
+                  ? (1u << impl_##name) : 0u)
+        DefinePixelImpls(MakeTest)
+        #undef MakeTest
+        ;
+
+        // Determine size and cost
+        static const unsigned Size = sizeof(T);
+        static const unsigned Cost = Size + T::SizePenalty;
     };
     template<>
     struct PixelMetaInfo<void>
@@ -103,7 +140,8 @@ namespace
     /* Function to call a method if it is exists */
 
     #define MakeMethodCaller(n,f,name) \
-    template<typename T, bool HasMethod = T::Traits & (1u << pm_##name##Pixel)> \
+    template<typename T, \
+             bool HasMethod = PixelMetaInfo<T>::Traits & (1u << pm_##name##Pixel)> \
     struct CallGet##name##Helper \
     { \
         static uint32 call(const T& obj, unsigned timer=0) FasterPixelMethod \
@@ -155,9 +193,7 @@ namespace
             T2::set(p,timer);
         }
         /* Legal combination of two classes */
-        static const unsigned long Traits = T1::Traits | T2::Traits;
         static const unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
-        static const unsigned Components  = T1::Components | T2::Components;
     };
 
     /* This converts an implementation index into a type. */
@@ -172,7 +208,8 @@ namespace
         ChooseType<
             PixelMetaInfo<void>,
             PixelMetaInfo<And<Base, typename idclass::result> >,
-            (Base::Components & idclass::result::Components) != 0
+            (PixelMetaInfo<Base>::Components &
+             PixelMetaInfo<typename idclass::result>::Components) != 0
         >::result
     {
     };
@@ -618,7 +655,7 @@ private:
 
         #define MakeMethodCase(n,f,name) \
             case pm_##name##Pixel: \
-                if(!(T::Traits & (1u << pm_##name##Pixel))) break; \
+                if(!(PixelMetaInfo<T>::Traits & (1u << pm_##name##Pixel))) break; \
             case##name: \
                 return CallGet##name(rep::data[index], timer);
         switch(method)
@@ -633,7 +670,7 @@ private:
          */
         #define MakeDefaultCase(n,f,name) \
             case pm_##name##Pixel: goto case##name;
-        switch((PixelMethod) GetLowestBit<T::Traits>::result)
+        switch((PixelMethod) GetLowestBit<PixelMetaInfo<T>::Traits>::result)
         {
             DefinePixelMethods(MakeDefaultCase);
             default: return DefaultPixel;
