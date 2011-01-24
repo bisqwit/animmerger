@@ -45,5 +45,6 @@ typedef std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
 
 void ReduceHistogram(HistogramType& Histogram);
 unsigned MakePalette(uint32* Palette, const HistogramType& hist, unsigned MaxColors);
+void SortPalette(uint32* Palette, unsigned PaletteSize);
 
 #endif

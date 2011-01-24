@@ -753,6 +753,11 @@ retry_modified_luma:;
         unsigned last_index_to_consider = // First where luma  > input_luma
             std::upper_bound(luma_table.begin(), luma_table.end(),
                 input_luma) - luma_table.begin();
+        /*if(PaletteSize <= 16)
+        {
+            first_index_to_consider = 0;
+            last_index_to_consider = PaletteSize;
+        }*/
 
         if(first_index_to_consider >= PaletteSize && input_luma != luma_table.back())
         {
@@ -900,6 +905,11 @@ unsigned MakePalette(uint32* Palette, const HistogramType& Histogram, unsigned M
         if(n >= MaxColors) break;
         Palette[n++] = i->first;
     }
-    std::sort(Palette, Palette+n, CompareLuma);
+    SortPalette(Palette, n);
     return n;
+}
+
+void SortPalette(uint32* Palette, unsigned n)
+{
+    std::sort(Palette, Palette+n, CompareLuma);
 }

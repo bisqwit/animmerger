@@ -15,8 +15,10 @@ function usagetext($prog)
 $text = array(
    '1. Purpose' => "
 
-Animmerger converts a 2D animation from local-frame-of-reference
-into global-frame-of-reference. That is, for a movie that follows
+Animmerger stitches 2D images together into either a static image
+or an animation, while attempting to preserve a global frame of
+reference (static background).<br> 
+That is, for a movie that follows
 an actor around (and the background scrolls to follow them), it
 creates a movie that has a fixed background, and the camera moves
 around in the scene.
@@ -467,12 +469,13 @@ Produced with commandline:<br>
  </tr><tr><th>LastNMost</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
  </tr><tr><th>&middot; LastUncommon</th>  <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
  </tr><tr><th>&middot; LastNLeast</th>    <td>Static          </td>   <td>No</td>     <td>No       </td><td>As ChangeLog</td>                               <td></td>
- </tr><tr><th>MostUsed</th>               <td>Static          </td>   <td>No</td>     <td>No       </td><td>12&hellip;16 + 6*number of unique colors</td>   <td>Maps</td>
+ </tr><tr><th>MostUsed</th>               <td>Static          </td>   <td>No</td>     <td>No       </td><td>12&hellip;16 + 6&times;number of unique colors</td>   <td>Maps</td>
  </tr><tr><th>LeastUsed</th>              <td>Static          </td>   <td>No</td>     <td>No       </td><td>As MostUsed</td>                                <td></td>
+ </tr><tr><th>Solid</th>                  <td>Static          </td>   <td>No</td>     <td>No       </td><td>12</td>                                         <td>Maps</td>
  </tr><tr><th>Average</th>                <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>16</td>                                         <td></td>
  </tr><tr><th>Tinyaverage</th>            <td>Static          </td>   <td>Yes</td>    <td>No       </td><td>8</td>                                          <td></td>
  </tr><tr><th>ActionAvg</th>              <td>Static          </td>   <td>Yes</td>    <td>Yes      </td><td>As MostUsed</td>                                <td></td>
- </tr><tr><th>ChangeLog</th>              <td>Animated (movie)</td> <td>If blur</td><td>For blur </td><td>12&hellip;16 + 8*number of content changes</td> <td>Animations</td>
+ </tr><tr><th>ChangeLog</th>              <td>Animated (movie)</td> <td>If blur</td><td>For blur </td><td>12&hellip;16 + 8&times;number of content changes</td> <td>Animations</td>
  </tr><tr><th>LoopingLog</th>             <td>Animated (loop) </td> <td>If blur</td><td>For blur </td><td>As ChangeLog</td>                               <td></td>
  </tr><tr><th>LoopingAvg</th>             <td>Animated (loop) </td> <td>Yes</td>    <td>Yes      </td><td>As ChangeLog</td>                               <td>Fun</td>
  </tr>

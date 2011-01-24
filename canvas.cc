@@ -310,7 +310,164 @@ void TILE_Tracker::Save(unsigned method)
 
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
+/* // monochrome
+    Palette[0] = 0x000000;
+    Palette[1] = 0xFFFFFF;
+    PaletteSize = 2; return;
+*/
+/* // NES palette
+    // selection 1: reds
+    Palette[0] = 0x000000; // black
+    Palette[1] = 0xF83800; // red
+    Palette[2] = 0x7D7D7D; // gray2
+    Palette[3] = 0xFCE0A8; // desaturated yellow
+    // selection 2: blues
+    Palette[4] = 0x000000; // black
+    Palette[5] = 0x0E78F6; // blue
+    Palette[6] = 0x503000; // brown
+    Palette[7] = 0x7D7D7D; // lightgray
+    // selection 3: greens
+    Palette[8] = 0x000000; // black
+    Palette[9] = 0x005800; // dark green
+    Palette[10] = 0x00A844; // green-turquoise
+    Palette[11] = 0xB8F8B8; // light green
+    // selection 4: grayscale
+    Palette[12] = 0x000000; // black
+    Palette[13] = 0x343434; // gray
+    Palette[14] = 0x7D7D7D; // gray2
+    Palette[15] = 0xD8D8D8; // gray4
+    PaletteSize = 16; return;
+*/
+/* // composite cga (to be rendered on 640x200 monochrome mode)
+    Palette[ 0] = 0x000000; // 0000
+    Palette[ 1] = 0x007A00; // 0001
+    Palette[ 2] = 0x1B33DF; // 0010
+    Palette[ 3] = 0x01ADDE; // 0011
+    Palette[ 4] = 0x990580; // 0100
+    Palette[ 5] = 0x7F7F7F; // 0101, 1010
+    Palette[ 6] = 0xB538FF; // 0110
+    Palette[ 7] = 0x9AB2FF; // 0111
+    Palette[ 8] = 0x644C00; // 1000
+    Palette[ 9] = 0x49C600; // 1001
+    Palette[10] = 0x65F97E; // 1011
+    Palette[11] = 0xFD5120; // 1100
+    Palette[12] = 0xE3CB1F; // 1101
+    Palette[13] = 0xFF84FF; // 1110
+    Palette[14] = 0xFFFFFF; // 1111
+    PaletteSize = 15; return;
+*/
+/* // ega standard
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0x3333AA;
+    Palette[ 2] = 0x11AA11;
+    Palette[ 3] = 0x11AAAA;
+    Palette[ 4] = 0xAA1111;
+    Palette[ 5] = 0xAA11AA;
+    Palette[ 6] = 0xAA5511;
+    Palette[ 7] = 0xAAAAAA;
+    Palette[ 8] = 0x555555;
+    Palette[ 9] = 0x7777FF;
+    Palette[10] = 0x55FF55;
+    Palette[11] = 0x55FFFF;
+    Palette[12] = 0xFF5555;
+    Palette[13] = 0xFF55FF;
+    Palette[14] = 0xFFFF55;
+    Palette[15] = 0xFFFFFF;
+    PaletteSize = 16; return;
+*/
+/* // dragon
+    Palette[ 0] = 0x191819;
+    Palette[ 1] = 0x202610;
+    Palette[ 2] = 0x1C3209;
+    Palette[ 3] = 0x307010;
+    Palette[ 4] = 0x3E34D0; //
+    Palette[ 5] = 0x5858F0; //
+    Palette[ 6] = 0x7878F9; //
+    Palette[ 7] = 0x9898F5; //
+    Palette[ 8] = 0x2C2C2C;
+    Palette[ 9] = 0x5A586A;
+    Palette[10] = 0x5B5E6D;
+    Palette[11] = 0xB8B8FF; //
+    Palette[12] = 0x736962;
+    Palette[13] = 0x857C78;
+    Palette[14] = 0xA8A3AA;
+    Palette[15] = 0xC4BCCB;
+    SortPalette(Palette, 16);
+    PaletteSize = 16; return;
+*/
+/* // psx scene
+    static unsigned p[16] = {
+0x080000,0xF8FCEE,0x2A3479,0x582009,
+0xD0CA40,0x242C09,0x432817,0x9C6B20,
+0xA3220F,0x355117,0x6A94AB,0x201A0B,
+0x4A4B30,0x2B744E,0x31680E,0x2A2A2A };
+    for(unsigned a=0; a<16; ++a) Palette[a] = p[a];
+    SortPalette(Palette, 16);
+    PaletteSize = 16; return;
+*/
+/* // ega, custom
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0xAAAA55;
+    Palette[ 2] = 0xAAAAFF;
+    Palette[ 3] = 0x005500;
+    Palette[ 4] = 0x000055;
+    Palette[ 5] = 0x0000FF;
+    Palette[ 6] = 0xAA55AA;
+    Palette[ 7] = 0xFF0000;
+    Palette[ 8] = 0x555555;
+    Palette[ 9] = 0x005555;
+    Palette[10] = 0xAAAAAA;
+    Palette[11] = 0x5500AA;
+    Palette[12] = 0xFFFFAA;
+    Palette[13] = 0x550055;
+    Palette[14] = 0x555500;
+    Palette[15] = 0xFFFFFF;
+    PaletteSize = 16; return;
+*/
+/* // cga 1 lo
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0x11AAAA;
+    Palette[ 2] = 0xAA11AA;
+    Palette[ 3] = 0xAAAAAA;
+    PaletteSize = 4; return;
+*/
+/* // cga 1 hi
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0x55FFFF;
+    Palette[ 2] = 0xFF55FF;
+    Palette[ 3] = 0xFFFFFF;
+    PaletteSize = 4; return;
+*/
+/* // cga 0 lo
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0x11AA11;
+    Palette[ 2] = 0xAA1111;
+    Palette[ 3] = 0xAA5511;
+    PaletteSize = 4; return;
+*/
+/* // cga 0 hi
+    Palette[ 0] = 0x000000;
+    Palette[ 1] = 0x55FF55;
+    Palette[ 2] = 0xFF5555;
+    Palette[ 3] = 0xFFFF55;
+    PaletteSize = 4; return;
+*/
+/* // cga 2 tweak
+    Palette[ 0] = 0x0000AA;
+    Palette[ 1] = 0x00AAAA;
+    Palette[ 2] = 0xAA0000;
+    Palette[ 3] = 0xAAAAAA;
+    PaletteSize = 4; return;
+*/
+/* // cga 0 tweak
+    Palette[ 0] = 0x0000AA;
+    Palette[ 1] = 0x11AA11;
+    Palette[ 2] = 0xAA1111;
+    Palette[ 3] = 0xAA5511;
+    PaletteSize = 4; return;
+*/
     HistogramType Histogram;
+
     const int ymi = ymin, yma = ymax;
     const int xmi = xmin, xma = xmax;
     const unsigned wid = xma-xmi;
@@ -319,6 +476,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     VecType<uint32> prev_frame;
     for(unsigned frameno=0; frameno<nframes; frameno+=1)
     {
+        fprintf(stderr, "\rFrame %u/%u...", frameno+1, nframes); fflush(stderr);
       #if 1
         /* Only count histogram from content that
          * changes between previous and current frame
@@ -357,8 +515,9 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
       #endif
     }
     // Reduce the histogram into a usable palette
-    fprintf(stderr, "%u colors detected\n",(unsigned) Histogram.size());
+    fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     ReduceHistogram(Histogram);
+
     PaletteSize = MakePalette(Palette, Histogram, 256);
 }
 
@@ -400,6 +559,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     bool was_identical = false;
 
+#if 1 // disable for temporal dither
   #pragma omp ordered
   {
     if(animated)
@@ -417,6 +577,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         LastFilename = Filename;
     }
   }
+#endif
 
     #pragma omp flush(was_identical)
     if(was_identical) return;
@@ -431,7 +592,21 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
         /* First try to create a paletted image */
         gdImagePtr im = gdImageCreate(wid,hei);
+    #if 0 /* CGA16 mode */
+        gdImagePtr im2 = gdImageCreateTrueColor(wid*4, hei);
+    #endif
+    #if 0 /* NES mode */
+        gdImagePtr im2 = im, imtab[4] = {
+            gdImageCreate(wid,hei),
+            gdImageCreate(wid,hei),
+            gdImageCreate(wid,hei),
+            gdImageCreate(wid,hei) };
+    #endif
     reloop:;
+    #if 0 /* NES mode */
+        for(unsigned mode=0; mode<5 && (im=mode?imtab[mode-1]:im2); ++mode)
+        {
+    #endif
         gdImageAlphaBlending(im, false);
         gdImageSaveAlpha(im, true);
         if(!palette_failed)
@@ -446,8 +621,12 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                 gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
             }
         }
-
+    #if 0 /* NES mode */
+        }
+        for(unsigned mode=0; mode<4 && (im=imtab[mode]); ++mode)
+    #endif
         for(unsigned p=0, y=0; y<hei; ++y)
+        {
             for(unsigned x=0; x<wid; ++x)
             {
                 uint32 pix = screen[p++];
@@ -470,18 +649,29 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                     int a = (pix >> 24); if(a&0x80) a>>=1;
 
                     int color = gdImageColorExactAlpha(im, r,g,b,a);
+                    #if 0 /* NES mode */
+                    color = -1;
+                    #endif
                     if(color == -1)
                     {
                         if(!PaletteReductionMethod.empty())
                         {
+                        #if 0 /* NES mode */
+                            pix = (pix & 0xFFFFFF) | (mode << 24);
+                        #endif
                             // Find two closest entries from palette and use o8x8 dithering
                             PalettePair output;
                             pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
                             if(i == pixel_cache.end() || i->first != pix)
                             {
+                                uint32* pal = Palette;
+                                unsigned palsize = PaletteSize;
+                            #if 0 /* NES mode */
+                                pal = Palette + mode*4; palsize = 4;
+                            #endif
                                 output = FindBestPalettePair(
                                     r,g,b,
-                                    Palette,PaletteSize);
+                                    pal, palsize);
                                 pixel_cache.insert(i, std::make_pair(pix, output));
                             }
                             else
@@ -498,8 +688,15 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
         d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
                             #undef d
+                            #if 0 // temporal dither
+                            if((frameno^x^y)&1) output.result += 1/128.0;
+                            #endif
                             float position = output.result + pattern[(y&7)*8+(x&7)];
                             color = (position > 1.0f) ? output.entry2 : output.entry1;
+                            #if 0 /* NES mode */
+                            color += mode*4;
+                            pix &= 0xFFFFFF;
+                            #endif
                         }
                         else
                         {
@@ -515,11 +712,114 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                         goto reloop;
                     }
                     if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
+                #if 0 /* CGA16 mode */
+                    if(color >= 10) color += 1; // pattern 1010 was skipped over
+                #endif
                     gdImageSetPixel(im, x,y, color);
                 }
                 else
                     gdImageSetPixel(im, x,y, pix);
             }
+            #if 0 /* CGA16 Mode */
+            static unsigned temp[643] = { 0 };
+            static unsigned cga16_palette[16*5]; static bool cga16_init = false;
+            if(!cga16_init)
+            {
+                double hue = (35.0 + 0.0)*0.017453239;
+                double sinhue = std::sin(hue), coshue = std::cos(hue);
+                for(unsigned i=0; i<16; ++i)
+                    for(unsigned j=0; j<5; ++j)
+                    {
+                        unsigned colorBit4 = (i&1)>>0;
+                        unsigned colorBit3 = (i&2)>>1;
+                        unsigned colorBit2 = (i&4)>>2;
+                        unsigned colorBit1 = (i&8)>>3;
+                        //calculate lookup table   
+                        double I = 0, Q = 0, Y;
+                        I += (double) colorBit1;
+                        Q += (double) colorBit2;
+                        I -= (double) colorBit3;
+                        Q -= (double) colorBit4; 
+                        Y  = (double) j / 4.0; //calculated avarage is over 4 bits
+
+                        double pixelI = I * 1.0 / 3.0; //I* tvSaturnation / 3.0
+                        double pixelQ = Q * 1.0 / 3.0; //Q* tvSaturnation / 3.0
+                        I = pixelI*coshue + pixelQ*sinhue;
+                        Q = pixelQ*coshue - pixelI*sinhue;
+
+                        double R = Y + 0.956*I + 0.621*Q; if (R < 0.0) R = 0.0; if (R > 1.0) R = 1.0;
+                        double G = Y - 0.272*I - 0.647*Q; if (G < 0.0) G = 0.0; if (G > 1.0) G = 1.0;
+                        double B = Y - 1.105*I + 1.702*Q; if (B < 0.0) B = 0.0; if (B > 1.0) B = 1.0;
+                        unsigned char rr = R*0xFF, gg = G*0xFF, bb = B*0xFF;
+                        cga16_palette[(j<<4)|i] = (rr << 16) | (gg << 8) | bb;
+                    }
+                cga16_init = true;
+            }
+            for(unsigned x=0; x<640; ++x)
+                temp[x+2] = (( gdImageGetPixel(im,x>>2,y) >> (3-(x&3)) ) & 1) << 4;
+            for(unsigned i=0, x=0; x<160; ++x)
+            {
+                unsigned v = gdImageGetPixel(im,x,y);
+                for(unsigned c=0; c<4; ++c)
+                {
+                    unsigned p = v | (temp[i] + temp[i+1] + temp[i+2] + temp[i+3]);
+                    gdImageSetPixel(im2, i++, y,  cga16_palette[p]);
+                }
+            }
+            #endif
+        }
+        #if 0 /* CGA16 Mode */
+        gdImageDestroy(im);
+        im = im2;
+        palette_failed = true;
+        #endif
+        #if 0 /* NES mode */
+        /* For each 16x16 pixel region in the target image,
+         * choose one of the corresponding regions in the four
+         * sample images that best represents the input data */
+        for(unsigned by=0; by<hei; by += 16)
+        {
+            unsigned ey = by+16; if(ey > hei) ey = hei;
+            for(unsigned bx=0; bx<wid; bx += 16)
+            {
+                unsigned ex = bx+16; if(ex > wid) ex = wid;
+
+                double bestdiff = 1e99;
+                unsigned bestmode = 0;
+                for(unsigned mode=0; mode<4; ++mode)
+                {
+                    im = imtab[mode];
+                    double diff = 0;
+                    const double down = 1.0/(4*4);
+                    for(unsigned y=by; y+4<=ey; y+=1)
+                        for(unsigned x=bx; x+4<=ex; x+=1)
+                        {
+                            int r1=0,g1=0,b1=0, r2=0,g2=0,b2=0;
+                            for(unsigned cy=0; cy<4; ++cy)
+                            for(unsigned cx=0; cx<4; ++cx)
+                            {
+                                uint32 pix1 = screen[(y+cy)*wid+(x+cx)];
+                                uint32 pix2  = Palette[gdImageGetPixel(im,x+cx,y+cy)];
+                                r1 += (pix1 >> 16) & 0xFF; g1 += (pix1 >> 8) & 0xFF; b1 += (pix1) & 0xFF;
+                                r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
+                            }
+                            double luma1 = (r1*299 + g1*587 + b1*114)*(1e-3*down);
+                            double luma2 = (r2*299 + g2*587 + b2*114)*(1e-3*down);
+                            double lumadiff = (luma1-luma2);
+                            double avgluma = (luma1+luma2);
+                            double rdiff = (r1-r2)*down, gdiff = (g1-g2)*down, bdiff = (b1-b2)*down;
+                            diff += (rdiff*rdiff + gdiff*gdiff + bdiff*bdiff);
+                        }
+                    if(diff < bestdiff)
+                        { bestdiff = diff; bestmode = mode; }
+                }
+                gdImageCopy(im2, imtab[bestmode], bx,by, bx,by, ex-bx, ey-by);
+            }
+        }
+        for(unsigned a=0; a<4; ++a) gdImageDestroy(imtab[a]);
+        im = im2;
+        #endif
+
         FILE* fp = std::fopen(Filename, "wb");
         if(palette_failed)
         {
