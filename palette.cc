@@ -13,11 +13,54 @@ namespace
     // A histogram item contains a pixel value and an occurrence count.
     typedef std::pair<uint32, unsigned> HistItem;
 
+    void GetHSV(int r,int g,int b, double&h, double&s, double&v)
+    {
+        int Max = std::max(std::max(r,g), b);
+        int Min = std::min(std::min(r,g), b);
+        double Delta = Max-Min;
+        v = (Max-Min)/(255.0);
+        if(Max != 0.0)
+            s = Delta / Max;
+        else
+            s = 0.0;
+        if(s == 0.0)
+            h = 0.0;
+        else
+        {
+            /**/ if(r == Max) h = (g - b) / Delta;
+            else if(g == Max) h=2+(b - r) / Delta;
+            else if(b == Max) h=4+(r - g) / Delta;
+            h /= 6.0; if(h < 0) ++h;
+        }
+    }
+    void GetSpatialColor(int r,int g,int b, double&x, double&y, double&z)
+    {
+        double h,s,v;
+        GetHSV(r,g,b, h,s,v);
+        double angle = h * (3.141592653*2/6.0);
+        const double m = 1.0/(255);
+        double luma = (r*0.299*m + g*0.587*m + b*0.114*m);
+        x = s * std::sin(angle);
+        y = s * std::cos(angle);
+        z = (v+luma)*0.5;
+    }
     unsigned ColorDiff(int r1,int g1,int b1, int r2,int g2,int b2)
     {
+        /*
+        double x1,y1,z1, x2,y2,z2;
+        GetSpatialColor(r1,g1,b1, x1,y1,z1);
+        GetSpatialColor(r2,g2,b2, x2,y2,z2);
+        double xdiff = x1-x2, ydiff=y1-y2, zdiff=z1-z2;
+        return (xdiff*xdiff + ydiff*ydiff + zdiff*zdiff) * (3121200/3.0);
+        */
+        int luma1 = (r1*299 + g1*587 + b1*114);
+        int luma2 = (r2*299 + g2*587 + b2*114);
+        int lumadiff = (luma1-luma2)/1000;
+        int avgluma = (luma1+luma2)/5000;
         int rdiff = r1-r2, gdiff = g1-g2, bdiff = b1-b2;
-        return rdiff*rdiff + gdiff*gdiff + bdiff*bdiff;
+        return ((rdiff*rdiff + gdiff*gdiff + bdiff*bdiff)*avgluma)/4 + lumadiff*lumadiff;
     }
+
     unsigned ColorDiff(int r1,int g1,int b1, uint32 pix2)
     {
         int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
