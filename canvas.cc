@@ -280,11 +280,8 @@ void TILE_Tracker::Save(unsigned method)
                 SavedTimer = LoopingLogLength;
         }
 
-        if(SaveGif == 1 || animated)
-        {
-            if(!PaletteReductionMethod.empty())
-                CreatePalette( (PixelMethod) method, SavedTimer );
-        }
+        if(!PaletteReductionMethod.empty())
+            CreatePalette( (PixelMethod) method, SavedTimer );
 
         #pragma omp parallel for schedule(dynamic) ordered
         for(unsigned frame=0; frame<SavedTimer; frame+=1)
@@ -397,13 +394,28 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 */
 /* // psx scene
     static unsigned p[16] = {
-0x080000,0xF8FCEE,0x2A3479,0x582009,
-0xD0CA40,0x242C09,0x432817,0x9C6B20,
-0xA3220F,0x355117,0x6A94AB,0x201A0B,
-0x4A4B30,0x2B744E,0x31680E,0x2A2A2A };
+ 0x080000,0xFCFAE2,0x2B347C,0x234309,
+ 0xFCE76E,0xD5C4B3,0x432817,0x9C6B20,
+ 0xA9220F,0xD0CA40,0x6A94AB,0x201A0B,
+ 0x492910,0x2B7409,0xE8A077,0x5D4F1E };
     for(unsigned a=0; a<16; ++a) Palette[a] = p[a];
     SortPalette(Palette, 16);
     PaletteSize = 16; return;
+*/
+/* // dither demo pal
+    static unsigned p[18] = {
+0x000000,0x0000FF,
+0x008000,0x0080FF,
+0x00FF00,0x00FFFF,
+0x800000,0x8000FF,
+0x808000,0x8080FF,
+0x80FF00,0x80FFFF,
+0xFF0000,0xFF00FF,
+0xFF8000,0xFF80FF,
+0xFFFF00,0xFFFFFF };
+    for(unsigned a=0; a<18; ++a) Palette[a] = p[a];
+    SortPalette(Palette, 18);
+    PaletteSize = 18; return;
 */
 /* // ega, custom
     Palette[ 0] = 0x000000;
@@ -549,7 +561,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         nametemplate = Templates[method];
     }
 
-    if(SaveGif == 1 || animated)
+    if(SaveGif == 1)
         std::sprintf(Filename, "%s-%04u.gif", nametemplate, img_counter);
     else
         std::sprintf(Filename, "%s-%04u.png", nametemplate, img_counter);
@@ -582,7 +594,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     #pragma omp flush(was_identical)
     if(was_identical) return;
 
-    if(SaveGif == 1 || animated)
+    if(SaveGif == 1 || !PaletteReductionMethod.empty())
     {
         bool palette_failed = false;
 
@@ -826,7 +838,10 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
             gdImageTrueColorToPalette(im, false, 256);
             gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
         }
-        gdImageGif(im, fp);
+        if(SaveGif == 1)
+            gdImageGif(im, fp);
+        else
+            gdImagePngEx(im, fp, 1);
         std::fclose(fp);
         gdImageDestroy(im);
     }

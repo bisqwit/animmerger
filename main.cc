@@ -1134,34 +1134,26 @@ rate.\n\
             std::printf("\tAverage color is calculated in: %s\n",
                 AveragesInYUV ? "YUV" : "RGB");
 
-        if(SaveGif == 1 || (AllUsedMethods & AnimatedPixelMethodsMask))
+        if(!PaletteReductionMethod.empty())
         {
-            if(PaletteReductionMethod.empty())
-                std::printf("\tPalette reduction done by libGD if necessary\n");
-            else
+            std::printf("\tPalette reduction if necessary: ");
+            for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
             {
-                std::printf("\tPalette reduction if necessary: ");
-                for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
+                if(a) std::printf(", followed by ");
+                switch(PaletteReductionMethod[a].method)
                 {
-                    if(a) std::printf(", followed by ");
-                    switch(PaletteReductionMethod[a].method)
-                    {
-                        #define MakeCase(o,name) \
-                            case quant_##name: std::printf("%s", #name); break;
-                        DefinePaletteMethods(MakeCase)
-                        #undef MakeCase
-                    }
-                    std::printf(" to %u", PaletteReductionMethod[a].size);
+                    #define MakeCase(o,name) \
+                        case quant_##name: std::printf("%s", #name); break;
+                    DefinePaletteMethods(MakeCase)
+                    #undef MakeCase
                 }
-                std::printf("\n");
+                std::printf(" to %u", PaletteReductionMethod[a].size);
             }
+            std::printf("\n");
         }
-        else
+        else if(SaveGif == 1)
         {
-            if(PaletteReductionMethod.empty())
-                std::printf(
-                    "\tPalette reduction was specified, but it will be ignored,\n"
-                    "\tbecause only truecolor PNGs will be generated.\n");
+            std::printf("\tPalette reduction done by libGD if necessary\n");
         }
 
         unsigned size = GetPixelSizeInBytes();
