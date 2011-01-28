@@ -530,7 +530,8 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     ReduceHistogram(Histogram);
 
-    PaletteSize = MakePalette(Palette, Histogram, 256);
+    PaletteSize = MakePalette(Palette, Histogram,
+        SaveGif == 1 ? 256 : Histogram.size());
 }
 
 void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_counter)
@@ -594,7 +595,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     #pragma omp flush(was_identical)
     if(was_identical) return;
 
-    if(SaveGif == 1 || !PaletteReductionMethod.empty())
+    if(!PaletteReductionMethod.empty())
     {
         bool palette_failed = false;
 
@@ -871,7 +872,13 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
             std::perror(Filename);
         else
         {
-            gdImagePngEx(im, fp, 1);
+            if(SaveGif == 1)
+            {
+                gdImageTrueColorToPalette(im, false, 256);
+                gdImageGif(im, fp);
+            }
+            else
+                gdImagePngEx(im, fp, 1);
             std::fclose(fp);
         }
         gdImageDestroy(im);

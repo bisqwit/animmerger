@@ -715,8 +715,7 @@ Options:\n\
  --noalign\n\
      Disable automatic image aligner\n\
  --gif, -g\n\
-     Save GIF frames instead of PNG frames,\n\
-     even in non-animated modes.\n\
+     Save GIF frames instead of PNG frames.\n\
 \n\
 animmerger will always output PNG files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
@@ -811,8 +810,9 @@ DEFINING MASKS\n\
 \n\
 REDUCING PALETTE\n\
 \n\
-  When making GIF images, the means on how the palette is reduced\n\
-  can be controlled with the --quantize option.\n\
+  GIF files are restricted to 256 colors, but regardless of whether\n\
+  you use GIF or PNG for the output format, you can use the --quantize\n\
+  option to reduce your images to a particular number of colors.\n\
   The following quantization methods are defined:\n\
 \n\
     Median cut ( example: --quantize=mediancut,32  or -Qm,32 )\n\
@@ -850,12 +850,12 @@ REDUCING PALETTE\n\
   For example, -Qb,32 -Qd,16 first reduces with \"blend-diversity\"\n\
   to 32 colors, then reduces the remaining set with \"diversity\" to 16 colors.\n\
   It is not an error to reduce to a larger set than 256 colors.\n\
-  If the last explicitly chosen quantization method yields more than 256\n\
-  than 256 colors, the colormap will be implicitly reduced\n\
+  If you are creating a GIF file and the last explicitly chosen quantization\n\
+  method yields more than 256 colors, the colormap will be implicitly reduced\n\
   with a method that picks the 256 most-used colors.\n\
   If necessary, the image will be dithered using a positional dithering method.\n\
-  If no quantization methods are explicitly selected, animmerger\n\
-  will use whatever method GD graphics library happens to use.\n\
+  If you are making a GIF file and you do not specify any quantization options\n\
+  at all, animmerger will use whatever method GD graphics library happens to use.\n\
   Note that the blending quantization methods are subject to the YUV selection.\n\
 \n\
 TIPS\n\
