@@ -833,16 +833,23 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         #endif
 
         FILE* fp = std::fopen(Filename, "wb");
-        if(palette_failed)
+        if(!fp)
         {
-            gdImageTrueColorToPalette(im, false, 256);
-            gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
+            std::perror(Filename);
         }
-        if(SaveGif == 1)
-            gdImageGif(im, fp);
         else
-            gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
+        {
+            if(palette_failed)
+            {
+                gdImageTrueColorToPalette(im, false, 256);
+                gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
+            }
+            if(SaveGif == 1)
+                gdImageGif(im, fp);
+            else
+                gdImagePngEx(im, fp, 1);
+            std::fclose(fp);
+        }
         gdImageDestroy(im);
     }
     else
@@ -860,8 +867,13 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                 gdImageSetPixel(im, x,y, pix);
             }
         FILE* fp = std::fopen(Filename, "wb");
-        gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
+        if(!fp)
+            std::perror(Filename);
+        else
+        {
+            gdImagePngEx(im, fp, 1);
+            std::fclose(fp);
+        }
         gdImageDestroy(im);
     }
 }
