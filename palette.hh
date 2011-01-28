@@ -2,6 +2,7 @@
 #define bqtTileTrackerPaletteHH
 
 #include <map>
+#include <string>
 
 #include "types.hh"
 #include "alloc/FSBAllocator.hh"
@@ -22,6 +23,7 @@ struct PaletteMethodItem
 {
     PaletteMethod method;
     unsigned      size;
+    std::string   filename;
 };
 extern std::vector<PaletteMethodItem> PaletteReductionMethod;
 

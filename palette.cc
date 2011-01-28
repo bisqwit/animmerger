@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
+#include <gd.h>
 
 #include "palette.hh"
 #include "pixel.hh"
@@ -916,6 +917,48 @@ void ReduceHistogram(HistogramType& Histogram)
 {
     for(size_t b=PaletteReductionMethod.size(), a=0; a<b; ++a)
     {
+        const std::string& fn = PaletteReductionMethod[a].filename;
+        if(!fn.empty())
+        {
+            FILE* fp = std::fopen(fn.c_str(), "rb");
+            if(!fp)
+                std::perror(fn.c_str());
+            else
+            {
+                gdImagePtr im = gdImageCreateFromPng(fp);
+                if(!im) { std::rewind(fp); im = gdImageCreateFromGif(fp); }
+                if(!im) { std::rewind(fp); im = gdImageCreateFromWBMP(fp); }
+                if(!im)
+                {
+                    std::fprintf(stderr,
+                        "%s: Not a PNG, GIF or WBMP file! Cannot read palette.\n",
+                            fn.c_str());
+                }
+                else
+                {
+                    if(gdImageTrueColor(im))
+                    {
+                        std::fprintf(stderr,
+                            "%s: Not a paletted picture! Will hastily use libGD to make a 256-color palette out of it regardless.\n",
+                            fn.c_str());
+                        gdImageTrueColorToPalette(im, 0, 256);
+                    }
+                    unsigned n_colors = gdImageColorsTotal(im);
+                    for(unsigned c=0; c<n_colors; ++c)
+                    {
+                        unsigned color =
+                            gdTrueColor(gdImageRed(im,c),gdImageGreen(im,c),gdImageBlue(im,c));
+                        Histogram[color] += 1024*768;
+                    }
+                    std::fprintf(stderr,
+                        "Loaded %u colors from %s, now has %u colors\n",
+                            n_colors, fn.c_str(),
+                            (unsigned) Histogram.size() );
+                }
+                std::fclose(fp);
+            }
+            continue;
+        }
         unsigned size = PaletteReductionMethod[a].size;
         switch(PaletteReductionMethod[a].method)
         {

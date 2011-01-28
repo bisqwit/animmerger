@@ -710,6 +710,8 @@ Options:\n\
      only scroll horizontally and by 4 pixels at most per frame.\n\
  --quantize <method>,<num_colors>\n\
      Reduce palette, see instructions below\n\
+ --quantize <file>\n\
+     Load palette from the given file (png or gif, must be paletted)\n\
  --noalign\n\
      Disable automatic image aligner\n\
  --gif, -g\n\
@@ -838,6 +840,11 @@ REDUCING PALETTE\n\
       A self-balancing Kohonen neural network is used to generate\n\
       an optimal palette for the imageset. Fast and very high quality.\n\
       Especially good with color gradients. Not useful for smallest palettes.\n\
+\n\
+    Load from file ( example: --quantize=test.gif )\n\
+      Animmerger will attempt to open the named file, read the\n\
+      palette from it and append its colors to the current palette\n\
+      (or replace with loaded palette if was the first -Q option).\n\
 \n\
   Multiple quantization phases can be performed in a sequence.\n\
   For example, -Qb,32 -Qd,16 first reduces with \"blend-diversity\"\n\
@@ -976,6 +983,14 @@ rate.\n\
             case 'Q':
             {
                 char *arg = optarg;
+                if(access(arg, R_OK))
+                {
+                    PaletteMethodItem method;
+                    method.size     = 0;
+                    method.filename = arg;
+                    PaletteReductionMethod.push_back(method);
+                    break;
+                }
                 char *comma = std::strchr(arg, ',');
                 if(!comma)
                     std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
@@ -1140,6 +1155,12 @@ rate.\n\
             for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
             {
                 if(a) std::printf(", followed by ");
+                if(!PaletteReductionMethod[a].filename.empty())
+                {
+                    std::printf("load from file: %s",
+                        PaletteReductionMethod[a].filename.c_str());
+                    continue;
+                }
                 switch(PaletteReductionMethod[a].method)
                 {
                     #define MakeCase(o,name) \
