@@ -477,8 +477,10 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     ReduceHistogram(Histogram);
 
-    CurrentPalette = MakePalette(Histogram,
-        SaveGif == 1 ? 256 : Histogram.size());
+    const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
+    unsigned limit = Histogram.size();
+    if(SaveGif == 1 || (SaveGif == -1 && animated)) limit = 256;
+    CurrentPalette = MakePalette(Histogram, limit);
 }
 
 void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_counter)
@@ -509,7 +511,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         nametemplate = Templates[method];
     }
 
-    if(SaveGif == 1)
+    if(SaveGif == 1 || (SaveGif == -1 && animated))
         std::sprintf(Filename, "%s-%04u.gif", nametemplate, img_counter);
     else
         std::sprintf(Filename, "%s-%04u.png", nametemplate, img_counter);
@@ -543,7 +545,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     #pragma omp flush(was_identical)
     if(was_identical) return;
 
-    if(!PaletteReductionMethod.empty())
+    if(!PaletteReductionMethod.empty() && !(SaveGif == -1 && !animated))
     {
         bool palette_failed = false;
 
@@ -784,7 +786,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                 gdImageTrueColorToPalette(im, false, 256);
                 gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
             }
-            if(SaveGif == 1)
+            if(SaveGif == 1 || (SaveGif == -1 && animated))
                 gdImageGif(im, fp);
             else
                 gdImagePngEx(im, fp, 1);
@@ -811,7 +813,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
             std::perror(Filename);
         else
         {
-            if(SaveGif == 1)
+            if(SaveGif == 1 || (SaveGif == -1 && animated))
             {
                 gdImageTrueColorToPalette(im, false, 256);
                 gdImageGif(im, fp);

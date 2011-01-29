@@ -646,7 +646,7 @@ int main(int argc, char** argv)
             {"firstlast",  1,0,'f'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
-            {"gif",        0,0,'g'},
+            {"gif",        2,0,'g'},
             {"verbose",    0,0,'v'},
             {"yuv",        0,0,'y'},
             {"noalign",    0,0,4002},
@@ -658,7 +658,7 @@ int main(int argc, char** argv)
             {0,            1,0,'D'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:Q:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -720,8 +720,13 @@ Options:\n\
      Load palette from the given file (png or gif, must be paletted)\n\
  --noalign\n\
      Disable automatic image aligner\n\
- --gif, -g\n\
-     Save GIF frames instead of PNG frames.\n\
+ --gif, -g [=always/=never/=auto]\n\
+     Control how GIF files are saved. Always/never/auto.\n\
+     In automatic mode (default), GIF is selected for animations\n\
+     if quantization was configured, PNG otherwise.\n\
+     Default: auto. --gif without parameter defaults to always.\n\
+     See below on details on when and how GIF files are written\n\
+     depending on this option.\n\
  --ditherror, --de <float>\n\
      Set error multiplication value for the dithering algorithm.\n\
      0.0 = disable dithering. 1.0 = full dithering.\n\
@@ -768,6 +773,18 @@ Options:\n\
 animmerger will always output PNG files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
 where #### is a sequential number beginning from 0000.\n\
+\n\
+GIF VERSUS PNG\n\
+  GIF is capable of paletted images of 256 colors or less.\n\
+  PNG is capable of paletted images, as well as truecolor images.\n\
+  \n\
+  GIF selection   Quantization  Saves in format             Dithering used\n\
+  --auto          -Q was used   Animations=GIF, other=PNG   For GIF, unless disabled\n\
+  --auto          -Q NOT used   Always PNG                  Never\n\
+  --never         -Q was used   Always paletted PNG         Yes, unless disabled\n\
+  --never         -Q NOT used   Always trueclor PNG         Never\n\
+  --always        -Q was used   Always GIF                  Yes, unless disabled\n\
+  --always        -Q not used   Always GIF                  Never\n\
 \n\
 AVAILABLE PIXEL TYPES\n\
 \n\
@@ -1217,7 +1234,25 @@ rate.\n\
                 AveragesInYUV = true;
                 break;
             case 'g':
-                SaveGif = 1;
+                if(optarg)
+                {
+                    if(std::strcmp(optarg, "auto") == 0)
+                        SaveGif = -1;
+                    else if(std::strcmp(optarg, "always") == 0
+                         || std::strcmp(optarg, "yes") == 0
+                         || std::strcmp(optarg, "1") == 0)
+                        SaveGif = 1;
+                    else if(std::strcmp(optarg, "never") == 0
+                         || std::strcmp(optarg, "none") == 0
+                         || std::strcmp(optarg, "no") == 0
+                         || std::strcmp(optarg, "0") == 0)
+                        SaveGif = 0;
+                    else
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --gif: %s. Allowed values: auto, always, never\n",
+                            optarg);
+                }
+                else
+                    SaveGif = 1;
                 break;
         }
     }

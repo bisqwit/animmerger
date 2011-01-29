@@ -830,6 +830,10 @@ spots are dispersed. The temporal dithering option can be used for
 improving the perceived quality of colors (at the cost of flickering),
 and for artistics effects.
  <p>
+Unless the --dithcount (--dc) option was given manually, setting the
+matrix size also sets the former.
+(To the size of matrix, or 32, whichever is smaller.)
+ <p>
 Note that when making GIF animations, you usually do not want flickering,
 because it will inflate the file sizes at a very high rate. With H.264,
 it is perfectly fine, especially if you use the <code>frameref</code>
