@@ -581,7 +581,8 @@ Averaged:<br>
 
 ", 'palettemethods:1. Color quantization methods' => "
 
-Animations are always created as GIF files.<br>
+Animmerger can create its output files in GIF or PNG format,
+regardless of whether you are creating an animation or not.<br>
 GIF files however are limited to a palette of 256 colors,
 while it is possible that animmerger creates images with more
 colors than 256. Therefore, the colormap must be reduced
@@ -600,7 +601,7 @@ The exact commandline to produce the images was:<br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
 # &nbsp; ./animmerger --gif --yuv -Q\"\$m\",\$q -B20 -l30 -pv pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-vl30yB20Q\"\$m\"\$q.gif -l0 -d3 tile-*.gif<br>
-# &nbsp; convert tile-0010.gif -quality 100 demo/dither-\"\$c\"\$q.png<br>
+# &nbsp; convert tile-0010.gif -quality 100 demo/quant-\"\$c\"\$q.png<br>
 # &nbsp;done<br>
 # done</code>
  <p>
@@ -612,7 +613,7 @@ When palette reduction methods have been explicitly selected, animmerger
 always uses an ordered-dithering method (crosshatch artifacts) to optimize
 the rendering. This is better for animation than other methods such
 as Floyd-Steinberg are, because the dithering patterns do not jitter
-between frames. Currently it is not possible to disable this dithering.
+between frames.
 
 ", 'palette_heckbert:1.1. Median-cut (aka. Heckbert)' => "
 
@@ -627,19 +628,19 @@ sizes, it suffers from a blurring problem.
 
 4 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m4.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-m4.png\"
      alt=\"Heckbert quantization, 4 colors\"><br>
 8 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m8.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-m8.png\"
      alt=\"Heckbert quantization, 8 colors\"><br>
 16 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m16.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-m16.png\"
      alt=\"Heckbert quantization, 8 colors\"><br>
 32 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-m32.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-m32.png\"
      alt=\"Heckbert quantization, 32 colors\">
 
 ", 'palette_diversity:1.1. Diversity' => "
@@ -654,19 +655,19 @@ of course off, but the contrast is still sharp.
 
 4 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d4.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-d4.png\"
      alt=\"Diversity quantization, 4 colors\"><br>
 8 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d8.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-d8.png\"
      alt=\"Diversity quantization, 8 colors\"><br>
 16 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d16.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-d16.png\"
      alt=\"Diversity quantization, 16 colors\"><br>
 32 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-d32.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-d32.png\"
      alt=\"Diversity quantization, 32 colors\">
 
 ", 'palette_blenddiversity:1.1. Blend-diversity' => "
@@ -678,38 +679,38 @@ colors that are most similar to the chosen one.
 
 4 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b4.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-b4.png\"
      alt=\"Blend-diversity quantization, 4 colors\"><br>
 8 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b8.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-b8.png\"
      alt=\"Blend-diversity quantization, 8 colors\"><br>
 16 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b16.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-b16.png\"
      alt=\"Blend-diversity quantization, 16 colors\"><br>
 32 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-b32.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-b32.png\"
      alt=\"Blend-diversity quantization, 32 colors\">
 
 ",/* 'palette_octree:1.1. Octree' => "
 
 4 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o4.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-o4.png\"
      alt=\"Octree quantization, 4 colors\"><br>
 8 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o8.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-o8.png\"
      alt=\"Octree quantization, 8 colors\"><br>
 16 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o16.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-o16.png\"
       alt=\"Octree quantization, 16 colors\"><br>
 32 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-o32.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-o32.png\"
      alt=\"Octree quantization, 32 colors\">
 
 ",*/ 'palette_neuquant:1.1. NeuQuant' => "
@@ -722,20 +723,145 @@ motion-blur trails in this pictureset.
 
 4 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q4.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-q4.png\"
      alt=\"NeuQuant quantization, 4 colors\"><br>
 8 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q8.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-q8.png\"
      alt=\"NeuQuant quantization, 8 colors\"><br>
 16 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q16.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-q16.png\"
      alt=\"NeuQuant quantization, 16 colors\"><br>
 32 colors:<br>
 <img width=724 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dither-q32.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/quant-q32.png\"
      alt=\"NeuQuant quantization, 32 colors\">
+
+", 'dither:1. Dithering' => "
+
+Dithering is a technique by which the human eye can be tricked into
+perceiving more colors than there actually is, by putting different-colored
+pixels adjacent next to each others in varying proportions.
+ <p>
+Animmerger uses a type of
+<a href=\"http://bisqwit.iki.fi/story/howto/dither/jy/\">Knoll-Yliluoma</a>
+dithering; an algorithm that resembles the dithering employed
+by Adobe® Photoshop® , but is more versatile and configurable.
+It is categorised as an ordered, positional, patterned dithering method
+that is very well suited for animations, and often even more eye-pleasing
+than the random noise patterns generated by error diffusion dithers.
+ <p>
+Animmerger's dithering can be controlled with the following parameters:
+
+<dl>
+ <dt style=\"font-family:monospace\"> --ditherror, --de &lt;float&gt; </dt>
+   <dd> <b>Color error spectrum factor</b> is a parameter
+     that controls how strongly the ditherer will attempt
+     to find the next color value to mix with the previous
+     ones. A value of 0 will effectively disable dithering,
+     and a value of 1 is the algorithm working at full power.
+     Values in the between have effect that depends on the particular palette. </dd>
+  
+ <dt style=\"font-family:monospace\"> --dithmatrix, --dm &lt;x&gt;,&lt;y&gt;[,&lt;time&gt;] </dt>
+  <dd> <b>Bayer matrix dimensions</b> define very straightforwardly
+     the visual appearance of the dithering. A small matrix appears
+     very regular and a larger matrix looks more random. The matrix
+     dimensions should generally be powers of two in both directions,
+     though this is not required.<br>
+     An additional third dimension can be specified: This dimension is
+     time. If dithering along the time axis (temporal dithering) is
+     requested, then flickering will be used to achieve the desired
+     average colortone over time rather than over spatial distance.
+     The value is the number of frames over which to extend the dithering.
+     A negative value can be given; in this case, the dithering will be
+     performed from the higher-order bits (most prominent) rather than
+     the lowest-order bits (least prominent).</dd>
+  
+ <dt style=\"font-family:monospace\"> --dithcount, --dc &lt;int&gt; </dt>
+  <dd> Sets the <b>maximum number of palette colors</b> to mix when
+     attempt to reproduce a color. Value should be at least 1
+     (1 disables dithering) and at most the size of the dithering matrix.</dd>
+  
+ <dt style=\"font-family:monospace\"> --dithcontrast, --dr &lt;float&gt; </dt>
+  <dd> The contrast parameter is used to control how palette colors are
+     pre-mixed as candidates for the in-render color chooser to use.
+     A larger value will produce more pre-mixed candidates
+     (with a coarser appearance), a smaller value will inhibit
+     these candidates.</dd>
+  
+</dl>
+
+", 'dither_sample:1.1. Example' => "
+
+To demonstrate dithering, let us consider this example picture.
+It has been assigned a customized palette to go with it.
+ <p>
+<img width=80 height=140
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_base.png\"
+     alt=\"Base picture for dithering\">
+<img width=168 height=72
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_pal.png\"
+     alt=\"Palette to go with the dithering demo\">
+ <p>
+It is a subset (cropped portion) of a larger picture seen on
+the page where the algorithm is
+<a href=\"http://bisqwit.iki.fi/story/howto/dither/jy/\">explained in detail</a>,
+hence the odd inclusion of blue in it.
+
+", 'dither_error:1.1.1. Dither error spread factor' => "
+
+<img width=656 height=159
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_de.png\"
+     alt=\"Adjusting --ditherror option.\">
+ <p>
+The error spread factor provides a very fine-grained control over
+the final appearance of the dithered image. Though the upper limit
+of the value is 1.0, higher values can be used for artistic purposes.
+
+", 'dither_matrix:1.1.1. Dither matrix size' => "
+
+<img width=656 height=159
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dm.gif\"
+     alt=\"Adjusting --dithmatrix option.\">
+ <p>
+The matrix shape directly controls the manner in which the different-color
+spots are dispersed. The temporal dithering option can be used for
+improving the perceived quality of colors (at the cost of flickering),
+and for artistics effects.
+ <p>
+Note that when making GIF animations, you usually do not want flickering,
+because it will inflate the file sizes at a very high rate. With H.264,
+it is perfectly fine, especially if you use the <code>frameref</code>
+setting. (No, Animmerger does not have H.264 output. I was just referring
+to the <a href=\"http://www.youtube.com/watch?v=-Nz_QB26Clw\"
+>hypothetical scenario</a> that you would use animmerger to create
+<a href=\"http://www.youtube.com/watch?v=9YoqUM1ZLQ0\"
+>a video</a> that will be encoded in H.264.)
+
+", 'dither_count:1.1.1. Dither candidate count' => "
+
+<img width=574 height=178
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dc.png\"
+     alt=\"Adjusting --dithcount option.\">
+ <p>
+The candidate count option directly controls how colors are mixed
+together in the dithering process. A higher value always results
+in higher quality, however, there is no sense in making the value
+larger than the matrix size is. Also, a combination of a large
+matrix and a small count can be used to simulate a small dithering matrix.
+
+", 'dither_contrast:1.1.1. Dither contrast limiter' => "
+
+<img width=656 height=197
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dr.gif\"
+     alt=\"Adjusting --dithcontrast option.\">
+ <p>
+Specifying 0 for the contrast usually works nicely, especially if the
+palette is good, but sometimes you will have to put a higher value there.
+Overdoing it, however, will result in a lot of overly sharp local contrast,
+which looks mostly bad. Animation is shown in the last frame for the sake
+of demonstration, because it improves the spatial color resolution.
 
 ", 'caveats:1. Caveats' => "
 

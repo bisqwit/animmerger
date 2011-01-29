@@ -270,6 +270,12 @@ void TILE_Tracker::Save(unsigned method)
 
     std::fprintf(stderr, "Saving(%d)\n", CurrentTimer);
 
+    if(!PaletteReductionMethod.empty())
+    {
+        DitheringMatrix = CreateDispersedDitheringMatrix();
+        TemporalMatrix = CreateTemporalDitheringMatrix();
+    }
+
     if(animated)
     {
         unsigned SavedTimer = CurrentTimer;
@@ -281,7 +287,9 @@ void TILE_Tracker::Save(unsigned method)
         }
 
         if(!PaletteReductionMethod.empty())
+        {
             CreatePalette( (PixelMethod) method, SavedTimer );
+        }
 
         #pragma omp parallel for schedule(dynamic) ordered
         for(unsigned frame=0; frame<SavedTimer; frame+=1)
@@ -295,6 +303,11 @@ void TILE_Tracker::Save(unsigned method)
     }
     else
     {
+        if(!PaletteReductionMethod.empty())
+        {
+            CreatePalette( (PixelMethod) method, 1 );
+        }
+
         /* This dummy OMP loop is required, because SaveFrame()
          * contains an ordered statement, which must never exist
          * without a surrounding "for ordered" statement context.
@@ -308,175 +321,109 @@ void TILE_Tracker::Save(unsigned method)
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
 /* // monochrome
-    Palette[0] = 0x000000;
-    Palette[1] = 0xFFFFFF;
-    PaletteSize = 2; return;
+    CurrentPalette.SetHardcoded(2, 0x00000,0xFFFFFF); return;
 */
 /* // NES palette
-    // selection 1: reds
-    Palette[0] = 0x000000; // black
-    Palette[1] = 0xF83800; // red
-    Palette[2] = 0x7D7D7D; // gray2
-    Palette[3] = 0xFCE0A8; // desaturated yellow
-    // selection 2: blues
-    Palette[4] = 0x000000; // black
-    Palette[5] = 0x0E78F6; // blue
-    Palette[6] = 0x503000; // brown
-    Palette[7] = 0x7D7D7D; // lightgray
-    // selection 3: greens
-    Palette[8] = 0x000000; // black
-    Palette[9] = 0x005800; // dark green
-    Palette[10] = 0x00A844; // green-turquoise
-    Palette[11] = 0xB8F8B8; // light green
-    // selection 4: grayscale
-    Palette[12] = 0x000000; // black
-    Palette[13] = 0x343434; // gray
-    Palette[14] = 0x7D7D7D; // gray2
-    Palette[15] = 0xD8D8D8; // gray4
-    PaletteSize = 16; return;
+    CurrentPalette.SetHardcoded(16,
+        // selection 1: reds
+        0x000000, // black
+        0xF83800, // red
+        0x7D7D7D, // gray2
+        0xFCE0A8, // desaturated yellow
+        // selection 2: blues
+        0x000000, // black
+        0x0E78F6, // blue
+        0x503000, // brown
+        0x7D7D7D, // lightgray
+        // selection 3: greens
+        0x000000, // black
+        0x005800, // dark green
+        0x00A844, // green-turquoise
+        0xB8F8B8, // light green
+        // selection 4: grayscale
+        0x000000, // black
+        0x343434, // gray
+        0x7D7D7D, // gray2
+        0xD8D8D8}; // gray4
+    return;
 */
 /* // composite cga (to be rendered on 640x200 monochrome mode)
-    Palette[ 0] = 0x000000; // 0000
-    Palette[ 1] = 0x007A00; // 0001
-    Palette[ 2] = 0x1B33DF; // 0010
-    Palette[ 3] = 0x01ADDE; // 0011
-    Palette[ 4] = 0x990580; // 0100
-    Palette[ 5] = 0x7F7F7F; // 0101, 1010
-    Palette[ 6] = 0xB538FF; // 0110
-    Palette[ 7] = 0x9AB2FF; // 0111
-    Palette[ 8] = 0x644C00; // 1000
-    Palette[ 9] = 0x49C600; // 1001
-    Palette[10] = 0x65F97E; // 1011
-    Palette[11] = 0xFD5120; // 1100
-    Palette[12] = 0xE3CB1F; // 1101
-    Palette[13] = 0xFF84FF; // 1110
-    Palette[14] = 0xFFFFFF; // 1111
-    PaletteSize = 15; return;
+    CurrentPalette.SetHardcoded(15,
+        0x000000, // 0000
+        0x007A00, // 0001
+        0x1B33DF, // 0010
+        0x01ADDE, // 0011
+        0x990580, // 0100
+        0x7F7F7F, // 0101, 1010
+        0xB538FF, // 0110
+        0x9AB2FF, // 0111
+        0x644C00, // 1000
+        0x49C600, // 1001
+        0x65F97E, // 1011
+        0xFD5120, // 1100
+        0xE3CB1F, // 1101
+        0xFF84FF, // 1110
+        0xFFFFFF); // 1111
+    return;
 */
 /* // ega standard
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0x3333AA;
-    Palette[ 2] = 0x11AA11;
-    Palette[ 3] = 0x11AAAA;
-    Palette[ 4] = 0xAA1111;
-    Palette[ 5] = 0xAA11AA;
-    Palette[ 6] = 0xAA5511;
-    Palette[ 7] = 0xAAAAAA;
-    Palette[ 8] = 0x555555;
-    Palette[ 9] = 0x7777FF;
-    Palette[10] = 0x55FF55;
-    Palette[11] = 0x55FFFF;
-    Palette[12] = 0xFF5555;
-    Palette[13] = 0xFF55FF;
-    Palette[14] = 0xFFFF55;
-    Palette[15] = 0xFFFFFF;
-    PaletteSize = 16; return;
+    CurrentPalette.SetHardcoded(16,
+        0x000000,0x3333AA,0x11AA11,0x11AAAA,
+        0xAA1111,0xAA11AA,0xAA5511,0xAAAAAA,
+        0x555555,0x7777FF,0x55FF55,0x55FFFF,
+        0xFF5555,0xFF55FF,0xFFFF55,0xFFFFFF); return;
 */
 /* // dragon
-    Palette[ 0] = 0x191819;
-    Palette[ 1] = 0x202610;
-    Palette[ 2] = 0x1C3209;
-    Palette[ 3] = 0x307010;
-    Palette[ 4] = 0x3E34D0; //
-    Palette[ 5] = 0x5858F0; //
-    Palette[ 6] = 0x7878F9; //
-    Palette[ 7] = 0x9898F5; //
-    Palette[ 8] = 0x2C2C2C;
-    Palette[ 9] = 0x5A586A;
-    Palette[10] = 0x5B5E6D;
-    Palette[11] = 0xB8B8FF; //
-    Palette[12] = 0x736962;
-    Palette[13] = 0x857C78;
-    Palette[14] = 0xA8A3AA;
-    Palette[15] = 0xC4BCCB;
-    SortPalette(Palette, 16);
-    PaletteSize = 16; return;
+    CurrentPalette.SetHardcoded(16,
+        0x191819,0x202610,0x1C3209,0x307010,
+        0x3E34D0; //
+        0x5858F0; //
+        0x7878F9; //
+        0x9898F5; //
+        0x2C2C2C,0x5A586A,0x5B5E6D,0xB8B8FF, //
+        0x736962,0x857C78,0xA8A3AA,0xC4BCCB); return;
 */
-/* // psx scene
-    static unsigned p[16] = {
+/* // psx scene (guldove): average luma diff 16.364, max 38.790
+    CurrentPalette.SetHardcoded(16,
  0x080000,0xFCFAE2,0x2B347C,0x234309,
  0xFCE76E,0xD5C4B3,0x432817,0x9C6B20,
  0xA9220F,0xD0CA40,0x6A94AB,0x201A0B,
- 0x492910,0x2B7409,0xE8A077,0x5D4F1E };
-    for(unsigned a=0; a<16; ++a) Palette[a] = p[a];
-    SortPalette(Palette, 16);
-    PaletteSize = 16; return;
+ 0x492910,0x2B7409,0xE8A077,0x5D4F1E );
+    return;
 */
 /* // dither demo pal
-    static unsigned p[18] = {
-0x000000,0x0000FF,
-0x008000,0x0080FF,
-0x00FF00,0x00FFFF,
-0x800000,0x8000FF,
-0x808000,0x8080FF,
-0x80FF00,0x80FFFF,
-0xFF0000,0xFF00FF,
-0xFF8000,0xFF80FF,
-0xFFFF00,0xFFFFFF };
-    for(unsigned a=0; a<18; ++a) Palette[a] = p[a];
-    SortPalette(Palette, 18);
-    PaletteSize = 18; return;
+    CurrentPalette.SetHardcoded(18,
+0x000000,0x0000FF, 0x008000,0x0080FF, 0x00FF00,0x00FFFF,
+0x800000,0x8000FF, 0x808000,0x8080FF, 0x80FF00,0x80FFFF,
+0xFF0000,0xFF00FF, 0xFF8000,0xFF80FF, 0xFFFF00,0xFFFFFF ); return;
 */
 /* // ega, custom
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0xAAAA55;
-    Palette[ 2] = 0xAAAAFF;
-    Palette[ 3] = 0x005500;
-    Palette[ 4] = 0x000055;
-    Palette[ 5] = 0x0000FF;
-    Palette[ 6] = 0xAA55AA;
-    Palette[ 7] = 0xFF0000;
-    Palette[ 8] = 0x555555;
-    Palette[ 9] = 0x005555;
-    Palette[10] = 0xAAAAAA;
-    Palette[11] = 0x5500AA;
-    Palette[12] = 0xFFFFAA;
-    Palette[13] = 0x550055;
-    Palette[14] = 0x555500;
-    Palette[15] = 0xFFFFFF;
-    PaletteSize = 16; return;
+    CurrentPalette.SetHardcoded(16,
+0x000000,0xAAAA55,0xAAAAFF,0x005500, 0x000055,0x0000FF,0xAA55AA,0xFF0000,
+0x555555,0x005555,0xAAAAAA,0x5500AA, 0xFFFFAA,0x550055,0x555500,0xFFFFFF); return;
 */
 /* // cga 1 lo
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0x11AAAA;
-    Palette[ 2] = 0xAA11AA;
-    Palette[ 3] = 0xAAAAAA;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x000000,0x11AAAA,0xAA11AA,0xAAAAAA); return;
 */
 /* // cga 1 hi
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0x55FFFF;
-    Palette[ 2] = 0xFF55FF;
-    Palette[ 3] = 0xFFFFFF;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x000000,0x55FFFF,0xFF55FF,0xFFFFFF); return;
 */
 /* // cga 0 lo
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0x11AA11;
-    Palette[ 2] = 0xAA1111;
-    Palette[ 3] = 0xAA5511;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x000000,0x11AA11,0xAA1111,0xAA5511); return;
 */
 /* // cga 0 hi
-    Palette[ 0] = 0x000000;
-    Palette[ 1] = 0x55FF55;
-    Palette[ 2] = 0xFF5555;
-    Palette[ 3] = 0xFFFF55;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x000000,0x55FF55,0xFF5555,0xFFFF55); return;
 */
 /* // cga 2 tweak
-    Palette[ 0] = 0x0000AA;
-    Palette[ 1] = 0x00AAAA;
-    Palette[ 2] = 0xAA0000;
-    Palette[ 3] = 0xAAAAAA;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x0000AA,0x00AAAA,0xAA0000,0xAAAAAA); return;
 */
 /* // cga 0 tweak
-    Palette[ 0] = 0x0000AA;
-    Palette[ 1] = 0x11AA11;
-    Palette[ 2] = 0xAA1111;
-    Palette[ 3] = 0xAA5511;
-    PaletteSize = 4; return;
+    CurrentPalette.SetHardcoded(4,0x0000AA,0x11AA11,0xAA1111,0xAA5511); return;
+*/
+/* // img-31: average luma diff 19.384, max 60.672
+    CurrentPalette.SetHardcoded(14,
+        0x000000,0x500000,0x0034DC,0xFC0000, 0x842424,0xA85050,0x646464,0xEC9884,
+        0xFC98AC,0x44CCEC,0xC8C8C8,0xFCCCB8, 0xFCECDC,0xFCFCFC); return;
 */
     HistogramType Histogram;
 
@@ -484,7 +431,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     const int xmi = xmin, xma = xmax;
     const unsigned wid = xma-xmi;
     const unsigned hei = yma-ymi;
-    fprintf(stderr, "Counting colors...\n");
+    fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
     VecType<uint32> prev_frame;
     for(unsigned frameno=0; frameno<nframes; frameno+=1)
     {
@@ -530,7 +477,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     ReduceHistogram(Histogram);
 
-    PaletteSize = MakePalette(Palette, Histogram,
+    CurrentPalette = MakePalette(Histogram,
         SaveGif == 1 ? 256 : Histogram.size());
 }
 
@@ -572,25 +519,26 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     bool was_identical = false;
 
-#if 1 // disable for temporal dither
-  #pragma omp ordered
-  {
-    if(animated)
+    if(TemporalDitherSize == 1)
     {
-        if(veq(screen, LastScreen) && !LastFilename.empty())
+      #pragma omp ordered
+      {
+        if(animated)
         {
-            std::fprintf(stderr, "->link (%u,%u)\n",
-                (unsigned)screen.size(),
-                (unsigned)LastScreen.size());
-            std::string cmd = "ln "+LastFilename+" "+Filename;
-            system(cmd.c_str());
-            was_identical = true;
+            if(veq(screen, LastScreen) && !LastFilename.empty())
+            {
+                std::fprintf(stderr, "->link (%u,%u)\n",
+                    (unsigned)screen.size(),
+                    (unsigned)LastScreen.size());
+                std::string cmd = "ln "+LastFilename+" "+Filename;
+                system(cmd.c_str());
+                was_identical = true;
+            }
+            LastScreen   = screen;
+            LastFilename = Filename;
         }
-        LastScreen   = screen;
-        LastFilename = Filename;
+      }
     }
-  }
-#endif
 
     #pragma omp flush(was_identical)
     if(was_identical) return;
@@ -598,6 +546,8 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     if(!PaletteReductionMethod.empty())
     {
         bool palette_failed = false;
+
+        const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
         typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
             pixel_cache_t;
@@ -626,9 +576,9 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         {
             if(!PaletteReductionMethod.empty())
             {
-                for(unsigned a=0; a<PaletteSize; ++a)
+                for(unsigned a=0; a<CurrentPalette.Size(); ++a)
                 {
-                    unsigned pix = Palette[a];
+                    unsigned pix = CurrentPalette.GetColor(a);
                     gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
                 }
                 gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
@@ -647,15 +597,6 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                     pix = 0x7F000000u;
                 if(!palette_failed)
                 {
-                    if(false) // test color palette
-                    {
-                    /*r = 256*y/hei; // test color scale dithering
-                      g = 256*x/wid;
-                      b = 0;*/
-                        if(y < 32)
-                            pix = Palette[x * PaletteSize / wid];
-                    }
-
                     int r = (pix >> 16)&0xFF;
                     int g = (pix >>  8)&0xFF;
                     int b = (pix      )&0xFF;
@@ -677,35 +618,33 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                             pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
                             if(i == pixel_cache.end() || i->first != pix)
                             {
-                                uint32* pal = Palette;
-                                unsigned palsize = PaletteSize;
-                            #if 0 /* NES mode */
-                                pal = Palette + mode*4; palsize = 4;
+                            #if 1
+                                output = FindBestPalettePair(r,g,b,
+                                    CurrentPalette);
+                            #else /* NES mode */
+                                output = FindBestPalettePair(r,g,b,
+                                    CurrentPalette.GetSlice(mode*4, 4));
                             #endif
-                                output = FindBestPalettePair(
-                                    r,g,b,
-                                    pal, palsize);
                                 pixel_cache.insert(i, std::make_pair(pix, output));
                             }
                             else
                                 output = i->second;
 
-                            #define d(x) x/64.0
-                            static const float pattern[8*8]
-    = { d(1 ), d(49), d(13), d(61), d( 4), d(52), d(16), d(64),
-        d(33), d(17), d(45), d(29), d(36), d(20), d(48), d(32),
-        d(9 ), d(57), d( 5), d(53), d(12), d(60), d( 8), d(56),
-        d(41), d(25), d(37), d(21), d(44), d(28), d(40), d(24),
-        d(3 ), d(51), d(15), d(63), d( 2), d(50), d(14), d(62),
-        d(35), d(19), d(47), d(31), d(34), d(18), d(46), d(30),
-        d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
-        d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
-                            #undef d
-                            #if 0 // temporal dither
-                            if((frameno^x^y)&1) output.result += 1/128.0;
-                            #endif
-                            float position = output.result + pattern[(y&7)*8+(x&7)];
-                            color = (position > 1.0f) ? output.entry2 : output.entry1;
+                            unsigned pattern_value =
+                                DitheringMatrix
+                                    [ (y%DitherMatrixHeight)*DitherMatrixWidth
+                                    + (x%DitherMatrixWidth) ];
+                            if(TemporalDitherSize > 1)
+                            {
+                                unsigned temp_pos = TemporalMatrix[
+                                    ((frameno^x^y) % TemporalDitherSize)
+                                ];
+                                if(TemporalDitherMSB)
+                                    pattern_value = pattern_value + (DitherMatrixWidth*DitherMatrixHeight)*temp_pos;
+                                else
+                                    pattern_value = pattern_value * TemporalDitherSize + temp_pos;
+                            }
+                            color = output[ pattern_value * output.size() / max_pattern_value ];
                             #if 0 /* NES mode */
                             color += mode*4;
                             pix &= 0xFFFFFF;
@@ -812,7 +751,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                             for(unsigned cx=0; cx<4; ++cx)
                             {
                                 uint32 pix1 = screen[(y+cy)*wid+(x+cx)];
-                                uint32 pix2  = Palette[gdImageGetPixel(im,x+cx,y+cy)];
+                                uint32 pix2  = CurrentPalette.GetColor(gdImageGetPixel(im,x+cx,y+cy));
                                 r1 += (pix1 >> 16) & 0xFF; g1 += (pix1 >> 8) & 0xFF; b1 += (pix1) & 0xFF;
                                 r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
                             }

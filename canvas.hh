@@ -4,6 +4,7 @@
 #include "pixel.hh"
 #include "vectype.hh"
 #include "alloc/FSBAllocator.hh"
+#include "palette.hh"
 
 #include <vector>
 #include <map>
@@ -41,8 +42,9 @@ class TILE_Tracker
     unsigned SequenceBegin;
     unsigned CurrentTimer;
 
-    uint32 Palette[256];
-    unsigned PaletteSize;
+    Palette CurrentPalette;
+    std::vector<unsigned> DitheringMatrix;
+    std::vector<unsigned> TemporalMatrix;
 
 public:
     TILE_Tracker() : LastFilename(), SequenceBegin(0), CurrentTimer(0)

@@ -626,6 +626,7 @@ int main(int argc, char** argv)
     bool bgmethod1_chosen = false;
     bool autoalign = true;
     MaskMethod maskmethod = MaskHole;
+    bool dithering_configured = false;
 
     for(;;)
     {
@@ -635,7 +636,6 @@ int main(int argc, char** argv)
             {"help",       0,0,'h'},
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
-            {"quantize",   1,0,'Q'},
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"bgmethod0",  1,0,4000},
@@ -650,6 +650,12 @@ int main(int argc, char** argv)
             {"verbose",    0,0,'v'},
             {"yuv",        0,0,'y'},
             {"noalign",    0,0,4002},
+            {"quantize",   1,0,'Q'},
+            {"ditherror",  1,0,5001},  {"de",1,0,5001},
+            {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
+            {"dithcount",  1,0,5003},  {"dc",1,0,5003},
+            {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
+            {0,            1,0,'D'},
             {0,0,0,0}
         };
         int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:Q:", long_options, &option_index);
@@ -716,6 +722,48 @@ Options:\n\
      Disable automatic image aligner\n\
  --gif, -g\n\
      Save GIF frames instead of PNG frames.\n\
+ --ditherror, --de <float>\n\
+     Set error multiplication value for the dithering algorithm.\n\
+     0.0 = disable dithering. 1.0 = full dithering.\n\
+     Usable values lie somewhere in between. Default: 1.0\n\
+ --dithmatrix, --dm <x>,<y>[<,time>]\n\
+     Set the Bayer matrix size to be used in dithering.\n\
+     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n\
+     You can use an uneven ratio such as 8x2 to produce\n\
+     images that are displayed on a device where pixels are not square.\n\
+     The values should be powers of two, but it is not required.\n\
+     A non-poweroftwo dimension will produce uneven dithering.\n\
+     The third dimension, time, can be specified in order to\n\
+     use temporal dithering, which will appear as flickering.\n\
+     For example, 2x2x2 will use a 2x2 matrix plus 2 frames of\n\
+     flickering to produce the average color. By default, temporal\n\
+     dithering is done from the LSB of the color error, so as to minimize\n\
+     the flicker with cost to spatial accuracy. By specifying a negative time\n\
+     value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
+     prominent flickering, while improving the spatial accuracy.\n\
+ --dithcount, --dc <int>\n\
+     Set maximum number of palette colors to use in dithering\n\
+     of an uniform color area of the source picture.\n\
+     Value 1 disables dithering.\n\
+     This number should not be made larger than x*y*time.\n\
+     Default: 32 or x*y*time, whichever is smaller.\n\
+ --dithcontrast, --dr <float>\n\
+     Set the maximum contrast between two or more color items\n\
+     that are pre-selected for combined candidates for dithering.\n\
+     The contrast is specified as a sliding scale where\n\
+       0 means that no combinations are loaded.\n\
+       1 represents the average luma difference between\n\
+         two successive colors in luma-sorted palette,\n\
+       2 represents the maximum luma difference between two\n\
+         two successive colors in luma-sorted palette,\n\
+       3 represents the maximum luma coverage of the\n\
+         palette, in practice allowing all combinations.\n\
+     In general, a higher number will produce more ugly dithering\n\
+     and will slow down the dithering algorithm a great deal too,\n\
+     so animmerger tries to choose a reasonable (low) default value.\n\
+     If you have lots of time and you're rendering a high-resolution\n\
+     picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
+     Note that a low value of dithcount can make this option useless.\n\
 \n\
 animmerger will always output PNG files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
@@ -983,7 +1031,7 @@ rate.\n\
             case 'Q':
             {
                 char *arg = optarg;
-                if(access(arg, R_OK))
+                if(access(arg, R_OK) == 0)
                 {
                     PaletteMethodItem method;
                     method.size     = 0;
@@ -1087,6 +1135,81 @@ rate.\n\
                 autoalign = false;
                 break;
             }
+
+            case 5001: // ditherror, de
+            {
+                char* arg = optarg;
+                double tmp = strtod(arg, 0);
+                DitherErrorFactor = tmp;
+                if(tmp < 0 || tmp >= 256.0)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither error multiplication value: %g. Valid range: 0..1, though 0..255 is permitted.\n", tmp);
+                    DitherErrorFactor = 1.0;
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5002: // dithmatrix, dm
+            {
+                char* arg = optarg;
+                for(char*s = arg; *s; ++s) if(*s == 'x') *s = ',';
+                int dx,dy,dt;
+                int result = sscanf(arg, "%d,%d,%d", &dx,&dy,&dt);
+                if(result < 2)
+                    std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                else if(dx < 1 || dy < 1 || dx*dy > 65536)
+                    std::fprintf(stderr, "animmerger: Bad dither matrix size: %dx%d.\n", dx,dy);
+                else
+                {
+                    DitherMatrixWidth  = dx;
+                    DitherMatrixHeight = dy;
+                }
+                if(result >= 3)
+                {
+                    if(dt < -64 || dt > 64 || dt == -1 || dt == 0)
+                        std::fprintf(stderr, "animmerger: Bad temporal dither length: %d. Valid range is -64..-2 and +1..+64, where +1 disables temporal dithering.\n", dt);
+                    else if(dt < 0)
+                    {
+                        TemporalDitherSize = -dt;
+                        TemporalDitherMSB  = true;
+                    }
+                    else
+                    {
+                        TemporalDitherSize = dt;
+                        TemporalDitherMSB  = false;
+                    }
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5003: // dithcount, dc
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                DitherColorListSize = tmp;
+                if(tmp != DitherColorListSize || tmp < 1 || tmp > 65536)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither color list size: %ld. Valid range: 1..65536\n", tmp);
+                    DitherColorListSize = 0;
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5004: // dithcontrast, dr
+            {
+                char* arg = optarg;
+                double tmp = strtod(arg, 0);
+                DitherCombinationContrast = tmp;
+                if(tmp < 0.0 || tmp > 3.0)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", tmp);
+                    DitherCombinationContrast = -1.0; // re-enable heuristic.
+                }
+                dithering_configured = true;
+                break;
+            }
+
+
             case 'v':
                 ++verbose;
                 break;
@@ -1114,6 +1237,51 @@ rate.\n\
             std::fprintf(stderr,
                 "animmerger: Warning: bgmethod0 and bgmethod1 are ignored when motion blur is used.\n");
         }
+    }
+
+    if(dithering_configured && PaletteReductionMethod.empty())
+    {
+        std::fprintf(stderr,
+            "animmerger: Warning: Dithering will not be done when the palette is not reduced by animmerger. Even if you specify GIF output format but no quantization methods (--quantize), dithering will not be used.\n");
+    }
+
+    if((DitherMatrixWidth & (DitherMatrixWidth-1))
+    || (DitherMatrixHeight & (DitherMatrixHeight-1)))
+    {
+        std::fprintf(stderr, "animmerger: Warning: Dither matrix dimensions should be given as powers of two. %dx%d will work, but it might not look pretty, because animmerger generates the matrix with an algorithm designed for power-of-two dimensions.\n",
+            DitherMatrixWidth,DitherMatrixHeight);
+    }
+
+    if(DitherColorListSize > DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize)
+    {
+        std::fprintf(stderr, "animmerger: Warning: It is probably pointless to generate %u candidate colors for dithering when the dithering matrix will only utilize at most %u at any time (%ux%ux%u). Recommend option: --dc%u\n",
+            DitherColorListSize,
+            DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize,
+            DitherMatrixWidth, DitherMatrixHeight, TemporalDitherSize,
+            DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize);
+    }
+    if(DitherErrorFactor > 1.0)
+    {
+        std::fprintf(stderr, "animmerger: Warning: Dither error multiplication factor should not be greater than 1.0. You chose %g. Hope you know what you are doing.\n",
+            DitherErrorFactor);
+    }
+    if(DitherColorListSize == 0)
+        DitherColorListSize = std::min(32u,
+           DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize);
+
+    if(DitherMatrixWidth == 4
+    && DitherMatrixHeight == 4
+    && TemporalDitherSize == 1
+    && DitherColorListSize == 16
+    && DitherCombinationContrast == 0.0)
+    {
+        std::fprintf(stderr,
+            "animmerger: Sorry, I cannot obey this combination of options.\n"
+            "            The specific configuration you requested happens to be\n"
+            "            patented by Adobe Systems Incorporated (US patent 6606166).\n"
+            "            And due to that patent, this method cannot be implemented\n"
+            "            in free software. Method patents are annoying, we all know.\n");
+        return -1;
     }
 
     if(verbose)
@@ -1171,10 +1339,37 @@ rate.\n\
                 std::printf(" to %u", PaletteReductionMethod[a].size);
             }
             std::printf("\n");
+
+            if(DitherColorListSize == 1
+            || DitherErrorFactor   == 0.0)
+            {
+                std::printf(
+                    "\tDithering disabled\n");
+            }
+            else
+            {
+                std::printf(
+                    "\tDithering method: Knoll-Yliluoma positional pattern dithering\n"
+                    "\tDithering with %u color choices, Bayer matrix size: %ux%u",
+                    DitherColorListSize,
+                    DitherMatrixWidth, DitherMatrixHeight);
+                if(DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize == 1)
+                    std::printf(" (DEFUNCT");
+                if(TemporalDitherSize > 1)
+                {
+                    std::printf(" + %u-frame temporal dithering (with %s)",
+                        TemporalDitherSize,
+                        TemporalDitherMSB ? "MSB" : "LSB");
+                }
+                std::printf("\n"
+                    "\tDither color error spectrum size: %g\n",
+                    DitherErrorFactor);
+            }
         }
         else if(SaveGif == 1)
         {
-            std::printf("\tPalette reduction done by libGD if necessary\n");
+            std::printf(
+                "\tPalette reduction done by libGD if necessary (no dithering)\n");
         }
 
         unsigned size = GetPixelSizeInBytes();

@@ -1,6 +1,9 @@
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
+#include <stdarg.h>
+
+#include <assert.h>
 #include <gd.h>
 
 #include "palette.hh"
@@ -8,6 +11,14 @@
 #include "pixels/averagepixel.hh"
 
 std::vector<PaletteMethodItem> PaletteReductionMethod;
+
+double DitherErrorFactor    = 1.0;
+unsigned DitherMatrixWidth  = 8;
+unsigned DitherMatrixHeight = 8;
+unsigned TemporalDitherSize = 1; // 1 = no temporal dithering
+bool     TemporalDitherMSB  = false;  // Use MSB rather than LSB for temporal dithering
+unsigned DitherColorListSize = 0;
+double   DitherCombinationContrast = -1.0;
 
 namespace
 {
@@ -762,155 +773,93 @@ namespace
     }
 }
 
-PalettePair FindBestPalettePair(int rin,int gin,int bin,
-    const uint32* Palette, unsigned PaletteSize)
+struct ComparePaletteLuma
 {
-    PalettePair output;
-    output.entry1 = 0;
-    output.entry2 = 0;
-    output.result = 0.5;
-    bool output_chosen = false;
-    if(PaletteSize >= 2 && PaletteSize <= 64)
+    const Palette& pal;
+
+    ComparePaletteLuma(const Palette& p): pal(p) { }
+
+    bool operator() (unsigned a, unsigned b) const
+        { return pal.GetLuma(a) < pal.GetLuma(b); }
+};
+static double ColorCompare(int r1,int g1,int b1, // 0..255
+                           int luma1,            // 0..255000
+                           int r2,int g2,int b2, // 0..255
+                           int luma2)            // 0..255000
+{
+    int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
+    const double chroma_coeff = 0.75;
+    double lumadiff = (luma1-luma2) * (1/255e3);
+    return (diffR*diffR)*(0.299/255/255*chroma_coeff)
+         + (diffG*diffG)*(0.587/255/255*chroma_coeff)
+         + (diffB*diffB)*(0.114/255/255*chroma_coeff)
+         + lumadiff*lumadiff;
+}
+PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
+{
+    PalettePair result;
+    const unsigned PaletteSize     = pal.Size();
+    const unsigned NumCombinations = pal.NumCombinations();
+    const double X = DitherErrorFactor; // Error multiplication value
+    int rer=0, ger=0, ber=0;
+
+    size_t GenerationLimit = DitherColorListSize;
+    assert(GenerationLimit > 0);
+
+    while(result.size() < GenerationLimit)
     {
-        /* O(n^2) algorithm description: Choose a pair of colors that
-         * form a 3D line segment that is closest to the input color.
-         * To optimize this, we use luma values rather than geometrical
-         * transformations to scalarize the different coordinates.
-         */
+        int ter = rin + rer*X, teg = gin + ger*X, teb = bin + ber*X;
+        if(ter<0) ter=0; else if(ter>255)ter=255;
+        if(teg<0) teg=0; else if(teg>255)teg=255;
+        if(teb<0) teb=0; else if(teb>255)teb=255;
+        int t_luma = (ter*299 + teg*587 + teb*114);
+        double least_penalty = 1e99;
 
-        int input_luma = rin*/*0.*/299 + gin*/*0.*/587 + bin*/*0.*/114;
+        unsigned chosen = 0;
+        bool chosen_comb = false;
 
-        /* Note: Palette is sorted by luma by MakePalette(). */
-        std::vector<int> luma_table(PaletteSize);
-        for(unsigned a=0; a<PaletteSize; ++a)
+        for(unsigned i=0; i<PaletteSize; ++i)
         {
-            const uint32 pix = Palette[a];
-            int r1 = (pix >> 16) & 0xFF, g1 = (pix >> 8) & 0xFF, b1 = (pix) & 0xFF;
-            luma_table[a] = r1*/*0.*/299 + g1*/*0.*/587 + b1*/*0.*/114;
-        };
-retry_modified_luma:;
-        /* lower_bound(k) = find the first element that is >= k */
-        /* upper_bound(k) = find the first element that is > k */
-        unsigned first_index_to_consider = // First where luma >= input_luma
-            std::lower_bound(luma_table.begin(), luma_table.end(),
-                input_luma) - luma_table.begin();
-        unsigned last_index_to_consider = // First where luma  > input_luma
-            std::upper_bound(luma_table.begin(), luma_table.end(),
-                input_luma) - luma_table.begin();
-        /*if(PaletteSize <= 16)
-        {
-            first_index_to_consider = 0;
-            last_index_to_consider = PaletteSize;
-        }*/
-
-        if(first_index_to_consider >= PaletteSize && input_luma != luma_table.back())
-        {
-            // If all palette colors are darker than the color that was
-            // requested, accept a loss of luma and try again.
-            input_luma = luma_table.back();
-            goto retry_modified_luma;
-        }
-        if(last_index_to_consider <= 0 && input_luma != luma_table.front()+1)
-        {
-            input_luma = luma_table.front()+1;
-            goto retry_modified_luma;
+            const unsigned color = pal.GetColor(i);
+            unsigned r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = (color) & 0xFF;
+            double penalty = ColorCompare(ter,teg,teb,t_luma,
+                                          r,g,b, pal.GetLuma(i));
+            if(penalty < least_penalty)
+                { least_penalty = penalty; chosen = i; chosen_comb = false; }
         }
 
-        unsigned best_diff=0;
-        for(unsigned pa=0; pa<last_index_to_consider; ++pa)
+        size_t capacity = GenerationLimit - result.size();
+        for(unsigned i=0; i<NumCombinations; ++i)
         {
-            int luma1 = luma_table[pa];
+            if(pal.Combinations[i].indexcount > capacity)
+                continue;
 
-            const uint32 pix1 = Palette[pa];
-            int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-
-            for(unsigned pb=first_index_to_consider; pb<PaletteSize; ++pb)
-            {
-                int luma2 = luma_table[pb];
-                /*
-                  At this point,
-                     luma1 <= input_luma <= luma2.
-                  There's no point in combining two colors,
-                  if the desired color can in no way become
-                  a product of those two colors.
-                */
-
-                const uint32 pix2 = Palette[pb];
-                int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-
-                double result;
-                if(luma1==luma2)
-                {
-                    double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
-                    double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
-                    double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
-                    if(result_r < 0) result_r = 0; if(result_r > 1) result_r = 1;
-                    if(result_g < 0) result_g = 0; if(result_g > 1) result_g = 1;
-                    if(result_b < 0) result_b = 0; if(result_b > 1) result_b = 1;
-                    result = (result_r + result_g + result_b) / 3.0;
-                }
-                else
-                    result = (luma1-input_luma) / double(luma1-luma2);
-
-                //if(result < 0) result = 0; if(result > 1) result = 1;
-
-                int DifferenceFromEitherEnd = 2;//1+FindNegativePowerOfTwoMultiple(result);
-                // The farther the "result" is from 0.0, 0.5, 0.25/0.75, etc,
-                // the more striking the individual pixels become and thus
-                // the more important it becomes that they resemble the
-                // intended pixel more closely.
-
-                int got_r = r1 + result*(r2-r1);
-                int got_g = g1 + result*(g2-g1);
-                int got_b = b1 + result*(b2-b1);
-                unsigned diff =
-                    ColorDiff(rin,gin,bin, got_r,got_g,got_b)
-                  + ( ColorDiff(rin,gin,bin, r1,g1,b1)
-                    + ColorDiff(rin,gin,bin, r2,g2,b2)
-                    ) * DifferenceFromEitherEnd;
-                if(diff < best_diff || best_diff == 0)
-                {
-                    best_diff   = diff;
-                    output.result = (float) result;
-                    output.entry1 = pa;
-                    output.entry2 = pb;
-                    output_chosen = true;
-                }
-            }
+            const unsigned color = pal.GetCombinationColor(i);
+            unsigned r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = (color) & 0xFF;
+            double penalty = ColorCompare(ter,teg,teb,t_luma,
+                                          r,g,b, pal.GetCombinationLuma(i));
+            if(penalty < least_penalty)
+                { least_penalty = penalty; chosen = i; chosen_comb = true; }
         }
+
+        unsigned r,g,b;
+        if(!chosen_comb)
+        {
+            result.push_back(chosen);
+            pal.Data[chosen].SplitRGB(r,g,b);
+        }
+        else
+        {
+            for(unsigned i=0; i<pal.Combinations[chosen].indexcount; ++i)
+                result.push_back( pal.Combinations[chosen].indexlist[i] );
+            pal.Combinations[chosen].combination.SplitRGB(r,g,b);
+        }
+        rer += rin-r;
+        ger += gin-g;
+        ber += bin-b;
     }
-
-    if(!output_chosen)
-    {
-        /* O(n) algorithm: Choose two colors that are most similar to input. */
-        /* Note: There is no guarantee that mixing them can produce
-         * an approximation of the input.
-         */
-        unsigned diff1=0, diff2=0;
-        for(unsigned a=0; a<PaletteSize; ++a)
-        {
-            unsigned diff = ColorDiff(rin,gin,bin, Palette[a]);
-            if(diff < diff1 || diff1 == 0)
-                { diff2 = diff1; output.entry2 = output.entry1;
-                  diff1 = diff; output.entry1 = a; }
-            else if(diff < diff2)
-                { diff2 = diff; output.entry2 = a; }
-        }
-
-        const uint32 pix1 = Palette[output.entry1];
-        const uint32 pix2 = Palette[output.entry2];
-        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-        int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
-
-        double result_r = (r1==r2 ? 0.5 : ((r1-rin) / double(r1-r2)));
-        double result_g = (g1==g2 ? 0.5 : ((g1-gin) / double(g1-g2)));
-        double result_b = (b1==b2 ? 0.5 : ((b1-bin) / double(b1-b2)));
-        if(result_r < 0) result_r = 0; else if(result_r > 1) result_r = 1;
-        if(result_g < 0) result_g = 0; else if(result_g > 1) result_g = 1;
-        if(result_b < 0) result_b = 0; else if(result_b > 1) result_b = 1;
-        output.result = (float) ((result_r + result_g + result_b) / 3.0);
-    }
-    return output;
+    std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
+    return result;
 }
 
 void ReduceHistogram(HistogramType& Histogram)
@@ -936,6 +885,8 @@ void ReduceHistogram(HistogramType& Histogram)
                 }
                 else
                 {
+                    if(a == 0) Histogram.clear();
+
                     if(gdImageTrueColor(im))
                     {
                         std::fprintf(stderr,
@@ -970,32 +921,300 @@ void ReduceHistogram(HistogramType& Histogram)
     }
 }
 
-unsigned MakePalette(uint32* Palette, const HistogramType& Histogram, unsigned MaxColors)
+Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
 {
     if(Histogram.size() > MaxColors)
     {
         // Histogram is too large. Choose most popular colors.
         std::vector<HistItem> VecHistogram( Histogram.begin(), Histogram.end() );
         std::sort(VecHistogram.begin(), VecHistogram.end(), CompareSecondRev);
+        Palette result;
+        result.Data.reserve(MaxColors);
         for(unsigned n=0; n<MaxColors; ++n)
-            Palette[n] = VecHistogram[n].first;
-        std::sort(Palette, Palette+MaxColors, CompareLuma);
-        return MaxColors;
+            result.Data.push_back( VecHistogram[n].first );
+        result.Analyze();
+        return result;
     }
-    unsigned n = 0;
+
+    Palette result;
     for(HistogramType::const_iterator
         i = Histogram.begin();
         i != Histogram.end();
         ++i)
     {
-        if(n >= MaxColors) break;
-        Palette[n++] = i->first;
+        if(result.Size() >= MaxColors) break;
+        result.Data.push_back( i->first );;
     }
-    SortPalette(Palette, n);
-    return n;
+    result.Analyze();
+    return result;
 }
 
-void SortPalette(uint32* Palette, unsigned n)
+void Palette::Analyze()
 {
-    std::sort(Palette, Palette+n, CompareLuma);
+    const unsigned PaletteSize = Data.size();
+    Combinations.clear();
+
+    if(!PaletteSize) return;
+
+    // Sort palette by luma.
+    // Create combinations for all pairs where the difference
+    // between the luma of the two is <= the average difference
+    // between the luma of two successive palette elements.
+    std::vector<unsigned> luma_order(PaletteSize);;
+    for(unsigned a=0; a<PaletteSize; ++a) luma_order[a] = a;
+    std::sort(luma_order.begin(), luma_order.end(), ComparePaletteLuma(*this));
+
+    unsigned long average_luma_difference = 0;
+    unsigned maximum_luma_difference = 0;
+    for(unsigned a=1; a<PaletteSize; ++a)
+    {
+        unsigned diff = GetLuma(luma_order[a]) - GetLuma(luma_order[a-1]);
+        average_luma_difference += diff;
+        if(diff > maximum_luma_difference)
+            maximum_luma_difference = diff;
+    }
+    average_luma_difference /= (PaletteSize - 1);
+
+    unsigned total_luma = GetLuma(luma_order.back()) - GetLuma(luma_order.front());
+
+    unsigned luma_threshold;
+
+    if(DitherCombinationContrast >= 0.0
+    && DitherCombinationContrast < 1.0)
+        luma_threshold = average_luma_difference * DitherCombinationContrast;
+    else if(DitherCombinationContrast < 2.0)
+        luma_threshold = average_luma_difference +
+            (DitherCombinationContrast-1.0) * (maximum_luma_difference-average_luma_difference);
+    else if(DitherCombinationContrast <= 3.0)
+        luma_threshold = maximum_luma_difference +
+            (DitherCombinationContrast-2.0) * (total_luma-maximum_luma_difference);
+    else
+    {
+        unsigned NumTwoColorCombinations = (PaletteSize-1) * (PaletteSize-2) / 2;
+        // When the number of combinations is 300 or less, we can simply try them all,
+        // except we don't want to, because it will produce ugly results.
+        // When it's like 10000, only take the maximum luma dist.
+        unsigned max_luma_diff_that_makes_sense =
+            (total_luma*1 + maximum_luma_difference*3) / (1+3);
+        const long a=300, b=10000, c=30000;
+        luma_threshold =
+            (NumTwoColorCombinations < a)
+                ? max_luma_diff_that_makes_sense
+          : (NumTwoColorCombinations < b)
+            ? max_luma_diff_that_makes_sense
+               + long(maximum_luma_difference - max_luma_diff_that_makes_sense)
+               * (NumTwoColorCombinations - a)
+               / (b-a)
+          : (NumTwoColorCombinations < c)
+            ? maximum_luma_difference
+               + long(average_luma_difference - maximum_luma_difference)
+               * (NumTwoColorCombinations - b)
+               / (c-b)
+          : average_luma_difference;
+    }
+
+    if(verbose >= 2)
+    {
+        for(unsigned a=0; a<PaletteSize; ++a)
+            printf("Luma[%3u]: %6u (%3u = #%06X)\n", a, GetLuma(luma_order[a]),
+                luma_order[a], Data[luma_order[a]].rgb);
+        printf("Average: %lu, max: %u, total: %u, threshold: %u\n",
+            average_luma_difference,
+            maximum_luma_difference,
+            total_luma,
+            luma_threshold);
+    }
+
+    // Create some combinations
+    for(unsigned a=0; a+1<PaletteSize; ++a)
+    {
+        const unsigned index1 = luma_order[a];
+        const unsigned pix1 = Data[index1].rgb;
+        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+
+        for(unsigned b=a+1; b<PaletteSize; ++b)
+        {
+            const unsigned index2 = luma_order[b];
+
+            if(GetLuma(index2) > GetLuma(index1) + luma_threshold)
+                break;
+
+            const unsigned pix2 = Data[index2].rgb;
+            int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
+
+            int combined_r = (r1 + r2) / 2;
+            int combined_g = (g1 + g2) / 2;
+            int combined_b = (b1 + b2) / 2;
+
+            if(verbose >= 3)
+                printf("Combination: %06X + %06X%*s(luma diff %ld) = %02X%02X%02X\n",
+                    Data[index1].rgb, Data[index2].rgb,
+                    19,"",
+                    (long) Data[index2].luma - (long) Data[index1].luma,
+                    combined_r,combined_g,combined_b);
+
+            Combination comb( index1,index2,
+                (combined_r<<16)+(combined_g<<8)+combined_b );
+            Combinations.push_back(comb);
+
+            for(unsigned c=b+1; c<PaletteSize; ++c)
+            {
+                const unsigned index3 = luma_order[c];
+
+                if(GetLuma(index3) > GetLuma(index1) + luma_threshold)
+                    break;
+
+                const unsigned pix3 = Data[index3].rgb;
+                int r3 = (pix3 >> 16) & 0xFF, g3 = (pix3 >> 8) & 0xFF, b3 = (pix3) & 0xFF;
+
+                int combined_r = (r1 + r2 + r3) / 3;
+                int combined_g = (g1 + g2 + g3) / 3;
+                int combined_b = (b1 + b2 + b3) / 3;
+
+                if(verbose >= 3)
+                    printf("Combination: %06X + %06X + %06X%*s(luma diff %ld) = %02X%02X%02X\n",
+                        Data[index1].rgb,
+                        Data[index2].rgb,
+                        Data[index3].rgb,
+                        10,"",
+                        (long) Data[index3].luma - (long) Data[index1].luma,
+                        combined_r,combined_g,combined_b);
+
+                Combination comb( index1,index2,index3,
+                    (combined_r<<16)+(combined_g<<8)+combined_b );
+                Combinations.push_back(comb);
+
+                for(unsigned d=c+1; d<PaletteSize; ++d)
+                {
+                    const unsigned index4 = luma_order[d];
+
+                    if(GetLuma(index4) > GetLuma(index1) + luma_threshold)
+                        break;
+
+                    const unsigned pix4 = Data[index4].rgb;
+                    int r4 = (pix4 >> 16) & 0xFF, g4 = (pix4 >> 8) & 0xFF, b4 = (pix4) & 0xFF;
+
+                    int combined_r = (r1 + r2 + r3 + r4) / 4;
+                    int combined_g = (g1 + g2 + g3 + g4) / 4;
+                    int combined_b = (b1 + b2 + b3 + b4) / 4;
+
+                    if(verbose >= 3)
+                        printf("Combination: %06X + %06X + %06X + %06X (luma diff %ld) = %02X%02X%02X\n",
+                            Data[index1].rgb,
+                            Data[index2].rgb,
+                            Data[index3].rgb,
+                            Data[index4].rgb,
+                            (long) Data[index4].luma - (long) Data[index1].luma,
+                            combined_r,combined_g,combined_b);
+
+                    Combination comb( index1,index2,index3,index4,
+                        (combined_r<<16)+(combined_g<<8)+combined_b );
+                    Combinations.push_back(comb);
+        }   }   }
+    }
+    if(!Combinations.empty() && verbose >= 2)
+        printf("Total palette-color combinations chosen for dithering candidates: %u\n",
+            (unsigned) Combinations.size());
+}
+
+void Palette::SetHardcoded(unsigned n, ...)
+{
+    va_list ap;
+    va_start(ap, n);
+    Data.clear();
+    Data.reserve(n);
+    while(n--)
+    {
+        uint32 val = va_arg(ap, unsigned);
+        Data.push_back( val );
+    }
+    va_end(ap);
+    Analyze();
+}
+
+Palette Palette::GetSlice(unsigned begin, unsigned count) const
+{
+    Palette result;
+    result.Data.assign( Data.begin()+begin, Data.begin()+begin+count );
+    return result;
+}
+
+std::vector<unsigned> CreateOrderedDitheringMatrix(unsigned Width, unsigned Height)
+{
+    // Find M=ceil(log2(x)) and L=ceil(log2(y))
+    unsigned M=0; while( Width  > (1u << M)) ++M;
+    unsigned L=0; while( Height > (1u << L)) ++L;
+    unsigned RoundedWidth  = 1 << M;
+    unsigned RoundedHeight = 1 << L;
+    std::vector<unsigned> result;
+    result.reserve(Width * Height);
+
+    for(unsigned y=0; y<Height; ++y)
+        for(unsigned x=0; x<Width; ++x)
+        {
+            unsigned v = 0, offset = 0, xmask = M, ymask = L;
+            if(M==0 || (M > L && L != 0))
+            {
+                unsigned xc = x ^ (y<<M>>L), yc = y;
+                for(unsigned bit=0; bit < M+L; )
+                {
+                    v |= ((yc >> --ymask)&1) << bit++;
+                    for(offset += M; offset >= L; offset -= L)
+                        v |= ((xc >> --xmask)&1) << bit++;
+                }
+            }
+            else
+            {
+                unsigned xc = x, yc = y ^ (x<<L>>M);
+                for(unsigned bit=0; bit < M+L; )
+                {
+                    v |= ((xc >> --xmask)&1) << bit++;
+                    for(offset += L; offset >= M; offset -= M)
+                        v |= ((yc >> --ymask)&1) << bit++;
+                }
+            }
+            result.push_back(v);
+        }
+
+    if(Height != RoundedHeight
+    || Width  != RoundedWidth)
+    {
+        // If the user requested e.g. 3x3 and we used 4x4 algorithm,
+        // convert the numbers so that the resulting range is ungapped:
+        //
+        // We generated:  We saved:   We compress the number range:
+        //  0 12  3 15     0 12  3     0 7 3
+        //  8  4 11  7     8  4 11     5 4 6
+        //  2 14  1 13     2 14  1     2 8 1
+        // 10  6  9  5
+        unsigned max_value   = RoundedWidth * RoundedHeight;
+        unsigned matrix_size = Height * Width;
+        unsigned n_missing = 0;
+        for(unsigned v=0; v<max_value; ++v)
+        {
+            bool found = false;
+            for(unsigned a=0; a<matrix_size; ++a)
+            {
+                if(result[a] == v)
+                {
+                    result[a] -= n_missing;
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                ++n_missing;
+        }
+    }
+    return result;
+}
+
+std::vector<unsigned> CreateDispersedDitheringMatrix()
+{
+    return CreateOrderedDitheringMatrix(DitherMatrixWidth, DitherMatrixHeight);
+}
+
+std::vector<unsigned> CreateTemporalDitheringMatrix()
+{
+    return CreateOrderedDitheringMatrix(1, TemporalDitherSize);
 }
