@@ -34,6 +34,33 @@ extern unsigned TemporalDitherSize; // 1 = no temporal dithering
 extern bool     TemporalDitherMSB;  // Use MSB rather than LSB for temporal dithering
 extern unsigned DitherColorListSize;
 extern double   DitherCombinationContrast;
+extern enum ColorCompareMethod
+{
+    Compare_RGB,
+    Compare_CIE76_DeltaE,
+    Compare_CIE94_DeltaE,
+    Compare_CMC_lc,
+    Compare_BFD_lc,
+    Compare_CIEDE2000_DeltaE
+} UseCIE;
+
+struct XYZitem { double X,Y,Z;      };
+struct LabItem { double L,a,b, C,h; };
+LabItem XYZtoLAB(const XYZitem& xyz);
+LabItem RGBtoLAB(int r,int g,int b);
+struct LabAndLuma
+{
+    LabItem lab;
+    unsigned luma;
+
+    LabAndLuma() {}
+    LabAndLuma(uint32 rgb) :
+        lab(RGBtoLAB( (rgb>>16)&0xFF, (rgb>>8)&0xFF, (rgb&0xFF) )),
+        luma( ((rgb>>16)&0xFF)*299u + ((rgb>>8)&0xFF)*587u + (rgb&0xFF)*114u ) {}
+    LabAndLuma(int r,int g,int b) :
+        lab(RGBtoLAB(r,g,b)),
+        luma( r*299 + g*587 + b*114) {}
+};
 
 struct Palette
 {
@@ -45,24 +72,24 @@ struct Palette
     size_t NumCombinations() const { return Combinations.size(); }
 
     uint32 GetColor(unsigned index) const { return Data[index].rgb; }
-    unsigned GetLuma(unsigned index) const { return Data[index].luma; }
+    unsigned GetLuma(unsigned index) const { return Data[index].meta.luma; }
+    const LabItem& GetLAB(unsigned index) const { return Data[index].meta.lab; }
+    const LabAndLuma& GetMeta(unsigned index) const { return Data[index].meta; }
 
     uint32 GetCombinationColor(unsigned index) const { return Combinations[index].combination.rgb; }
-    unsigned GetCombinationLuma(unsigned index) const { return Combinations[index].combination.luma; }
+    unsigned GetCombinationLuma(unsigned index) const { return Combinations[index].combination.meta.luma; }
+    const LabItem& GetCombinationLAB(unsigned index) const { return Combinations[index].combination.meta.lab; }
+    const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination.meta; }
 
     Palette GetSlice(unsigned offset, unsigned count) const;
 public:
     struct DataItem
     {
-        uint32   rgb;
-        unsigned luma;
+        uint32      rgb;
+        LabAndLuma  meta;
 
-        DataItem() : rgb(0),luma(0) { }
-        DataItem(uint32 v) :
-            rgb(v),
-            luma(((v>>16)&0xFF)*299u
-                + ((v>>8)&0xFF)*587u
-                + ( v    &0xFF)*114u) { }
+        DataItem() : rgb(0),meta()  { }
+        DataItem(uint32 v) : rgb(v), meta(v) { }
 
         void SplitRGB(unsigned& r, unsigned& g, unsigned& b) const
             { r = (rgb >> 16); g = (rgb >> 8) & 0xFF; b = rgb & 0xFF; }
@@ -99,5 +126,10 @@ Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
 
 std::vector<unsigned> CreateDispersedDitheringMatrix();
 std::vector<unsigned> CreateTemporalDitheringMatrix();
+
+double ColorCompare(int r1,int g1,int b1, // 0..255
+                    const LabAndLuma&,
+                    int r2,int g2,int b2, // 0..255
+                    const LabAndLuma& );
 
 #endif

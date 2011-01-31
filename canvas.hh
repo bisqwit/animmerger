@@ -57,7 +57,34 @@ public:
     }
 
     void Save(unsigned method = ~0u);
+
     void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
+
+    void SaveFrame_TrueColor(
+        const VecType<uint32>& screen,
+        const std::string& Filename,
+        unsigned wid, unsigned hei);
+
+    void SaveFrame_Palette_Auto(
+        const VecType<uint32>& screen,
+        const std::string& Filename,
+        unsigned wid, unsigned hei);
+
+    void SaveFrame_Palette_Dither(
+        const VecType<uint32>& screen,
+        const std::string& Filename,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    void SaveFrame_Palette_Dither_CGA16(
+        const VecType<uint32>& screen,
+        const std::string& Filename,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    void SaveFrame_Palette_Dither_NES(
+        const VecType<uint32>& screen,
+        const std::string& Filename,
+        unsigned frameno, unsigned wid, unsigned hei);
+
     void CreatePalette(PixelMethod method, unsigned nframes);
 
     void Reset();
@@ -87,6 +114,8 @@ public:
                   );
 
     void NextFrame();
+
+    bool IsHeavyDithering(bool animated) const;
 };
 
 #endif

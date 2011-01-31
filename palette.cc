@@ -19,6 +19,7 @@ unsigned TemporalDitherSize = 1; // 1 = no temporal dithering
 bool     TemporalDitherMSB  = false;  // Use MSB rather than LSB for temporal dithering
 unsigned DitherColorListSize = 0;
 double   DitherCombinationContrast = -1.0;
+ColorCompareMethod UseCIE = Compare_RGB;
 
 namespace
 {
@@ -782,21 +783,282 @@ struct ComparePaletteLuma
     bool operator() (unsigned a, unsigned b) const
         { return pal.GetLuma(a) < pal.GetLuma(b); }
 };
-static double ColorCompare(int r1,int g1,int b1, // 0..255
-                           int luma1,            // 0..255000
-                           int r2,int g2,int b2, // 0..255
-                           int luma2)            // 0..255000
+
+
+/* From the paper "The CIEDE2000 Color-Difference Formula: Implementation Notes, */
+/* Supplementary Test Data, and Mathematical Observations", by */
+/* Gaurav Sharma, Wencheng Wu and Edul N. Dalal, */
+/* Color Res. Appl., vol. 30, no. 1, pp. 21-30, Feb. 2005. */
+
+/* Return the CIEDE2000 Delta E color difference measure squared, for two Lab values */
+double ColorCompare(int r1,int g1,int b1, // 0..255
+                    const LabAndLuma& meta1,
+                    int r2,int g2,int b2, // 0..255
+                    const LabAndLuma& meta2)
 {
-    int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
-    const double chroma_coeff = 0.75;
-    double lumadiff = (luma1-luma2) * (1/255e3);
-    return (diffR*diffR)*(0.299/255/255*chroma_coeff)
-         + (diffG*diffG)*(0.587/255/255*chroma_coeff)
-         + (diffB*diffB)*(0.114/255/255*chroma_coeff)
-         + lumadiff*lumadiff;
+    switch(UseCIE)
+    {
+        default:
+        case Compare_RGB:
+        {
+            /* Joel Yliluoma's slightly luma&saturation aware RGB compare function */
+            int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
+            //const double chroma_coeff = 0.75;
+            //double lumadiff = (meta1.luma - meta2.luma) * (1/255e3);
+            return (diffR*diffR)//*(0.299/255/255*chroma_coeff)
+                 + (diffG*diffG)//*(0.587/255/255*chroma_coeff)
+                 + (diffB*diffB)//*(0.114/255/255*chroma_coeff)
+                // + lumadiff*lumadiff
+                 ;
+        }
+        case Compare_CIE76_DeltaE:
+        {
+            double dL = meta1.lab.L - meta2.lab.L;
+            double da = meta1.lab.a - meta2.lab.a;
+            double db = meta1.lab.b - meta2.lab.b;
+            // CIE normal deltaE squared
+            return dL*dL + da*da + db*db;
+        }
+        case Compare_CIE94_DeltaE:
+        {
+            double dL = meta1.lab.L - meta2.lab.L;
+            double da = meta1.lab.a - meta2.lab.a;
+            double db = meta1.lab.b - meta2.lab.b;
+            /* Although CIE94 and CIEDE2000 are theoretically more developed
+             * than the plain CIE distance, in practise both have some kind
+             * of issue with violet/purple colors, for which they deem black
+             * as the best substitute.
+             * (Does it somehow think purple is ultraviolet or something?)
+             * (Bisqwit's hue circle + EGA palette test.)
+             */
+
+            // CIE94 deltaE color difference squared
+            double dLsq = dL*dL;
+            double c12 = std::sqrt(meta1.lab.C * meta2.lab.C); // Symmetric chromance
+            double dc = meta2.lab.C - meta1.lab.C;
+            double dcsq = dc*dc;
+            double dhsq = da*da + db*db - dcsq; // delta hue squared
+            if(dhsq < 0.0) dhsq = 0.0;
+            double sc = 1.0 + 0.048 * (c12); // weighting for delta chromance
+            double sh = 1.0 + 0.014 * (c12); // weighting for delta hue
+            return dLsq + dcsq / (sc*sc) + dhsq / (sh*sh);
+        }
+        case Compare_CMC_lc:
+        {
+            const double l = 1.5, c = 1; // Lightness and chroma parameters
+            double dl = meta2.lab.L - meta1.lab.L;
+            if(meta1.lab.L <= 0.0 || meta2.lab.L <= 0.0)
+                return dl*dl;
+            double da = meta2.lab.a - meta1.lab.a;
+            double db = meta2.lab.b - meta1.lab.b;
+            double dc = meta2.lab.C - meta1.lab.C;
+            double T;
+            double h1 = meta1.lab.h;
+            if(h1 < 0) h1 += 2*M_PI;
+            if(h1 >= 164*M_PI/180 && h1 <= 345*M_PI/180)
+                T = 0.56 + std::fabs(0.2 * std::cos(h1 + 168*M_PI/180));
+            else
+                T = 0.36 + std::fabs(0.4 * std::cos(h1 + 35*M_PI/180));
+            double C1p4 = std::pow(meta1.lab.C, 4);
+            double F = std::sqrt(C1p4 / (C1p4 + 1900));
+            double SL = meta1.lab.L < 16 ? 0.511 : (0.040975*meta1.lab.L
+                                                  /(1+0.01765*meta1.lab.L));
+            double SC = 0.0638*meta1.lab.C / (1 + 0.0131*meta1.lab.C) + 0.0638;
+            double SH = SC * (F*T + 1 - F);
+            double dLSL = dl / (l*SL);
+            double dCSC = dc / (c*SC);
+            double dHSH = da*da + db*db - dc*dc;
+            if(dHSH <= 0) dHSH = 0.0; else dHSH = std::sqrt(dHSH)/SH;
+            return dLSL*dLSL + dCSC*dCSC + dHSH*dHSH;
+        }
+        case Compare_BFD_lc:
+        {
+            const double l = 1.5, c = 1; // Lightness and chroma parameters
+            if(meta1.lab.L <= 0 && meta2.lab.L <= 0.0) return 0;
+            double da = meta2.lab.a - meta1.lab.a;
+            double db = meta2.lab.b - meta1.lab.b;
+            double y1 = (meta1.lab.L > 7.996969)
+                        ? std::pow( (meta1.lab.L+16)/116, 3.0)*100
+                        : 100 * (meta1.lab.L / 903.3);
+            double y2 = (meta2.lab.L > 7.996969)
+                        ? std::pow( (meta2.lab.L+16)/116, 3.0)*100
+                        : 100 * (meta2.lab.L / 903.3);
+            double bfd1 = 54.6 * std::log(y1+1.5) - 9.6;
+            double bfd2 = 54.6 * std::log(y2+1.5) - 9.6;
+            double deltaL = bfd2 - bfd1;
+            double deltaC = meta2.lab.C - meta1.lab.C;
+            double avgC = (meta2.lab.C + meta1.lab.C) * .5;
+            double avgh = (meta2.lab.h + meta1.lab.h) * .5;
+            double deltah = da*da + db*db - deltaC*deltaC;
+            if(deltah <= 0.0) deltah = 0.0; else deltah = std::sqrt(deltah);
+            double dc = 0.035 * avgC / (1 + 0.00365*avgC) + 0.521;
+            double avgCp4 = std::pow(avgC, 4.0);
+            double g = std::sqrt(avgCp4 / (avgCp4 + 14000));
+            double t = 0.627 + 0.055 * std::cos(avgh - 254*M_PI/180)
+                             - 0.040 * std::cos(2*avgh - 136*M_PI/180)
+                             + 0.070 * std::cos(3*avgh - 32*M_PI/180)
+                             + 0.049 * std::cos(4*avgh + 114*M_PI/180)
+                             - 0.015 * std::cos(5*avgh - 103*M_PI/180);
+            double dh = dc * (g*(t-1) + 1);
+            double rh = -0.260 * std::cos(avgh - 308*M_PI/180)
+                       - 0.379 * std::cos(2*avgh - 160*M_PI/180)
+                       - 0.636 * std::cos(3*avgh + 254*M_PI/180)
+                       + 0.226 * std::cos(4*avgh + 140*M_PI/180)
+                       - 0.194 * std::cos(5*avgh + 280*M_PI/180);
+            double avgCp6 = std::pow(avgC, 6.0);
+            double rc = std::sqrt(avgCp6 / (avgCp6 + 823543e7));
+            double rt = rh * rc;
+            return std::sqrt(
+                   (deltaL/l)*(deltaL/l)
+                 + (deltaC/(c*dc))*(deltaC/(c*dc))
+                 + (deltah/dh)*(deltah/dh)
+                 + rt*(deltaC/dc)*(deltah/dh) );
+        }
+        case Compare_CIEDE2000_DeltaE:
+        {
+            double dL = meta1.lab.L - meta2.lab.L;
+        #define RAD2DEG(xx) (180.0/M_PI * (xx))
+        #define DEG2RAD(xx) (M_PI/180.0 * (xx))
+          #if 0
+            double deltaL_ = meta2.lab.L - meta1.lab.L;
+            double Lcap = (meta1.lab.L + meta2.lab.L) * .5;
+            double Ccap = (meta1.lab.C + meta2.lab.C) * .5;
+            double Ccap7 = std::pow(Ccap, 7.0);
+            double a1_ = meta1.lab.a + meta1.lab.a*.5*(1-std::sqrt(Ccap7/(Ccap7+6103515625)));
+            double a2_ = meta2.lab.a + meta2.lab.a*.5*(1-std::sqrt(Ccap7/(Ccap7+6103515625)));
+            double C1_ = std::sqrt(a1_*a1_ + meta1.lab.b*meta1.lab.b);
+            double C2_ = std::sqrt(a2_*a2_ + meta2.lab.b*meta2.lab.b);
+            double Ccap_ = (C1_+C2_)*.5, deltaC_ = C1_-C2_;
+            double Ccap_7 = std::pow(Ccap_, 7.0);
+            double h1_ = std::fmod(std::atan2(meta1.lab.b, meta1.lab.a), 2*M_PI);
+            double h2_ = std::fmod(std::atan2(meta2.lab.b, meta2.lab.a), 2*M_PI);
+            double absh_delta = std::fabs(h1_-h2_);
+            double deltah_;
+            if(absh_delta < M_PI) deltah_ = h2_ - h1_;
+            else if(h2_ <= h1_)   deltah_ = h2_ - h1_ + 2*M_PI;
+            else                  deltah_ = h2_ - h1_ - 2*M_PI;
+            double deltaHcap_ = 2*std::sqrt(C1_*C2_)*std::sin(deltah_*.5);
+            double Hcap_;
+            if(absh_delta > M_PI) Hcap_ = (h1_ + h2_ + 2*M_PI) * 0.5;
+            else                  Hcap_ = (h1_ + h2_)          * 0.5;
+            double T = 1
+              - 0.17 * std::cos(deltaHcap_ - M_PI/6)
+              + 0.24 * std::cos(2*deltaHcap_)
+              + 0.32 * std::cos(3*deltaHcap_ + M_PI/30)
+              - 0.20 * std::cos(4*deltaHcap_ - 21*M_PI/60);
+            double Lcapminus50 = Lcap - 50;
+            double Lcapminus50sq = Lcapminus50*Lcapminus50;
+            double SL = 0.015 * Lcapminus50sq / std::sqrt(20 + Lcapminus50sq);
+            double SC = 1 + 0.045 * Ccap_, SH = 1 + 0.015 * Ccap_ * T;
+            double Htmp = (Hcap_ - 275*M_PI/180) / 25;
+            double RT = -2 * std::sqrt(Ccap_7 / (Ccap_7 + 6103515625))
+                           * std::sin(M_PI/6*std::exp(-(Htmp*Htmp)));
+            double deltaH_ = /* ??? MISSING in Wikipedia's description, assume: */ deltaHcap_;
+            return (deltaL_/SL)*(deltaL_/SL)
+                 + (deltaC_/SC)*(deltaC_/SC)
+                 + (deltaH_/SH)*(deltaH_/SH)
+                 + RT * deltaC_/SC * deltaH_/SH;
+          #endif
+            /* Compute Cromanance and Hue angles */
+            double C1,C2, h1,h2;
+            {
+                double Cab = 0.5 * (meta1.lab.C + meta2.lab.C);
+                double Cab7 = std::pow(Cab,7.0);
+                double G = 0.5 * (1.0 - std::sqrt(Cab7/(Cab7 + 6103515625.0)));
+                double a1 = (1.0 + G) * meta1.lab.a;
+                double a2 = (1.0 + G) * meta2.lab.a;
+                C1 = std::sqrt(a1 * a1 + meta1.lab.b * meta1.lab.b);
+                C2 = std::sqrt(a2 * a2 + meta2.lab.b * meta2.lab.b);
+
+                if (C1 < 1e-9)
+                    h1 = 0.0;
+                else {
+                    h1 = RAD2DEG(std::atan2(meta1.lab.b, a1));
+                    if (h1 < 0.0)
+                        h1 += 360.0;
+                }
+
+                if (C2 < 1e-9)
+                    h2 = 0.0;
+                else {
+                    h2 = RAD2DEG(std::atan2(meta2.lab.b, a2));
+                    if (h2 < 0.0)
+                        h2 += 360.0;
+                }
+            }
+
+            /* Compute delta L, C and H */
+            double /*dL = meta2.lab.L - meta1.lab.L, */dC = C2 - C1, dH;
+            {
+                double dh;
+                if (C1 < 1e-9 || C2 < 1e-9) {
+                    dh = 0.0;
+                } else {
+                    dh = h2 - h1;
+                    if (dh > 180.0)
+                        dh -= 360.0;
+                    else if (dh < -180.0)
+                        dh += 360.0;
+                }
+
+                dH = 2.0 * std::sqrt(C1 * C2) * std::sin(DEG2RAD(0.5 * dh));
+            }
+
+            double h;
+            double L = 0.5 * (meta1.lab.L  + meta2.lab.L);
+            double C = 0.5 * (C1 + C2);
+            if (C1 < 1e-9 || C2 < 1e-9) {
+                h = h1 + h2;
+            } else {
+                h = h1 + h2;
+                if (fabs(h1 - h2) > 180.0) {
+                    if (h < 360.0)
+                        h += 360.0;
+                    else if (h >= 360.0)
+                        h -= 360.0;
+                }
+                h *= 0.5;
+            }
+            double T = 1.0
+              - 0.17 * std::cos(DEG2RAD(h - 30.0))
+              + 0.24 * std::cos(DEG2RAD(2.0 * h))
+              + 0.32 * std::cos(DEG2RAD(3.0 * h + 6.0))
+              - 0.2 * std::cos(DEG2RAD(4.0 * h - 63.0));
+            double hh = (h - 275.0)/25.0;
+            double ddeg = 30.0 * std::exp(-hh * hh);
+            double C7 = std::pow(C,7.0);
+            double RC = 2.0 * std::sqrt(C7/(C7 + 6103515625.0));
+            double L50sq = (L - 50.0) * (L - 50.0);
+            double SL = 1.0 + (0.015 * L50sq) / std::sqrt(20.0 + L50sq);
+            double SC = 1.0 + 0.045 * C;
+            double SH = 1.0 + 0.015 * C * T;
+            double RT = -std::sin(DEG2RAD(2 * ddeg)) * RC;
+            double dLsq = dL/SL, dCsq = dC/SC, dHsq = dH/SH;
+            return dLsq*dLsq + dCsq*dCsq + dHsq*dHsq + RT*dCsq*dHsq;
+        #undef RAD2DEG
+        #undef DEG2RAD
+        }
+    }
 }
 PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
 {
+/*
+        rin=rin*0xAA/0xFF; // cga hack
+        gin=gin*0xAA/0xFF;
+        bin=bin*0xAA/0xFF;
+*/
+
+/*
+        int tmp_luma = rin*299 + gin*587 + bin*114;
+        rin=gin=bin= tmp_luma/1000;
+        #define g(x) \
+            if(x < 0x40) x = x*0x50/0x40; \
+            else if(x < 0xA0) x = 0x50+0x70*(x-0x40)/0x60; \
+            else              x = 0xC0+0x40*(x-0xA0)/0x60;
+        g(rin) g(gin) g(bin)
+        #undef g
+*/
+
     PalettePair result;
     const unsigned PaletteSize     = pal.Size();
     const unsigned NumCombinations = pal.NumCombinations();
@@ -809,22 +1071,24 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
     while(result.size() < GenerationLimit)
     {
         int ter = rin + rer*X, teg = gin + ger*X, teb = bin + ber*X;
+
         if(ter<0) ter=0; else if(ter>255)ter=255;
         if(teg<0) teg=0; else if(teg>255)teg=255;
         if(teb<0) teb=0; else if(teb>255)teb=255;
-        int t_luma = (ter*299 + teg*587 + teb*114);
-        double least_penalty = 1e99;
 
-        unsigned chosen = 0;
+        LabAndLuma t_meta(ter,teg,teb);
+        double least_penalty = -1;
+
+        unsigned chosen = result.size() % PaletteSize;
         bool chosen_comb = false;
 
         for(unsigned i=0; i<PaletteSize; ++i)
         {
             const unsigned color = pal.GetColor(i);
             unsigned r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = (color) & 0xFF;
-            double penalty = ColorCompare(ter,teg,teb,t_luma,
-                                          r,g,b, pal.GetLuma(i));
-            if(penalty < least_penalty)
+            double penalty = ColorCompare(ter,teg,teb, t_meta,
+                                          r,g,b,       pal.GetMeta(i));
+            if(penalty < least_penalty || least_penalty < 0)
                 { least_penalty = penalty; chosen = i; chosen_comb = false; }
         }
 
@@ -836,9 +1100,9 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
 
             const unsigned color = pal.GetCombinationColor(i);
             unsigned r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = (color) & 0xFF;
-            double penalty = ColorCompare(ter,teg,teb,t_luma,
-                                          r,g,b, pal.GetCombinationLuma(i));
-            if(penalty < least_penalty)
+            double penalty = ColorCompare(ter,teg,teb, t_meta,
+                                          r,g,b,       pal.GetCombinationMeta(i));
+            if(penalty < least_penalty || least_penalty < 0)
                 { least_penalty = penalty; chosen = i; chosen_comb = true; }
         }
 
@@ -949,6 +1213,68 @@ Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
     return result;
 }
 
+const double illuminants[4][3*3] =
+  { { // CIE C illuminant
+      0.488718, 0.176204, 0.000000,
+      0.310680, 0.812985, 0.0102048,
+      0.200602, 0.0108109, 0.989795 },
+    { // Adobe D65 illuminant
+      0.576700, 0.297361, 0.0270328,
+      0.185556, 0.627355, 0.0706879,
+      0.188212, 0.0752847, 0.99124 },
+    { // What is this?
+      0.412453, 0.357580, 0.180423,
+      0.212671, 0.715160, 0.072169,
+      0.019334, 0.119193, 0.950227 } };
+static const double* GetIlluminant()
+{
+    switch(UseCIE)
+    {
+        case Compare_CIE76_DeltaE:
+            return illuminants[2];
+        default:
+            return illuminants[0];
+    }
+}
+
+template<typename T>
+static XYZitem RGBtoXYZ(T r,T g,T b)
+{
+    const double* illum = GetIlluminant();
+    XYZitem result = {
+      ((illum[0])*r + (illum[3])*g + (illum[6])*b) / 255.0,
+      ((illum[1])*r + (illum[4])*g + (illum[7])*b) / 255.0,
+      ((illum[2])*r + (illum[5])*g + (illum[8])*b) / 255.0 };
+    return result;
+}
+LabItem XYZtoLAB(const XYZitem& xyz)
+{
+    // Use Profile illuminant - D65 */
+    const double* illum = GetIlluminant();
+    double Xn = 1.0/(illum[0]+illum[1]+illum[2]);
+    double Yn = 1.0/(illum[3]+illum[4]+illum[5]);
+    double Zn = 1.0/(illum[6]+illum[7]+illum[8]);
+    double x = xyz.X * Xn;
+    double y = xyz.Y * Yn;
+    double z = xyz.Z * Zn;
+    const double threshold1 = (6*6*6.0)/(29*29*29.0);
+    const double threshold2 = (29*29.0)/(6*6*3.0);
+    double x1 = (x > threshold1) ? pow(x, 1.0/3.0) : (threshold2*x)+(4/29.0);
+    double y1 = (y > threshold1) ? pow(y, 1.0/3.0) : (threshold2*y)+(4/29.0);
+    double z1 = (z > threshold1) ? pow(z, 1.0/3.0) : (threshold2*z)+(4/29.0);
+    LabItem result;
+    result.L = (29*4)*y1 - (4*4);
+    result.a = (500*(x1-y1) );
+    result.b = (200*(y1-z1) );
+    result.C = std::sqrt(result.a*result.a + result.b+result.b);
+    result.h = std::atan2(result.b, result.a);
+    return result;
+}
+LabItem RGBtoLAB(int r,int g,int b)
+{
+    return XYZtoLAB( RGBtoXYZ(r,g,b) );
+}
+
 void Palette::Analyze()
 {
     const unsigned PaletteSize = Data.size();
@@ -977,41 +1303,20 @@ void Palette::Analyze()
 
     unsigned total_luma = GetLuma(luma_order.back()) - GetLuma(luma_order.front());
 
-    unsigned luma_threshold;
+    unsigned luma_threshold = 0;
 
-    if(DitherCombinationContrast >= 0.0
-    && DitherCombinationContrast < 1.0)
-        luma_threshold = average_luma_difference * DitherCombinationContrast;
-    else if(DitherCombinationContrast < 2.0)
+    double p = DitherCombinationContrast;
+    if(p < 0.0 || p > 3.0) p = 1.2; // "Reasonable default"
+
+    if(p >= 0.0
+    && p < 1.0)
+        luma_threshold = average_luma_difference * p;
+    else if(p < 2.0)
         luma_threshold = average_luma_difference +
-            (DitherCombinationContrast-1.0) * (maximum_luma_difference-average_luma_difference);
-    else if(DitherCombinationContrast <= 3.0)
+            (p-1.0) * (maximum_luma_difference-average_luma_difference);
+    else if(p <= 3.0)
         luma_threshold = maximum_luma_difference +
-            (DitherCombinationContrast-2.0) * (total_luma-maximum_luma_difference);
-    else
-    {
-        unsigned NumTwoColorCombinations = (PaletteSize-1) * (PaletteSize-2) / 2;
-        // When the number of combinations is 300 or less, we can simply try them all,
-        // except we don't want to, because it will produce ugly results.
-        // When it's like 10000, only take the maximum luma dist.
-        unsigned max_luma_diff_that_makes_sense =
-            (total_luma*1 + maximum_luma_difference*3) / (1+3);
-        const long a=300, b=10000, c=30000;
-        luma_threshold =
-            (NumTwoColorCombinations < a)
-                ? max_luma_diff_that_makes_sense
-          : (NumTwoColorCombinations < b)
-            ? max_luma_diff_that_makes_sense
-               + long(maximum_luma_difference - max_luma_diff_that_makes_sense)
-               * (NumTwoColorCombinations - a)
-               / (b-a)
-          : (NumTwoColorCombinations < c)
-            ? maximum_luma_difference
-               + long(average_luma_difference - maximum_luma_difference)
-               * (NumTwoColorCombinations - b)
-               / (c-b)
-          : average_luma_difference;
-    }
+            (p-2.0) * (total_luma-maximum_luma_difference);
 
     if(verbose >= 2)
     {
@@ -1050,7 +1355,7 @@ void Palette::Analyze()
                 printf("Combination: %06X + %06X%*s(luma diff %ld) = %02X%02X%02X\n",
                     Data[index1].rgb, Data[index2].rgb,
                     19,"",
-                    (long) Data[index2].luma - (long) Data[index1].luma,
+                    (long) Data[index2].meta.luma - (long) Data[index1].meta.luma,
                     combined_r,combined_g,combined_b);
 
             Combination comb( index1,index2,
@@ -1077,7 +1382,7 @@ void Palette::Analyze()
                         Data[index2].rgb,
                         Data[index3].rgb,
                         10,"",
-                        (long) Data[index3].luma - (long) Data[index1].luma,
+                        (long) Data[index3].meta.luma - (long) Data[index1].meta.luma,
                         combined_r,combined_g,combined_b);
 
                 Combination comb( index1,index2,index3,
@@ -1104,7 +1409,7 @@ void Palette::Analyze()
                             Data[index2].rgb,
                             Data[index3].rgb,
                             Data[index4].rgb,
-                            (long) Data[index4].luma - (long) Data[index1].luma,
+                            (long) Data[index4].meta.luma - (long) Data[index1].meta.luma,
                             combined_r,combined_g,combined_b);
 
                     Combination comb( index1,index2,index3,index4,
@@ -1113,8 +1418,18 @@ void Palette::Analyze()
         }   }   }
     }
     if(!Combinations.empty() && verbose >= 2)
+    {
         printf("Total palette-color combinations chosen for dithering candidates: %u\n",
             (unsigned) Combinations.size());
+        printf("Dithering will maximally do %u * (%u + %u) = %u * %u = %u tests per pixel.\n",
+            DitherColorListSize,
+            (unsigned) Data.size(),
+            (unsigned) Combinations.size(),
+            DitherColorListSize,
+            (unsigned) (Data.size() + Combinations.size()),
+            (unsigned) (DitherColorListSize * (Data.size() + Combinations.size()))
+        );
+    }
 }
 
 void Palette::SetHardcoded(unsigned n, ...)

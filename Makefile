@@ -1,4 +1,4 @@
-VERSION=1.4.3
+VERSION=1.5.0-pre1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -61,6 +61,15 @@ all: $(PROGS) doc/README.html
 
 animmerger: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
+
+animmerger_nes: main.o pixel.o align.o palette.o canvas_nes.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+animmerger_cga16: main.o pixel.o align.o palette.o canvas_cga16.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+canvas_nes.o: canvas.cc
+	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DNESmode=1
+canvas_cga16.o: canvas.cc
+	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DCGA16mode=1
 
 doc/README.html: doc/docmaker.php progdesc.php Makefile
 	php -q "$<" "$(ARCHNAME)" > "$@"

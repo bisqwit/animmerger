@@ -655,6 +655,7 @@ int main(int argc, char** argv)
             {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
             {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
+            {"cie",        2,0,5005},
             {0,            1,0,'D'},
             {0,0,0,0}
         };
@@ -769,22 +770,12 @@ Options:\n\
      If you have lots of time and you're rendering a high-resolution\n\
      picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
      Note that a low value of dithcount can make this option useless.\n\
+ --cie [=<type>]\n\
+     Select color comparison method, see details below\n\
 \n\
 animmerger will always output PNG files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
 where #### is a sequential number beginning from 0000.\n\
-\n\
-GIF VERSUS PNG\n\
-  GIF is capable of paletted images of 256 colors or less.\n\
-  PNG is capable of paletted images, as well as truecolor images.\n\
-  \n\
-  GIF selection   Quantization  Saves in format             Dithering used\n\
-  --auto          -Q was used   Animations=GIF, other=PNG   For GIF, unless disabled\n\
-  --auto          -Q NOT used   Always PNG                  Never\n\
-  --never         -Q was used   Always paletted PNG         Yes, unless disabled\n\
-  --never         -Q NOT used   Always trueclor PNG         Never\n\
-  --always        -Q was used   Always GIF                  Yes, unless disabled\n\
-  --always        -Q not used   Always GIF                  Never\n\
 \n\
 AVAILABLE PIXEL TYPES\n\
 \n\
@@ -922,6 +913,46 @@ REDUCING PALETTE\n\
   If you are making a GIF file and you do not specify any quantization options\n\
   at all, animmerger will use whatever method GD graphics library happens to use.\n\
   Note that the blending quantization methods are subject to the YUV selection.\n\
+\n\
+GIF VERSUS PNG\n\
+  GIF is capable of paletted images of 256 colors or less.\n\
+  PNG is capable of paletted images, as well as truecolor images.\n\
+  \n\
+  GIF selection  Quantization  Saves in format            Dithering used\n\
+  --auto         -Q was used   Animations=GIF, other=PNG  For GIF, unless disabled\n\
+  --auto         -Q NOT used   Always PNG                 Never\n\
+  --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
+  --never        -Q NOT used   Always trueclor PNG        Never\n\
+  --always       -Q was used   Always GIF                 Yes, unless disabled\n\
+  --always       -Q not used   Always GIF                 Never\n\
+\n\
+COLOR COMPARE METHODS\n\
+\n\
+  For dithering purposes, animmerger has to compare colors\n\
+  and decide out of many options which combination represents\n\
+  the desired color best.\n\
+  The comparison algorithm can be selected from the following choices:\n\
+  \n\
+    default   = 0    = RGB                 e.g. --cie=0 or --cie=rgb\n\
+    CIE76     = 76   = CIE76 Delta E       e.g. --cie or --cie=76\n\
+    CIE94     = 94   = CIE94 Delta E       e.g. --cie=94 or --cie=cie94\n\
+    CIEDE2000 = 2000 = CIEDE2000 Delta E   e.g. --cie=2000\n\
+    CMC              = CMC l:c Delta E     e.g. --cie=cmc\n\
+    BFD              = BFD l:c Delta E     e.g. --cie=bfd\n\
+  \n\
+  When a CIE method is selected, colors are compared in the CIE L*a*b* colorspace.\n\
+  Animmerger converts RGB values into CIE using an Adobe D65 illuminant profile or\n\
+  a close equivalent.\n\
+  Performance:\n\
+     RGB and CIE76 are simple euclidean differences.\n\
+       Because animmerger will calculate the CIE L*a*b* value\n\
+       for each color regardless of whether you use RGB or not,\n\
+       there is no speed difference between these two.\n\
+     CIE94 includes more mathematics than RGB or CIE74.\n\
+     CMC   is complex, and not always very good.\n\
+     CIEDE2000 includes very complicated mathematics,\n\
+               and can be expected to be very slow.\n\
+     BFD   is very complex.\n\
 \n\
 TIPS\n\
 \n\
@@ -1225,7 +1256,44 @@ rate.\n\
                 dithering_configured = true;
                 break;
             }
-
+            case 5005:
+                if(optarg)
+                {
+                    if(std::strcmp(optarg, "default") == 0
+                    || std::strcmp(optarg, "0") == 0
+                    || std::strcmp(optarg, "rgb") == 0
+                    || std::strcmp(optarg, "RGB") == 0)
+                        UseCIE = Compare_RGB;
+                    else if(std::strcmp(optarg, "implied") == 0
+                         || std::strcmp(optarg, "simple") == 0
+                         || std::strcmp(optarg, "1") == 0
+                         || std::strcmp(optarg, "76") == 0
+                         || std::strcmp(optarg, "cie76") == 0
+                         || std::strcmp(optarg, "CIE76") == 0)
+                        UseCIE = Compare_CIE76_DeltaE;
+                    else if(std::strcmp(optarg, "94") == 0
+                         || std::strcmp(optarg, "cie94") == 0
+                         || std::strcmp(optarg, "CIE94") == 0)
+                        UseCIE = Compare_CIE94_DeltaE;
+                    else if(std::strcmp(optarg, "cmc") == 0
+                         || std::strcmp(optarg, "CMC") == 0)
+                        UseCIE = Compare_CMC_lc;
+                    else if(std::strcmp(optarg, "bfd") == 0
+                         || std::strcmp(optarg, "BFD") == 0)
+                        UseCIE = Compare_BFD_lc;
+                    else if(std::strcmp(optarg, "2000") == 0
+                         || std::strcmp(optarg, "ciede2000") == 0
+                         || std::strcmp(optarg, "CIEDE2000") == 0
+                         || std::strcmp(optarg, "cie2000") == 0
+                         || std::strcmp(optarg, "CIE2000") == 0)
+                        UseCIE = Compare_CIEDE2000_DeltaE;
+                    else
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --cie: %s. Allowed values: 0, 1, 94, 2000\n",
+                            optarg);
+                }
+                else
+                    UseCIE = Compare_CIE76_DeltaE;
+                break;
 
             case 'v':
                 ++verbose;
