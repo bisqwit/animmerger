@@ -34,6 +34,11 @@ ARCHFILES=\
 
 include Makefile.sets
 
+FPOBJS=\
+	fparser/fparser.o \
+	fparser/fpoptimizer.o
+CPPFLAGS += -Ifparser
+	
 OBJS=\
 	main.o canvas.o pixel.o align.o palette.o
 PROGS=\
@@ -43,7 +48,9 @@ CPPFLAGS += -I.
 LDLIBS += -lgd
 
 CXXFLAGS += -std=c++0x -fopenmp
-CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
+CPPFLAGS += \
+	-DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP \
+	-DFP_USE_THREAD_SAFE_EVAL
 
 #CXXFLAGS += -m32
 #CXXFLAGS += -fomit-frame-pointer
@@ -59,12 +66,12 @@ LDLIBS += -lm
 
 all: $(PROGS) doc/README.html
 
-animmerger: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS) $(LDLIBS)
-
-animmerger_nes: main.o pixel.o align.o palette.o canvas_nes.o
+animmerger: $(OBJS) $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-animmerger_cga16: main.o pixel.o align.o palette.o canvas_cga16.o
+
+animmerger_nes: main.o pixel.o align.o palette.o canvas_nes.o $(FPOBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+animmerger_cga16: main.o pixel.o align.o palette.o canvas_cga16.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 canvas_nes.o: canvas.cc
 	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DNESmode=1

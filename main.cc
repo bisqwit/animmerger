@@ -656,6 +656,7 @@ int main(int argc, char** argv)
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
             {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
             {"cie",        2,0,5005},
+            {"transform",  1,0,6001},
             {0,            1,0,'D'},
             {0,0,0,0}
         };
@@ -735,18 +736,6 @@ Options:\n\
  --dithmatrix, --dm <x>,<y>[<,time>]\n\
      Set the Bayer matrix size to be used in dithering.\n\
      Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n\
-     You can use an uneven ratio such as 8x2 to produce\n\
-     images that are displayed on a device where pixels are not square.\n\
-     The values should be powers of two, but it is not required.\n\
-     A non-poweroftwo dimension will produce uneven dithering.\n\
-     The third dimension, time, can be specified in order to\n\
-     use temporal dithering, which will appear as flickering.\n\
-     For example, 2x2x2 will use a 2x2 matrix plus 2 frames of\n\
-     flickering to produce the average color. By default, temporal\n\
-     dithering is done from the LSB of the color error, so as to minimize\n\
-     the flicker with cost to spatial accuracy. By specifying a negative time\n\
-     value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
-     prominent flickering, while improving the spatial accuracy.\n\
  --dithcount, --dc <int>\n\
      Set maximum number of palette colors to use in dithering\n\
      of an uniform color area of the source picture.\n\
@@ -756,26 +745,19 @@ Options:\n\
  --dithcontrast, --dr <float>\n\
      Set the maximum contrast between two or more color items\n\
      that are pre-selected for combined candidates for dithering.\n\
-     The contrast is specified as a sliding scale where\n\
-       0 means that no combinations are loaded.\n\
-       1 represents the average luma difference between\n\
-         two successive colors in luma-sorted palette,\n\
-       2 represents the maximum luma difference between two\n\
-         two successive colors in luma-sorted palette,\n\
-       3 represents the maximum luma coverage of the\n\
-         palette, in practice allowing all combinations.\n\
-     In general, a higher number will produce more ugly dithering\n\
-     and will slow down the dithering algorithm a great deal too,\n\
-     so animmerger tries to choose a reasonable (low) default value.\n\
-     If you have lots of time and you're rendering a high-resolution\n\
-     picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
-     Note that a low value of dithcount can make this option useless.\n\
+     The value must be in range 0..3. Default value: 1. See details below.\n\
  --cie [=<type>]\n\
      Select color comparison method, see details below\n\
+ --transform { r= | g= | b= }<function>\n\
+     Transform red, green and blue color channel values according\n\
+     to the given mathematical function. See details below\n\
 \n\
-animmerger will always output PNG files into the current\n\
+animmerger will always output files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
 where #### is a sequential number beginning from 0000.\n\
+The file name can be also .gif (see details below).\n\
+If multiple output methods are specified, then the filename is\n\
+method-####.png, such as Average-0000.png or ChangeLog-0155.gif.\n\
 \n\
 AVAILABLE PIXEL TYPES\n\
 \n\
@@ -914,17 +896,60 @@ REDUCING PALETTE\n\
   at all, animmerger will use whatever method GD graphics library happens to use.\n\
   Note that the blending quantization methods are subject to the YUV selection.\n\
 \n\
-GIF VERSUS PNG\n\
-  GIF is capable of paletted images of 256 colors or less.\n\
-  PNG is capable of paletted images, as well as truecolor images.\n\
-  \n\
-  GIF selection  Quantization  Saves in format            Dithering used\n\
-  --auto         -Q was used   Animations=GIF, other=PNG  For GIF, unless disabled\n\
-  --auto         -Q NOT used   Always PNG                 Never\n\
-  --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
-  --never        -Q NOT used   Always trueclor PNG        Never\n\
-  --always       -Q was used   Always GIF                 Yes, unless disabled\n\
-  --always       -Q not used   Always GIF                 Never\n\
+DITHERING\n\
+\n\
+  Dithering matrix size\n\
+     You can use an uneven ratio such as 8x2 to produce images\n\
+     that are displayed on a device where pixels are not square.\n\
+     The values should be powers of two, but it is not required.\n\
+     A non-poweroftwo dimension will produce uneven dithering.\n\
+     The third dimension, time, can be specified in order to\n\
+     use temporal dithering, which will appear as flickering.\n\
+     For example, 2x2x2 will use a 2x2 matrix plus 2 frames of\n\
+     flickering to produce the average color. By default, temporal\n\
+     dithering is done from the LSB of the color error, so as to minimize\n\
+     the flicker with cost to spatial accuracy. By specifying a negative time\n\
+     value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
+     prominent flickering, while improving the spatial accuracy.\n\
+  Dithering contrast\n\
+     The contrast is specified as a sliding scale where\n\
+       0 means that no combinations are loaded.\n\
+       1 represents the average luma difference between\n\
+         two successive colors in luma-sorted palette,\n\
+       2 represents the maximum luma difference between two\n\
+         two successive colors in luma-sorted palette,\n\
+       3 represents the maximum luma coverage of the\n\
+         palette, in practice allowing all combinations.\n\
+     In general, a higher number will produce more ugly dithering\n\
+     and will slow down the dithering algorithm a great deal too,\n\
+     so animmerger tries to choose a reasonable (low) default value.\n\
+     If you have lots of time and you're rendering a high-resolution\n\
+     picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
+     Note that a low value of dithcount can make this option useless.\n\
+\n\
+COLOR TRANSFORMATION FUNCTION\n\
+\n\
+  The option --transform can be used to transform the image's color.\n\
+  The following identifiers are defined for the function:\n\
+    r,g,b   Input color (0..255)\n\
+    frameno Frame number (0..n)\n\
+    x,y     Screen coordinates (x,y)\n\
+  Note that when animmerger counts color, it\n\
+  will pass bogus coordinates to the x,y values.\n\
+  The output value is expected to be in range 0..255, though not required.\n\
+  For a description of the accepted function syntax, see:\n\
+         http://iki.fi/warp/FunctionParser/\n\
+  Examples:\n\
+    --transform 'r=g=b=(r*0.299+g*0.587+b*0.114)'\n\
+        Renders grayscale rather than color.\n\
+    --transform 'r=0x80+(r/2)\n\
+        Makes image considerably redder.\n\
+    --transform 'r=128+127*sin(frameno*.1+x/40+y/90)' \\\n\
+    --transform 'g=128+127*cos(frameno*.1+x/40+y/90)' \\\n\
+    --transform 'b=128+127*sin(frameno*.1+x/40+y/90+20)'\n\
+        Will make the screen cycle in colors.\n\
+  Note that rendering with a transformation function is much\n\
+  slower than rendering without it.\n\
 \n\
 COLOR COMPARE METHODS\n\
 \n\
@@ -953,6 +978,18 @@ COLOR COMPARE METHODS\n\
      CIEDE2000 includes very complicated mathematics,\n\
                and can be expected to be very slow.\n\
      BFD   is very complex.\n\
+\n\
+GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
+  GIF is capable of paletted images of 256 colors or less.\n\
+  PNG is capable of paletted images, as well as truecolor images.\n\
+  \n\
+  GIF selection  Quantization  Saves in format            Dithering used\n\
+  --auto         -Q was used   Animations=GIF, other=PNG  For GIF, unless disabled\n\
+  --auto         -Q NOT used   Always PNG                 Never\n\
+  --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
+  --never        -Q NOT used   Always trueclor PNG        Never\n\
+  --always       -Q was used   Always GIF                 Yes, unless disabled\n\
+  --always       -Q not used   Always GIF                 Never\n\
 \n\
 TIPS\n\
 \n\
@@ -1288,7 +1325,7 @@ rate.\n\
                          || std::strcmp(optarg, "CIE2000") == 0)
                         UseCIE = Compare_CIEDE2000_DeltaE;
                     else
-                        std::fprintf(stderr, "animmerger: Invalid parameter to --cie: %s. Allowed values: 0, 1, 94, 2000\n",
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --cie: %s. Allowed values: rgb,cmc,bfd,76,94,2000\n",
                             optarg);
                 }
                 else
@@ -1322,8 +1359,33 @@ rate.\n\
                 else
                     SaveGif = 1;
                 break;
+            case 6001: // transform
+            {
+                char* arg = optarg;
+                bool touch_r = false;
+                bool touch_g = false;
+                bool touch_b = false;
+                for(;;)
+                {
+                    if(strncmp(arg, "r=", 2) == 0) { touch_r=true; arg+=2; continue; }
+                    if(strncmp(arg, "g=", 2) == 0) { touch_g=true; arg+=2; continue; }
+                    if(strncmp(arg, "b=", 2) == 0) { touch_b=true; arg+=2; continue; }
+                    break;
+                }
+                if(!touch_r && !touch_g && !touch_b)
+                {
+                    std::fprintf(stderr,
+                        "animmerger: Invalid parameter to --transform: %s.", optarg);
+                }
+                if(touch_r) transform_r = arg;
+                if(touch_g) transform_g = arg;
+                if(touch_b) transform_b = arg;
+                break;
+            }
         }
     }
+
+    SetColorTransformations();
 
     if(!bgmethod0_chosen) bgmethod0 = bgmethod;
     if(!bgmethod1_chosen) bgmethod1 = bgmethod;

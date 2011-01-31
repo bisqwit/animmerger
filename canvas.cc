@@ -7,6 +7,8 @@
 #include "align.hh"
 #include "palette.hh"
 
+#include "fparser.hh"
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -19,6 +21,54 @@
 #endif
 
 int SaveGif = -1;
+
+static FunctionParser parser_r,parser_g,parser_b;
+std::string transform_r = "r";
+std::string transform_g = "g";
+std::string transform_b = "b";
+bool UsingTransformations = false;
+
+void SetColorTransformations()
+{
+    int r_error = parser_r.Parse(transform_r.c_str(), "r,g,b,frameno,x,y");
+    int g_error = parser_g.Parse(transform_g.c_str(), "r,g,b,frameno,x,y");
+    int b_error = parser_b.Parse(transform_b.c_str(), "r,g,b,frameno,x,y");
+    if(r_error >= 0 || g_error >= 0 || b_error >= 0)
+    {
+        if(r_error >= 0)
+            fprintf(stderr, "Parse error (%s) in red color formula:\n%s\n%*s\n",
+                parser_r.ErrorMsg(), transform_r.c_str(), r_error+1, "^");
+        if(g_error >= 0)
+            fprintf(stderr, "Parse error (%s) in green color formula:\n%s\n%*s\n",
+                parser_g.ErrorMsg(), transform_g.c_str(), g_error+1, "^");
+        if(b_error >= 0)
+            fprintf(stderr, "Parse error (%s) in blue color formula:\n%s\n%*s\n",
+                parser_b.ErrorMsg(), transform_b.c_str(), b_error+1, "^");
+        return;
+    }
+    parser_r.Optimize();
+    parser_g.Optimize();
+    parser_b.Optimize();
+    UsingTransformations = transform_r != "r"
+                        || transform_g != "g"
+                        || transform_b != "b";
+}
+void TransformColor(int&r, int&g, int&b, unsigned frameno,unsigned x,unsigned y)
+{
+    double vars[6] = {
+        double(r), double(g), double(b),
+        double(frameno), double(x), double(y)
+    };
+    r = parser_r.Eval(vars); if(r<0) r=0; else if(r>255) r=255;
+    g = parser_g.Eval(vars); if(g<0) g=0; else if(g>255) g=255;
+    b = parser_b.Eval(vars); if(b<0) b=0; else if(b>255) b=255;
+}
+void TransformColor(uint32& pix, unsigned frameno,unsigned x,unsigned y)
+{
+    int r = (pix >> 16) & 0xFF, g = (pix >> 8) & 0xFF, b = (pix & 0xFF);
+    TransformColor(r,g,b, frameno,x,y);
+    pix = (pix & 0xFF000000u) + (r<<16) + (g<<8) + b;
+}
 
 static inline bool veq
     (const VecType<uint32>& a,
@@ -344,6 +394,86 @@ void TILE_Tracker::Save(unsigned method)
     }
 }
 
+template<bool TransformColors>
+HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
+{
+    HistogramType Histogram;
+
+    // Create a historgram of the used colors, unless it's going
+    // to be replaced immediately thereafter.
+    if(PaletteReductionMethod.empty()
+    || PaletteReductionMethod.front().filename.empty())
+    {
+        const int ymi = ymin, yma = ymax;
+        const int xmi = xmin, xma = xmax;
+        const unsigned wid = xma-xmi;
+        const unsigned hei = yma-ymi;
+        fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
+        VecType<uint32> prev_frame;
+        for(unsigned frameno=0; frameno<nframes; frameno+=1)
+        {
+            fprintf(stderr, "\rFrame %u/%u...", frameno+1, nframes); fflush(stderr);
+          #if 1
+            /* Only count histogram from content that
+             * changes between previous and current frame
+             */
+            VecType<uint32> frame ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
+            unsigned a=0;
+            for(; a < prev_frame.size() && a < frame.size(); ++a)
+            {
+                if(frame[a] != prev_frame[a])
+                {
+                    uint32 p = prev_frame[a], q = frame[a];
+                    if(TransformColors)
+                    {
+                        TransformColor(p, frameno, a/256, a%256);
+                        TransformColor(q, frameno, a/256, a%256);
+                    }
+                    ++Histogram[p];
+                    ++Histogram[q];
+                }
+            }
+            for(; a < frame.size(); ++a)
+            {
+                uint32 p = frame[a];
+                if(TransformColors)
+                {
+                    TransformColor(p, frameno,a/256, a%256);
+                }
+                ++Histogram[p];
+            }
+            prev_frame.swap(frame);
+          #else
+            for(ymaptype::const_iterator
+                yi = screens.begin();
+                yi != screens.end();
+                ++yi)
+            for(xmaptype::const_iterator
+                xi = yi->second.begin();
+                xi != yi->second.end();
+                ++xi)
+            {
+                const cubetype& cube      = xi->second;
+                uint32 result[256*256];
+                cube.pixels->GetLiveSectionInto(method, frameno, result,256, 0,0, 256,256);
+                for(unsigned a=0; a<256*256; ++a)
+                {
+                    uint32 p = result[a];
+                    if(TransformColors)
+                    {
+                        TransformColor(p, frameno, a/256, a%256);
+                    }
+                    ++Histogram[p];
+                }
+            }
+          #endif
+        }
+        // Reduce the histogram into a usable palette
+        fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
+    }
+    return Histogram;
+}
+
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
     #if NESmode
@@ -392,62 +522,9 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     return;
     #endif
 
-    HistogramType Histogram;
-
-    // Create a historgram of the used colors, unless it's going
-    // to be replaced immediately thereafter.
-    if(PaletteReductionMethod.empty()
-    || PaletteReductionMethod.front().filename.empty())
-    {
-        const int ymi = ymin, yma = ymax;
-        const int xmi = xmin, xma = xmax;
-        const unsigned wid = xma-xmi;
-        const unsigned hei = yma-ymi;
-        fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
-        VecType<uint32> prev_frame;
-        for(unsigned frameno=0; frameno<nframes; frameno+=1)
-        {
-            fprintf(stderr, "\rFrame %u/%u...", frameno+1, nframes); fflush(stderr);
-          #if 1
-            /* Only count histogram from content that
-             * changes between previous and current frame
-             */
-            VecType<uint32> frame ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
-            unsigned a=0;
-            for(; a < prev_frame.size() && a < frame.size(); ++a)
-            {
-                if(frame[a] != prev_frame[a])
-                {
-                    ++Histogram[prev_frame[a]];
-                    ++Histogram[frame[a]];
-                }
-            }
-            for(; a < frame.size(); ++a)
-            {
-                ++Histogram[frame[a]];
-            }
-            prev_frame.swap(frame);
-          #else
-            for(ymaptype::const_iterator
-                yi = screens.begin();
-                yi != screens.end();
-                ++yi)
-            for(xmaptype::const_iterator
-                xi = yi->second.begin();
-                xi != yi->second.end();
-                ++xi)
-            {
-                const cubetype& cube      = xi->second;
-                uint32 result[256*256];
-                cube.pixels->GetLiveSectionInto(method, frameno, result,256, 0,0, 256,256);
-                for(unsigned a=0; a<256*256; ++a)
-                    ++Histogram[ result[a] ];
-            }
-          #endif
-        }
-        // Reduce the histogram into a usable palette
-        fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
-    }
+    HistogramType Histogram = UsingTransformations
+        ? CountColors<true>(method, nframes)
+        : CountColors<false>(method, nframes);
     ReduceHistogram(Histogram);
 
     const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
@@ -518,26 +595,42 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     if(Dithered)
     {
       #if NESmode
-        SaveFrame_Palette_Dither_NES(screen, Filename, frameno, wid, hei);
+        if(UsingTransformations)
+          SaveFrame_Palette_Dither_NES<true>(screen, Filename, frameno, wid, hei);
+        else
+          SaveFrame_Palette_Dither_NES<false>(screen, Filename, frameno, wid, hei);
       #elif CGA16mode
-        SaveFrame_Palette_Dither_CGA16(screen, Filename, frameno, wid, hei);
+        if(UsingTransformations)
+          SaveFrame_Palette_Dither_CGA16<true>(screen, Filename, frameno, wid, hei);
+        else
+          SaveFrame_Palette_Dither_CGA16<false>(screen, Filename, frameno, wid, hei);
       #else
-        SaveFrame_Palette_Dither(screen, Filename, frameno, wid, hei);
+        if(UsingTransformations)
+          SaveFrame_Palette_Dither<true>(screen, Filename, frameno, wid, hei);
+        else
+          SaveFrame_Palette_Dither<false>(screen, Filename, frameno, wid, hei);
       #endif
     }
     else
     {
         if(SaveGif == 1 || (SaveGif == -1 && animated))
-            SaveFrame_Palette_Auto(screen, Filename, wid, hei);
+          if(UsingTransformations)
+            SaveFrame_Palette_Auto<true>(screen, Filename, frameno, wid, hei);
+          else
+            SaveFrame_Palette_Auto<false>(screen, Filename, frameno, wid, hei);
         else
-            SaveFrame_TrueColor(screen, Filename, wid, hei);
+          if(UsingTransformations)
+            SaveFrame_TrueColor<true>(screen, Filename, frameno, wid, hei);
+          else
+            SaveFrame_TrueColor<false>(screen, Filename, frameno, wid, hei);
     }
 }
 
+template<bool TransformColors>
 void TILE_Tracker::SaveFrame_TrueColor(
     const VecType<uint32>& screen,
     const std::string& Filename,
-    unsigned wid, unsigned hei)
+    unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
     gdImageAlphaBlending(im, false);
@@ -550,6 +643,8 @@ void TILE_Tracker::SaveFrame_TrueColor(
             uint32 pix = screen[p+x];
             if(pix == DefaultPixel)
                 pix = 0x7F000000u;
+            if(TransformColors)
+                TransformColor(pix, frameno,x,y);
             gdImageSetPixel(im, x,y, pix);
         }
 
@@ -564,10 +659,11 @@ void TILE_Tracker::SaveFrame_TrueColor(
     gdImageDestroy(im);
 }
 
+template<bool TransformColors>
 void TILE_Tracker::SaveFrame_Palette_Auto(
     const VecType<uint32>& screen,
     const std::string& Filename,
-    unsigned wid, unsigned hei)
+    unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
     gdImageAlphaBlending(im, false);
@@ -580,6 +676,8 @@ void TILE_Tracker::SaveFrame_Palette_Auto(
             uint32 pix = screen[p+x];
             if(pix == DefaultPixel)
                 pix = 0x7F000000u;
+            if(TransformColors)
+                TransformColor(pix, frameno,x,y);
             gdImageSetPixel(im, x,y, pix);
         }
 
@@ -600,6 +698,7 @@ void TILE_Tracker::SaveFrame_Palette_Auto(
     gdImageDestroy(im);
 }
 
+template<bool TransformColors>
 void TILE_Tracker::SaveFrame_Palette_Dither(
     const VecType<uint32>& screen,
     const std::string& Filename,
@@ -649,6 +748,8 @@ void TILE_Tracker::SaveFrame_Palette_Dither(
             pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
             if(i == pixel_cache.end() || i->first != pix)
             {
+                if(TransformColors)
+                    TransformColor(r,g,b, frameno,x,y);
                 output = FindBestPalettePair(r,g,b,
                     CurrentPalette);
                 pixel_cache.insert(i, std::make_pair(pix, output));
@@ -702,6 +803,7 @@ void TILE_Tracker::SaveFrame_Palette_Dither(
     gdImageDestroy(im);
 }
 
+template<bool TransformColors>
 void TILE_Tracker::SaveFrame_Palette_Dither_NES(
     const VecType<uint32>& screen,
     const std::string& Filename,
@@ -759,6 +861,8 @@ void TILE_Tracker::SaveFrame_Palette_Dither_NES(
                 pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
                 if(i == pixel_cache.end() || i->first != pix)
                 {
+                    if(TransformColors)
+                        TransformColor(r,g,b, frameno,x,y);
                     output = FindBestPalettePair(r,g,b,
                         CurrentPalette.GetSlice(mode*4, 4));
                     pixel_cache.insert(i, std::make_pair(pix, output));
@@ -854,6 +958,7 @@ void TILE_Tracker::SaveFrame_Palette_Dither_NES(
     gdImageDestroy(im);
 }
 
+template<bool TransformColors>
 void TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
     const VecType<uint32>& screen,
     const std::string& Filename,
@@ -906,6 +1011,8 @@ void TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
                 pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
                 if(i == pixel_cache.end() || i->first != pix)
                 {
+                    if(TransformColors)
+                        TransformColor(r,g,b, frameno,x,y);
                     output = FindBestPalettePair(r,g,b,
                         CurrentPalette);
                     pixel_cache.insert(i, std::make_pair(pix, output));

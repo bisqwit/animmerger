@@ -118,8 +118,9 @@ typedef std::vector<unsigned short> PalettePair;
 
 PalettePair FindBestPalettePair(int r,int g,int b, const Palette& Palette);
 
-typedef std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
-    HistogramType;
+struct HistogramType: public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
+{
+};
 
 void ReduceHistogram(HistogramType& Histogram);
 Palette MakePalette(const HistogramType& hist, unsigned MaxColors);

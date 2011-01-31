@@ -1040,25 +1040,9 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
         }
     }
 }
+
 PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
 {
-/*
-        rin=rin*0xAA/0xFF; // cga hack
-        gin=gin*0xAA/0xFF;
-        bin=bin*0xAA/0xFF;
-*/
-
-/*
-        int tmp_luma = rin*299 + gin*587 + bin*114;
-        rin=gin=bin= tmp_luma/1000;
-        #define g(x) \
-            if(x < 0x40) x = x*0x50/0x40; \
-            else if(x < 0xA0) x = 0x50+0x70*(x-0x40)/0x60; \
-            else              x = 0xC0+0x40*(x-0xA0)/0x60;
-        g(rin) g(gin) g(bin)
-        #undef g
-*/
-
     PalettePair result;
     const unsigned PaletteSize     = pal.Size();
     const unsigned NumCombinations = pal.NumCombinations();

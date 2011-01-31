@@ -60,32 +60,40 @@ public:
 
     void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
 
+    template<bool TransformColors>
     void SaveFrame_TrueColor(
         const VecType<uint32>& screen,
         const std::string& Filename,
-        unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
 
+    template<bool TransformColors>
     void SaveFrame_Palette_Auto(
         const VecType<uint32>& screen,
         const std::string& Filename,
-        unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
 
+    template<bool TransformColors>
     void SaveFrame_Palette_Dither(
         const VecType<uint32>& screen,
         const std::string& Filename,
         unsigned frameno, unsigned wid, unsigned hei);
 
+    template<bool TransformColors>
     void SaveFrame_Palette_Dither_CGA16(
         const VecType<uint32>& screen,
         const std::string& Filename,
         unsigned frameno, unsigned wid, unsigned hei);
 
+    template<bool TransformColors>
     void SaveFrame_Palette_Dither_NES(
         const VecType<uint32>& screen,
         const std::string& Filename,
         unsigned frameno, unsigned wid, unsigned hei);
 
     void CreatePalette(PixelMethod method, unsigned nframes);
+
+    template<bool TransformColors>
+    struct HistogramType CountColors(PixelMethod method, unsigned nframes);
 
     void Reset();
 
@@ -117,5 +125,10 @@ public:
 
     bool IsHeavyDithering(bool animated) const;
 };
+
+extern std::string transform_r;
+extern std::string transform_g;
+extern std::string transform_b;
+void SetColorTransformations();
 
 #endif
