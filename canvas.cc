@@ -592,44 +592,56 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     }
     if(was_identical) return;
 
+    ImgResult imgdata;
     if(Dithered)
     {
       #if NESmode
         if(UsingTransformations)
-          SaveFrame_Palette_Dither_NES<true>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither_NES<true>(screen, MakeGif, frameno, wid, hei);
         else
-          SaveFrame_Palette_Dither_NES<false>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither_NES<false>(screen, MakeGif, frameno, wid, hei);
       #elif CGA16mode
         if(UsingTransformations)
-          SaveFrame_Palette_Dither_CGA16<true>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither_CGA16<true>(screen, MakeGif, frameno, wid, hei);
         else
-          SaveFrame_Palette_Dither_CGA16<false>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither_CGA16<false>(screen, MakeGif, frameno, wid, hei);
       #else
         if(UsingTransformations)
-          SaveFrame_Palette_Dither<true>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither<true>(screen, MakeGif, frameno, wid, hei);
         else
-          SaveFrame_Palette_Dither<false>(screen, Filename, frameno, wid, hei);
+          imgdata = SaveFrame_Palette_Dither<false>(screen, MakeGif, frameno, wid, hei);
       #endif
     }
     else
     {
-        if(SaveGif == 1 || (SaveGif == -1 && animated))
+        if(MakeGif)
           if(UsingTransformations)
-            SaveFrame_Palette_Auto<true>(screen, Filename, frameno, wid, hei);
+            imgdata = SaveFrame_Palette_Auto<true>(screen, true, frameno, wid, hei);
           else
-            SaveFrame_Palette_Auto<false>(screen, Filename, frameno, wid, hei);
+            imgdata = SaveFrame_Palette_Auto<false>(screen, true, frameno, wid, hei);
         else
           if(UsingTransformations)
-            SaveFrame_TrueColor<true>(screen, Filename, frameno, wid, hei);
+            imgdata = SaveFrame_TrueColor<true>(screen, frameno, wid, hei);
           else
-            SaveFrame_TrueColor<false>(screen, Filename, frameno, wid, hei);
+            imgdata = SaveFrame_TrueColor<false>(screen, frameno, wid, hei);
+    }
+    if(imgdata.first)
+    {
+        FILE* fp = fopen(Filename, "wb");
+        if(!fp)
+            std::perror(Filename);
+        else
+        {
+            std::fwrite(imgdata.first, 1, imgdata.second, fp);
+            std::fclose(fp);
+        }
+        gdFree(imgdata.first);
     }
 }
 
 template<bool TransformColors>
-void TILE_Tracker::SaveFrame_TrueColor(
+TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_TrueColor(
     const VecType<uint32>& screen,
-    const std::string& Filename,
     unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
@@ -648,22 +660,16 @@ void TILE_Tracker::SaveFrame_TrueColor(
             gdImageSetPixel(im, x,y, pix);
         }
 
-    FILE* fp = std::fopen(Filename.c_str(), "wb");
-    if(!fp)
-        std::perror(Filename.c_str());
-    else
-    {
-        gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-    }
+    ImgResult result;
+    result.first = gdImagePngPtrEx(im, &result.second, 1);
     gdImageDestroy(im);
+    return result;
 }
 
 template<bool TransformColors>
-void TILE_Tracker::SaveFrame_Palette_Auto(
+TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Auto(
     const VecType<uint32>& screen,
-    const std::string& Filename,
-    unsigned frameno, unsigned wid, unsigned hei)
+    bool MakeGif, unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
     gdImageAlphaBlending(im, false);
@@ -681,28 +687,19 @@ void TILE_Tracker::SaveFrame_Palette_Auto(
             gdImageSetPixel(im, x,y, pix);
         }
 
-    FILE* fp = std::fopen(Filename.c_str(), "wb");
-    if(!fp)
-        std::perror(Filename.c_str());
-    else
-    {
-        if(Filename.size() >= 4 && Filename.substr(Filename.size()-4) == ".gif")
-        {
-            gdImageTrueColorToPalette(im, false, 256);
-            gdImageGif(im, fp);
-        }
-        else
-            gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-    }
+    ImgResult result;
+    if(MakeGif) gdImageTrueColorToPalette(im, false, 256);
+    result.first = MakeGif
+        ? gdImageGifPtr(im, &result.second)
+        : gdImagePngPtrEx(im, &result.second, 1);
     gdImageDestroy(im);
+    return result;
 }
 
 template<bool TransformColors>
-void TILE_Tracker::SaveFrame_Palette_Dither(
+TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
     const VecType<uint32>& screen,
-    const std::string& Filename,
-    unsigned frameno, unsigned wid, unsigned hei)
+    bool MakeGif, unsigned frameno, unsigned wid, unsigned hei)
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
@@ -781,33 +778,18 @@ void TILE_Tracker::SaveFrame_Palette_Dither(
         }
     }
 
-    FILE* fp = std::fopen(Filename.c_str(), "wb");
-    if(!fp)
-    {
-        std::perror(Filename.c_str());
-    }
-    else
-    {
-        if(Filename.size() >= 4 && Filename.substr(Filename.size()-4) == ".gif")
-        {
-            gdImageGif(im, fp);
-            /*int size;
-            char* buf = (char*) gdImageGifPtr(im, &size);
-            std::fwrite(buf, 1, size, fp);
-            gdFree(buf);*/
-        }
-        else
-            gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-    }
+    ImgResult result;
+    result.first = MakeGif
+        ? gdImageGifPtr(im, &result.second)
+        : gdImagePngPtrEx(im, &result.second, 1);
     gdImageDestroy(im);
+    return result;
 }
 
 template<bool TransformColors>
-void TILE_Tracker::SaveFrame_Palette_Dither_NES(
+TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_NES(
     const VecType<uint32>& screen,
-    const std::string& Filename,
-    unsigned frameno, unsigned wid, unsigned hei)
+    bool MakeGif, unsigned frameno, unsigned wid, unsigned hei)
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
@@ -942,27 +924,18 @@ void TILE_Tracker::SaveFrame_Palette_Dither_NES(
     for(unsigned a=0; a<4; ++a) gdImageDestroy(imtab[a]);
     im = im2;
 
-    FILE* fp = std::fopen(Filename.c_str(), "wb");
-    if(!fp)
-    {
-        std::perror(Filename.c_str());
-    }
-    else
-    {
-        if(Filename.size() >= 4 && Filename.substr(Filename.size()-4) == ".gif")
-            gdImageGif(im, fp);
-        else
-            gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-    }
+    ImgResult result;
+    result.first = MakeGif
+        ? gdImageGifPtr(im, &result.second)
+        : gdImagePngPtrEx(im, &result.second, 1);
     gdImageDestroy(im);
+    return result;
 }
 
 template<bool TransformColors>
-void TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
+TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
     const VecType<uint32>& screen,
-    const std::string& Filename,
-    unsigned frameno, unsigned wid, unsigned hei)
+    bool MakeGif, unsigned frameno, unsigned wid, unsigned hei)
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
@@ -1098,20 +1071,12 @@ void TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
     gdImageDestroy(im);
     im = im2;
 
-    FILE* fp = std::fopen(Filename.c_str(), "wb");
-    if(!fp)
-    {
-        std::perror(Filename.c_str());
-    }
-    else
-    {
-        if(Filename.size() >= 4 && Filename.substr(Filename.size()-4) == ".gif")
-            gdImageGif(im, fp);
-        else
-            gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-    }
+    ImgResult result;
+    result.first = MakeGif
+        ? gdImageGifPtr(im, &result.second)
+        : gdImagePngPtrEx(im, &result.second, 1);
     gdImageDestroy(im);
+    return result;
 }
 
 AlignResult TILE_Tracker::TryAlignWithHotspots

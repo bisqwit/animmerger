@@ -60,35 +60,32 @@ public:
 
     void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
 
+    typedef std::pair<void*,int> ImgResult;
+
     template<bool TransformColors>
-    void SaveFrame_TrueColor(
+    ImgResult SaveFrame_TrueColor(
         const VecType<uint32>& screen,
-        const std::string& Filename,
         unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors>
-    void SaveFrame_Palette_Auto(
+    ImgResult SaveFrame_Palette_Auto(
         const VecType<uint32>& screen,
-        const std::string& Filename,
-        unsigned frameno, unsigned wid, unsigned hei);
+        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors>
-    void SaveFrame_Palette_Dither(
+    ImgResult SaveFrame_Palette_Dither(
         const VecType<uint32>& screen,
-        const std::string& Filename,
-        unsigned frameno, unsigned wid, unsigned hei);
+        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors>
-    void SaveFrame_Palette_Dither_CGA16(
+    ImgResult SaveFrame_Palette_Dither_CGA16(
         const VecType<uint32>& screen,
-        const std::string& Filename,
-        unsigned frameno, unsigned wid, unsigned hei);
+        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors>
-    void SaveFrame_Palette_Dither_NES(
+    ImgResult SaveFrame_Palette_Dither_NES(
         const VecType<uint32>& screen,
-        const std::string& Filename,
-        unsigned frameno, unsigned wid, unsigned hei);
+        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
 
     void CreatePalette(PixelMethod method, unsigned nframes);
 
