@@ -621,6 +621,7 @@ namespace
 int main(int argc, char** argv)
 {
     VecType<AlphaRange> alpha_ranges;
+    std::string sub_expressions;
 
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
@@ -656,11 +657,12 @@ int main(int argc, char** argv)
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
             {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
             {"cie",        2,0,5005},
+            {"gamma",      1,0,'G'},
             {"transform",  1,0,6001},
             {0,            1,0,'D'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -747,10 +749,12 @@ Options:\n\
      that are pre-selected for combined candidates for dithering.\n\
      The value must be in range 0..3. Default value: 1. See details below.\n\
  --cie [=<type>]\n\
-     Select color comparison method, see details below\n\
+     Select color comparison method, see details below.\n\
+ --gamma [=<value>]\n\
+     Select gamma to use in dithering. Default: 1.0\n\
  --transform { r= | g= | b= }<function>\n\
      Transform red, green and blue color channel values according\n\
-     to the given mathematical function. See details below\n\
+     to the given mathematical function. See details below.\n\
 \n\
 animmerger will always output files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
@@ -942,7 +946,7 @@ COLOR TRANSFORMATION FUNCTION\n\
   Examples:\n\
     --transform 'r=g=b=(r*0.299+g*0.587+b*0.114)'\n\
         Renders grayscale rather than color.\n\
-    --transform 'r=0x80+(r/2)\n\
+    --transform 'r=0x80+(r/2)'\n\
         Makes image considerably redder.\n\
     --transform 'r=128+127*sin(frameno*.1+x/40+y/90)' \\\n\
     --transform 'g=128+127*cos(frameno*.1+x/40+y/90)' \\\n\
@@ -1374,16 +1378,31 @@ rate.\n\
                 }
                 if(!touch_r && !touch_g && !touch_b)
                 {
-                    std::fprintf(stderr,
-                        "animmerger: Invalid parameter to --transform: %s.", optarg);
+                    sub_expressions += arg;
                 }
                 if(touch_r) transform_r = arg;
                 if(touch_g) transform_g = arg;
                 if(touch_b) transform_b = arg;
                 break;
             }
+            case 'G': // gamma
+            {
+                char* arg = optarg;
+                double tmp = strtod(arg, 0);
+                DitherGamma = tmp;
+                if(tmp <= 0.0 || tmp > 50.0)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither gamma parameter: %g. Valid range: > 0\n", tmp);
+                    DitherGamma = 1.0;
+                }
+                break;
+            }
         }
     }
+
+    transform_r = sub_expressions + transform_r;
+    transform_g = sub_expressions + transform_g;
+    transform_b = sub_expressions + transform_b;
 
     SetColorTransformations();
 

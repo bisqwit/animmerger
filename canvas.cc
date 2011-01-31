@@ -27,6 +27,12 @@ std::string transform_r = "r";
 std::string transform_g = "g";
 std::string transform_b = "b";
 bool UsingTransformations = false;
+bool TransformationDependsOnX       = false;
+bool TransformationDependsOnY       = false;
+bool TransformationDependsOnFrameNo = false;
+bool TransformationGsameAsR = false;
+bool TransformationBsameAsR = false;
+bool TransformationBsameAsG = false;
 
 void SetColorTransformations()
 {
@@ -49,9 +55,30 @@ void SetColorTransformations()
     parser_r.Optimize();
     parser_g.Optimize();
     parser_b.Optimize();
+    TransformationDependsOnX       = false;
+    TransformationDependsOnY       = false;
+    TransformationDependsOnFrameNo = false;
+    TransformationGsameAsR = transform_g == transform_r;
+    TransformationBsameAsR = transform_b == transform_r;
+    TransformationBsameAsG = transform_b == transform_g;
     UsingTransformations = transform_r != "r"
                         || transform_g != "g"
                         || transform_b != "b";
+    if(UsingTransformations)
+    {
+        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,frameno,y") >= 0
+        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,frameno,y") >= 0
+        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,frameno,y") >= 0)
+            TransformationDependsOnX = true;
+        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,frameno,x") >= 0
+        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,frameno,x") >= 0
+        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,frameno,x") >= 0)
+            TransformationDependsOnY = true;
+        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,x,y") >= 0
+        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,x,y") >= 0
+        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,x,y") >= 0)
+            TransformationDependsOnFrameNo = true;
+    }
 }
 void TransformColor(int&r, int&g, int&b, unsigned frameno,unsigned x,unsigned y)
 {
@@ -60,7 +87,14 @@ void TransformColor(int&r, int&g, int&b, unsigned frameno,unsigned x,unsigned y)
         double(frameno), double(x), double(y)
     };
     r = parser_r.Eval(vars); if(r<0) r=0; else if(r>255) r=255;
-    g = parser_g.Eval(vars); if(g<0) g=0; else if(g>255) g=255;
+    if(TransformationGsameAsR)
+        g = r;
+    else
+    {
+        g = parser_g.Eval(vars); if(g<0) g=0; else if(g>255) g=255;
+        if(TransformationBsameAsR) { b = r; return; }
+    }
+    if(TransformationBsameAsG) { b = g; return; }
     b = parser_b.Eval(vars); if(b<0) b=0; else if(b>255) b=255;
 }
 void TransformColor(uint32& pix, unsigned frameno,unsigned x,unsigned y)
@@ -721,11 +755,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
     #pragma omp parallel for schedule(static,2)
     for(unsigned y=0; y<hei; ++y)
     {
+        typedef std::map<unsigned, pixel_cache_t, std::less<unsigned>, FSBAllocator<int> >
+            pixel_caches_t;
         #ifdef _OPENMP
-        static std::vector<pixel_cache_t> pixel_caches( omp_get_num_procs()*2 );
-        pixel_cache_t& pixel_cache = pixel_caches[omp_get_thread_num()];
+        static std::vector<pixel_caches_t> pixel_caches( omp_get_num_procs()*2 );
+        pixel_caches_t& pixel_cache = pixel_caches[omp_get_thread_num()];
         #else
-        static std::vector<pixel_cache_t> pixel_cache;
+        static pixel_caches_t pixel_cache;
         #endif
 
         for(unsigned p=y*wid, x=0; x<wid; ++x)
@@ -738,22 +774,25 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
             int b = (pix      )&0xFF;
             int a = (pix >> 24); if(a&0x80) a>>=1;
 
-            int color;
+            unsigned profile = 0, profilemax = 1;
+            if(TransformationDependsOnX)       {profile += x*profilemax; profilemax*=wid; }
+            if(TransformationDependsOnY)       {profile += y*profilemax; profilemax*=hei; }
+            if(TransformationDependsOnFrameNo) {profile += frameno*profilemax; }
 
             // Find two closest entries from palette and use o8x8 dithering
+            pixel_cache_t& cachepos = pixel_cache[profile];
             PalettePair output;
-            pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
-            if(i == pixel_cache.end() || i->first != pix)
+            pixel_cache_t::iterator i = cachepos.lower_bound(pix);
+            if(i == cachepos.end() || i->first != pix)
             {
                 if(TransformColors)
                     TransformColor(r,g,b, frameno,x,y);
                 output = FindBestPalettePair(r,g,b,
                     CurrentPalette);
-                pixel_cache.insert(i, std::make_pair(pix, output));
+                cachepos.insert(i, std::make_pair(pix, output));
             }
             else
                 output = i->second;
-
 
             unsigned pattern_value =
                 DitheringMatrix
@@ -772,7 +811,7 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
                 else
                     pattern_value = pattern_value * TemporalDitherSize + temp_pos;
             }
-            color = output[ pattern_value * output.size() / max_pattern_value ];
+            int color = output[ pattern_value * output.size() / max_pattern_value ];
             if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
             gdImageSetPixel(im, x,y, color);
         }
@@ -820,11 +859,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_NES(
         #pragma omp parallel for schedule(static,2)
         for(unsigned y=0; y<hei; ++y)
         {
+            typedef std::map<unsigned, pixel_cache_t, std::less<unsigned>, FSBAllocator<int> >
+                pixel_caches_t;
             #ifdef _OPENMP
-            static std::vector<pixel_cache_t> pixel_caches( omp_get_num_procs()*2 );
-            pixel_cache_t& pixel_cache = pixel_caches[omp_get_thread_num()];
+            static std::vector<pixel_caches_t> pixel_caches( omp_get_num_procs()*2 );
+            pixel_caches_t& pixel_cache = pixel_caches[omp_get_thread_num()];
             #else
-            static std::vector<pixel_cache_t> pixel_cache;
+            static pixel_caches_t pixel_cache;
             #endif
 
             for(unsigned p=y*wid, x=0; x<wid; ++x)
@@ -838,16 +879,24 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_NES(
                 int b = (pix      )&0xFF;
                 pix = (pix & 0xFFFFFF) | (mode << 24);
 
+                unsigned profile = 0, profilemax = 1;
+                if(TransformationDependsOnX)       {profile += x*profilemax; profilemax*=wid; }
+                if(TransformationDependsOnY)       {profile += y*profilemax; profilemax*=hei; }
+                if(TransformationDependsOnFrameNo) {profile += frameno*profilemax; }
+
+                // Find two closest entries from palette and use o8x8 dithering
+                pixel_cache_t& cachepos = pixel_cache[profile];
+
                 // Find two closest entries from palette and use o8x8 dithering
                 PalettePair output;
-                pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
-                if(i == pixel_cache.end() || i->first != pix)
+                pixel_cache_t::iterator i = cachepos.lower_bound(pix);
+                if(i == cachepos.end() || i->first != pix)
                 {
                     if(TransformColors)
                         TransformColor(r,g,b, frameno,x,y);
                     output = FindBestPalettePair(r,g,b,
                         CurrentPalette.GetSlice(mode*4, 4));
-                    pixel_cache.insert(i, std::make_pair(pix, output));
+                    cachepos.insert(i, std::make_pair(pix, output));
                 }
                 else
                     output = i->second;
@@ -958,11 +1007,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
     #pragma omp parallel for schedule(static,2)
     for(unsigned y=0; y<hei; ++y)
     {
+        typedef std::map<unsigned, pixel_cache_t, std::less<unsigned>, FSBAllocator<int> >
+            pixel_caches_t;
         #ifdef _OPENMP
-        static std::vector<pixel_cache_t> pixel_caches( omp_get_num_procs()*2 );
-        pixel_cache_t& pixel_cache = pixel_caches[omp_get_thread_num()];
+        static std::vector<pixel_caches_t> pixel_caches( omp_get_num_procs()*2 );
+        pixel_caches_t& pixel_cache = pixel_caches[omp_get_thread_num()];
         #else
-        static std::vector<pixel_cache_t> pixel_cache;
+        static pixel_caches_t pixel_cache;
         #endif
 
         for(unsigned p=y*wid, x=0; x<wid; ++x)
@@ -976,43 +1027,47 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
             int b = (pix      )&0xFF;
             int a = (pix >> 24); if(a&0x80) a>>=1;
 
-            int color = gdImageColorExactAlpha(im, r,g,b,a);
-            if(color == -1)
+            unsigned profile = 0, profilemax = 1;
+            if(TransformationDependsOnX)       {profile += x*profilemax; profilemax*=wid; }
+            if(TransformationDependsOnY)       {profile += y*profilemax; profilemax*=hei; }
+            if(TransformationDependsOnFrameNo) {profile += frameno*profilemax; }
+
+            // Find two closest entries from palette and use o8x8 dithering
+            pixel_cache_t& cachepos = pixel_cache[profile];
+
+            // Find two closest entries from palette and use o8x8 dithering
+            PalettePair output;
+            pixel_cache_t::iterator i = cachepos.lower_bound(pix);
+            if(i == cachepos.end() || i->first != pix)
             {
-                // Find two closest entries from palette and use o8x8 dithering
-                PalettePair output;
-                pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
-                if(i == pixel_cache.end() || i->first != pix)
-                {
-                    if(TransformColors)
-                        TransformColor(r,g,b, frameno,x,y);
-                    output = FindBestPalettePair(r,g,b,
-                        CurrentPalette);
-                    pixel_cache.insert(i, std::make_pair(pix, output));
-                }
-                else
-                    output = i->second;
-
-
-                unsigned pattern_value =
-                    DitheringMatrix
-                        [ ((y%DitherMatrixHeight)*DitherMatrixWidth
-                         + (x%DitherMatrixWidth)
-                           )// % (DitherMatrixHeight*DitherMatrixWidth)
-                        ];
-
-                unsigned skew = x-y+x/3-y/3;
-                unsigned temp_pos = TemporalMatrix[ (frameno+skew) % TemporalDitherSize ];
-
-                if(TemporalDitherSize > 1)
-                {
-                    if(TemporalDitherMSB)
-                        pattern_value = pattern_value + (DitherMatrixWidth*DitherMatrixHeight)*temp_pos;
-                    else
-                        pattern_value = pattern_value * TemporalDitherSize + temp_pos;
-                }
-                color = output[ pattern_value * output.size() / max_pattern_value ];
+                if(TransformColors)
+                    TransformColor(r,g,b, frameno,x,y);
+                output = FindBestPalettePair(r,g,b,
+                    CurrentPalette);
+                cachepos.insert(i, std::make_pair(pix, output));
             }
+            else
+                output = i->second;
+
+            unsigned pattern_value =
+                DitheringMatrix
+                    [ ((y%DitherMatrixHeight)*DitherMatrixWidth
+                     + (x%DitherMatrixWidth)
+                       )// % (DitherMatrixHeight*DitherMatrixWidth)
+                    ];
+
+            unsigned skew = x-y+x/3-y/3;
+            unsigned temp_pos = TemporalMatrix[ (frameno+skew) % TemporalDitherSize ];
+
+            if(TemporalDitherSize > 1)
+            {
+                if(TemporalDitherMSB)
+                    pattern_value = pattern_value + (DitherMatrixWidth*DitherMatrixHeight)*temp_pos;
+                else
+                    pattern_value = pattern_value * TemporalDitherSize + temp_pos;
+            }
+            int color = output[ pattern_value * output.size() / max_pattern_value ];
+
             if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
             if(color >= 10) color += 1; // pattern 1010 was skipped over
             gdImageSetPixel(im, x,y, color);

@@ -498,7 +498,7 @@ These images were produced with this commandline:<br>
 # for method in censor hole interpolate extrapolate; do<br>
 # &nbsp; rm *-*.gif *-*.png<br>
 # &nbsp; ./animmerger -r4,4 --mvrange 0,0,4,0 --bgmethod0=first --bgmethod1=last \\<br>
-# &nbsp;     -u\$method -p* pano3/*.png \\<br>
+# &nbsp;     -u\$method -p* snaps/*.png \\<br>
 # &nbsp;     -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
 # &nbsp;     -m3,128,250,72  -m0,73,256,2<br>
 # &nbsp; gifsicle -O2 -o demo/mask-\$method.gif -l0 -d3 ChangeLog-*.gif<br>
@@ -877,7 +877,12 @@ Overdoing it, however, will result in a lot of overly sharp local contrast,
 which looks mostly bad. Animation is shown in the last frame for the sake
 of demonstration, because it improves the spatial color resolution.
 
-", 'dither_compare:1.1. Color compare methods' =>  "
+", 'dither_compare:1. Color compare methods' =>  "
+
+In dithering, a color compare algorithm is used. The same algorithm
+is also used in the diversity and blend-diversity quantization options.
+Animmerger supports a few different algorithms for comparing colors.
+<p>
 
 Here are two example truecolor* pictures, and the
 <a href=\"http://en.wikipedia.org/wiki/Web_colors\">web-safe palette</a>.<br>
@@ -906,13 +911,13 @@ Produced with commandline:<br>
 # &nbsp; # Render the chroma&amp;luma test image without dithering:<br>
 # &nbsp; animmerger deltae_base.png -Qdeltae_pal.png -vv \\<br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-        --dm=1x1 --dc=1 --dr=0 --cie=\$e<br>
-# &nbsp; mv tile-0000.png demo/deltae_cie_\$e.png<br>
+        --dm=1x1 --dc=1 --dr=0 --cie=\$e --gamma 2.0<br>
+# &nbsp; mv tile-0000.png demo/deltae_\$e.png<br>
 #<br>
 # &nbsp; # Create four-frame temporal-dithered animation of the testcard:<br>
 # &nbsp; animmerger tksmall{,,,}.png --noalign -Qdeltae_pal.png -vv \\<br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-        --dm 1x1,-4 --dc 4 --dr 1.4 --cie=\$e -pc --gif<br>
+        --dm 1x1,-4 --dc 4 --dr 1.4 --cie=\$e -pc --gif --gamma 2.0<br>
 # &nbsp; gifsicle -O2 -o demo/tk-\$e.gif -l0 -d4 tile-000[0-3].gif<br>
 #<br>
 # &nbsp; # Create an average of those four frames:<br>
@@ -925,7 +930,7 @@ I found 24-bit RGB inadequate for this picture in preventing
 hard edges in smooth gradients, so I dithered it for this webpage.
 The input to these tests was undithered.
 
-", 'cie_rgb:1.1.1. RGB' => "
+", 'cie_rgb:1.1. RGB' => "
 
 Three pictures are shown:
 The two testcases rendered with this color filter, and the third
@@ -957,10 +962,10 @@ Same goes for the lightgrey squares right above it,
 and likely many other details.
 <br clear=all>
 
-", 'cie_cie76:1.1.1. CIE76' => "
+", 'cie_cie76:1.1. CIE76' => "
 
 <img width=256 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cie763.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cie76.png\"
      alt=\"Colors compared in CIE76\" align=left> 
 <img width=400 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-cie76.gif\"
@@ -981,10 +986,10 @@ easy to notice it, is it?
 
 <br clear=all>
 
-", 'cie_cie94:1.1.1. CIE94' => "
+", 'cie_cie94:1.1. CIE94' => "
 
 <img width=256 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cie941.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cie94.png\"
      alt=\"Colors compared in CIE94\" align=left> 
 <img width=400 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-cie94.gif\"
@@ -1009,10 +1014,10 @@ suspiciously bright tone here.
 
 <br clear=all>
 
-", 'cie_ciede2000:1.1.1. CIEDE2000' => "
+", 'cie_ciede2000:1.1. CIEDE2000' => "
 
 <img width=256 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_ciede20001.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_ciede2000.png\"
      alt=\"Colors compared in CIEDE2000\" align=left>
 <img width=400 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-ciede2000.gif\"
@@ -1029,10 +1034,10 @@ look greenish here. (In that specific part, RGB did almost perfectly.)
 
 <br clear=all>
 
-", 'cie_cmc:1.1.1. CMC l:c' => "
+", 'cie_cmc:1.1. CMC l:c' => "
 
 <img width=256 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cmc1.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_cmc.png\"
      alt=\"Colors compared in CMC\" align=left>
 <img width=400 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-cmc.gif\"
@@ -1053,10 +1058,10 @@ effect.
 
 <br clear=all>
 
-", 'cie_bfd:1.1.1. BFD l:c' => "
+", 'cie_bfd:1.1. BFD l:c' => "
 
 <img width=256 height=224
-     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_bfd1.png\"
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/deltae_bfd.png\"
      alt=\"Colors compared in BFD\" align=left>
 <img width=400 height=224
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-bfd.gif\"
@@ -1069,7 +1074,7 @@ CIE L*a*b* based extremely complicated formula called BFD l:c, with l=1.5 and c=
 
 <br clear=all>
 
-", 'cie_illuminants:1.1.1. Illuminants' => "
+", 'cie_illuminants:1.1. Illuminants' => "
 
 RGB to LAB conversions are subject to a lot of perception based science.
 A concept of \"illuminant matrix\" plays a significant role here.
@@ -1101,16 +1106,40 @@ Animmerger converts a RGB value into
 CIE&nbsp;L*a*b* and CIE&nbsp;L*C*h*
 using the following formula:
 <code>
-<br> X = (i0 × r + i3 × g + i6 × b) ÷ 255 ÷ (i0+i1+i2)
-<br> Y = (i1 × r + i4 × g + i7 × b) ÷ 255 ÷ (i3+i4+i5)
-<br> Z = (i2 × r + i5 × g + i8 × b) ÷ 255 ÷ (i6+i7+i8)
-<br> f(v) = v &le; (216÷24389) ? (v × 841 ÷ 108) + (16÷116) :  v<sup>1÷3</sup>
-<br> L = 116 × f(Y) - 16
+<br> X = (i0 × R + i3 × G + i6 × B) ÷ 255 ÷ (i0+i1+i2)
+<br> Y = (i1 × G + i4 × G + i7 × B) ÷ 255 ÷ (i3+i4+i5)
+<br> Z = (i2 × B + i5 × G + i8 × B) ÷ 255 ÷ (i6+i7+i8)
+<br> f(v) = v &le; 6<sup>3</sup>29<sup>&minus;3</sup> ? 4÷29 + v × 29<sup>2</sup>6<sup>&minus;2</sup>3<sup>&minus;1</sup> :  v<sup>1÷3</sup>
+<br> L = 4×29 × f(Y) - 4<sup>2</sup>
 <br> a = 500 × (f(X) - f(Y))
 <br> b = 200 × (f(Y) - f(Z))
 <br> C = √(a² + b²)
 <br> h = atan2(b, a)</code><br>
 Where i0&hellip;i8 are the values from the illuminant matrix.
+
+", 'transformation:1. Transformation' => "
+
+Mathematical transformations can be applied to individual pixels
+of the resulting image, using the <code>--transform</code> option.
+ <p>
+In this example, the overall color tone of the image was changed
+and a lens flare effect was added:<br>
+<img width=724 height=224
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/trans.gif\"
+     alt=\"Transformed with a flare effect\"><br>
+<p>
+Produced with:<br>
+<code>
+# ./animmerger --gif snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; -pv -l25 --cie -Qd,64 -Qd,32 --dr 0 --dc 16 \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"luma:=r*.299+g*.587+b*.114; pi:=atan2(0,-1);px:=238;py:=135;\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"xy:=(abs(x-px)*abs(y-py)/200^2);\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"rad:=hypot(x-px,y-py)^1.2;\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"v:=luma+(300-min(300,rad))+(200-min(300,(xy+1e-6)^0.6*7e3));\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform r=\"r*v/(255*0.299*2.2)\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform g=\"g*pow(v,1.2)/(255*0.587*3.1)\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform b=\"b*v/(255*0.114*1.7)+50*(1.35+cos(1+(y+x*.2)*pi/100))\" -vv<br>
+# gifsicle -O2 -o demo/trans.gif -d3 -l0 tile-????.gif</code>
 
 ", 'caveats:1. Caveats' => "
 

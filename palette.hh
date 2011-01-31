@@ -34,6 +34,7 @@ extern unsigned TemporalDitherSize; // 1 = no temporal dithering
 extern bool     TemporalDitherMSB;  // Use MSB rather than LSB for temporal dithering
 extern unsigned DitherColorListSize;
 extern double   DitherCombinationContrast;
+extern double   DitherGamma;
 extern enum ColorCompareMethod
 {
     Compare_RGB,
@@ -82,6 +83,7 @@ struct Palette
     const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination.meta; }
 
     Palette GetSlice(unsigned offset, unsigned count) const;
+    void AddPaletteRGB(uint32 p);
 public:
     struct DataItem
     {
@@ -94,7 +96,12 @@ public:
         void SplitRGB(unsigned& r, unsigned& g, unsigned& b) const
             { r = (rgb >> 16); g = (rgb >> 8) & 0xFF; b = rgb & 0xFF; }
     };
-    std::vector<DataItem> Data;
+    struct PaletteItem: public DataItem
+    {
+        PaletteItem() : DataItem() {}
+        PaletteItem(uint32 v) : DataItem(v) { }
+    };
+    std::vector<PaletteItem> Data;
     struct Combination
     {
         unsigned indexcount;

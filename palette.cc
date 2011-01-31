@@ -19,6 +19,7 @@ unsigned TemporalDitherSize = 1; // 1 = no temporal dithering
 bool     TemporalDitherMSB  = false;  // Use MSB rather than LSB for temporal dithering
 unsigned DitherColorListSize = 0;
 double   DitherCombinationContrast = -1.0;
+double   DitherGamma         = 1.0;
 ColorCompareMethod UseCIE = Compare_RGB;
 
 namespace
@@ -123,16 +124,19 @@ namespace
     struct DiversityInfo
     {
         // Smallest distance from all so-far chosen colors
-        unsigned min_dist;
+        //unsigned min_dist;
+        double min_dist;
         // Which color index (of so-far chosen colors) is most similar to this
         unsigned closest;
         // Color and use count
         unsigned count;
         uint32   color;
+        LabAndLuma meta;
 
         DiversityInfo(const HistItem& i)
-            : min_dist(~0u), closest(~0u),
-              count(i.second), color(i.first) { }
+            : min_dist(1e99), closest(~0u),
+              count(i.second), color(i.first),
+              meta(i.first) { }
 
         // Comparator for sorting by popularity
         bool operator< (const DiversityInfo& b) const
@@ -174,7 +178,7 @@ namespace
             {
                 /* 2.1b. Choose the color that is most different
                  *       to any color chosen so far */
-                unsigned chosen_dist = 0;
+                double chosen_dist = 0;
                 chosen = colors_originally;
                 for(unsigned i=0; i<colors_originally; ++i)
                     if(Lore[i].min_dist > chosen_dist)
@@ -185,13 +189,20 @@ namespace
             Lore[chosen].min_dist = 0;
             Lore[chosen].closest  = nadapt; // Closest to it is itself.
             uint32 chosencolor = Lore[chosen].color;
+            int cr=(chosencolor>>16)&0xFF, cg=(chosencolor>>8)&0xFF, cb=chosencolor&0xFF;
+            LabAndLuma chosen_meta(cr,cg,cb);
             /* 2.3. Adjust the distances for remaining colors */
             for(unsigned i=0; i<colors_originally; ++i)
                 if(Lore[i].min_dist != 0)
                 {
                     // If the distance to the newest addition is shorter
                     // than the previous one, mark it as the closest one.
-                    unsigned dist = ColorDiff(chosencolor, Lore[i].color);
+                    //unsigned dist = ColorDiff(chosencolor, Lore[i].color);
+                    double dist = ColorCompare(cr,cg,cb,chosen_meta,
+                        (Lore[i].color >> 16)&0xFF,
+                        (Lore[i].color >> 8)&0xFF,
+                        (Lore[i].color >> 0)&0xFF,
+                        Lore[i].meta);
                     if(dist < Lore[i].min_dist)
                     {
                         Lore[i].min_dist = dist;
@@ -209,7 +220,7 @@ namespace
                     if(Lore[j].closest == i)
                     {
                         chosen.second += Lore[j].count;
-                        if(Lore[j].min_dist == 0)
+                        if(Lore[j].min_dist == 0.0)
                             chosen.first = Lore[j].color;
                     }
                 Histogram.insert(chosen);
@@ -234,7 +245,7 @@ namespace
                     {
                         total.set_n( Lore[j].color, Lore[j].count );
                         count_total += Lore[j].count;
-                        if(Lore[j].min_dist == 0)
+                        if(Lore[j].min_dist == 0.0)
                         {
                             chosen.first = Lore[j].color;
                             chosen.second = Lore[j].count;
@@ -1041,20 +1052,36 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
     }
 }
 
+static inline double GammaCorrect(double x)
+{
+    return std::pow(x, DitherGamma);
+}
+static inline double GammaUncorrect(double x)
+{
+    return std::pow(x, 1.0 / DitherGamma);
+}
+
 PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
 {
     PalettePair result;
     const unsigned PaletteSize     = pal.Size();
     const unsigned NumCombinations = pal.NumCombinations();
-    const double X = DitherErrorFactor; // Error multiplication value
-    int rer=0, ger=0, ber=0;
+
+    const double X = DitherErrorFactor * 255.0; // Error multiplication value
 
     size_t GenerationLimit = DitherColorListSize;
     assert(GenerationLimit > 0);
 
+    double rin_gamma = GammaCorrect(rin/255.0);
+    double gin_gamma = GammaCorrect(gin/255.0);
+    double bin_gamma = GammaCorrect(bin/255.0);
+    double rer=0, ger=0, ber=0;
+
     while(result.size() < GenerationLimit)
     {
-        int ter = rin + rer*X, teg = gin + ger*X, teb = bin + ber*X;
+        int ter = rin + rer*X;
+        int teg = gin + ger*X;
+        int teb = bin + ber*X;
 
         if(ter<0) ter=0; else if(ter>255)ter=255;
         if(teg<0) teg=0; else if(teg>255)teg=255;
@@ -1090,21 +1117,26 @@ PalettePair FindBestPalettePair(int rin,int gin,int bin, const Palette& pal)
                 { least_penalty = penalty; chosen = i; chosen_comb = true; }
         }
 
-        unsigned r,g,b;
         if(!chosen_comb)
         {
             result.push_back(chosen);
+            unsigned r,g,b;
             pal.Data[chosen].SplitRGB(r,g,b);
+            rer += (rin_gamma - (r/255.0));
+            ger += (gin_gamma - (g/255.0));
+            ber += (bin_gamma - (b/255.0));
         }
         else
         {
+            // Combinations are already gamma-corrected.
             for(unsigned i=0; i<pal.Combinations[chosen].indexcount; ++i)
                 result.push_back( pal.Combinations[chosen].indexlist[i] );
+            unsigned r,g,b;
             pal.Combinations[chosen].combination.SplitRGB(r,g,b);
+            rer += (rin_gamma - (r/255.0));
+            ger += (gin_gamma - (g/255.0));
+            ber += (bin_gamma - (b/255.0));
         }
-        rer += rin-r;
-        ger += gin-g;
-        ber += bin-b;
     }
     std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
     return result;
@@ -1179,7 +1211,7 @@ Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
         Palette result;
         result.Data.reserve(MaxColors);
         for(unsigned n=0; n<MaxColors; ++n)
-            result.Data.push_back( VecHistogram[n].first );
+            result.AddPaletteRGB( VecHistogram[n].first );
         result.Analyze();
         return result;
     }
@@ -1191,7 +1223,7 @@ Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
         ++i)
     {
         if(result.Size() >= MaxColors) break;
-        result.Data.push_back( i->first );;
+        result.AddPaletteRGB( i->first );
     }
     result.Analyze();
     return result;
@@ -1225,10 +1257,13 @@ template<typename T>
 static XYZitem RGBtoXYZ(T r,T g,T b)
 {
     const double* illum = GetIlluminant();
+    double R = (r / 255.0);
+    double G = (g / 255.0);
+    double B = (b / 255.0);
     XYZitem result = {
-      ((illum[0])*r + (illum[3])*g + (illum[6])*b) / 255.0,
-      ((illum[1])*r + (illum[4])*g + (illum[7])*b) / 255.0,
-      ((illum[2])*r + (illum[5])*g + (illum[8])*b) / 255.0 };
+      ((illum[0])*R + (illum[3])*G + (illum[6])*B),
+      ((illum[1])*R + (illum[4])*G + (illum[7])*B),
+      ((illum[2])*R + (illum[5])*G + (illum[8])*B) };
     return result;
 }
 LabItem XYZtoLAB(const XYZitem& xyz)
@@ -1314,12 +1349,20 @@ void Palette::Analyze()
             luma_threshold);
     }
 
+    /*#define gtmp double
+    #define ga1(x) GammaCorrect((x)/255.0)*/
+
     // Create some combinations
     for(unsigned a=0; a+1<PaletteSize; ++a)
     {
         const unsigned index1 = luma_order[a];
         const unsigned pix1 = Data[index1].rgb;
-        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
+        const int r1 = ( (pix1 >> 16) & 0xFF );
+        const int g1 = ( (pix1 >> 8) & 0xFF );
+        const int b1 = ( (pix1) & 0xFF );/*
+        const gtmp r1g = ga1(r1);
+        const gtmp g1g = ga1(g1);
+        const gtmp b1g = ga1(b1);*/
 
         for(unsigned b=a+1; b<PaletteSize; ++b)
         {
@@ -1329,11 +1372,16 @@ void Palette::Analyze()
                 break;
 
             const unsigned pix2 = Data[index2].rgb;
-            int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;
+            const int r2 = ( (pix2 >> 16) & 0xFF );
+            const int g2 = ( (pix2 >> 8) & 0xFF );
+            const int b2 = ( (pix2) & 0xFF );/*
+            const gtmp r2g = ga1(r2);
+            const gtmp g2g = ga1(g2);
+            const gtmp b2g = ga1(b2);*/
 
             int combined_r = (r1 + r2) / 2;
             int combined_g = (g1 + g2) / 2;
-            int combined_b = (b1 + b2) / 2;
+            int combined_b = (b1 + g2) / 2;
 
             if(verbose >= 3)
                 printf("Combination: %06X + %06X%*s(luma diff %ld) = %02X%02X%02X\n",
@@ -1343,7 +1391,11 @@ void Palette::Analyze()
                     combined_r,combined_g,combined_b);
 
             Combination comb( index1,index2,
-                (combined_r<<16)+(combined_g<<8)+combined_b );
+                (combined_r<<16)+(combined_g<<8)+combined_b/*,
+                ( (r1g+r2g)/2 ),
+                ( (g1g+g2g)/2 ),
+                ( (b1g+b2g)/2 )*/
+                            );
             Combinations.push_back(comb);
 
             for(unsigned c=b+1; c<PaletteSize; ++c)
@@ -1354,11 +1406,16 @@ void Palette::Analyze()
                     break;
 
                 const unsigned pix3 = Data[index3].rgb;
-                int r3 = (pix3 >> 16) & 0xFF, g3 = (pix3 >> 8) & 0xFF, b3 = (pix3) & 0xFF;
+                const int r3 = ( (pix3 >> 16) & 0xFF );
+                const int g3 = ( (pix3 >> 8) & 0xFF );
+                const int b3 = ( (pix3) & 0xFF );/*
+                const gtmp r3g = ga1(r3);
+                const gtmp g3g = ga1(g3);
+                const gtmp b3g = ga1(b3);*/
 
-                int combined_r = (r1 + r2 + r3) / 3;
-                int combined_g = (g1 + g2 + g3) / 3;
-                int combined_b = (b1 + b2 + b3) / 3;
+                int combined_r = ( (r1 + r2 + r3) / 3 );
+                int combined_g = ( (g1 + g2 + g3) / 3 );
+                int combined_b = ( (b1 + b2 + b3) / 3 );
 
                 if(verbose >= 3)
                     printf("Combination: %06X + %06X + %06X%*s(luma diff %ld) = %02X%02X%02X\n",
@@ -1370,7 +1427,11 @@ void Palette::Analyze()
                         combined_r,combined_g,combined_b);
 
                 Combination comb( index1,index2,index3,
-                    (combined_r<<16)+(combined_g<<8)+combined_b );
+                    (combined_r<<16)+(combined_g<<8)+combined_b/*,
+                    ( (r1g+r2g+r3g)/3 ),
+                    ( (g1g+g2g+g3g)/3 ),
+                    ( (b1g+b2g+b3g)/3 )*/
+                                );
                 Combinations.push_back(comb);
 
                 for(unsigned d=c+1; d<PaletteSize; ++d)
@@ -1381,11 +1442,16 @@ void Palette::Analyze()
                         break;
 
                     const unsigned pix4 = Data[index4].rgb;
-                    int r4 = (pix4 >> 16) & 0xFF, g4 = (pix4 >> 8) & 0xFF, b4 = (pix4) & 0xFF;
+                    const int r4 = ( (pix4 >> 16) & 0xFF );
+                    const int g4 = ( (pix4 >> 8) & 0xFF );
+                    const int b4 = ( (pix4) & 0xFF );/*
+                    const gtmp r4g = ga1(r4);
+                    const gtmp g4g = ga1(g4);
+                    const gtmp b4g = ga1(b4);*/
 
-                    int combined_r = (r1 + r2 + r3 + r4) / 4;
-                    int combined_g = (g1 + g2 + g3 + g4) / 4;
-                    int combined_b = (b1 + b2 + b3 + b4) / 4;
+                    int combined_r = ( (r1 + r2 + r3 + r4) / 4 );
+                    int combined_g = ( (g1 + g2 + g3 + g4) / 4 );
+                    int combined_b = ( (b1 + b2 + b3 + b4) / 4 );
 
                     if(verbose >= 3)
                         printf("Combination: %06X + %06X + %06X + %06X (luma diff %ld) = %02X%02X%02X\n",
@@ -1397,11 +1463,20 @@ void Palette::Analyze()
                             combined_r,combined_g,combined_b);
 
                     Combination comb( index1,index2,index3,index4,
-                        (combined_r<<16)+(combined_g<<8)+combined_b );
+                        (combined_r<<16)+(combined_g<<8)+combined_b/*,
+                        ( (r1g+r2g+r3g+r4g)/4 ),
+                        ( (g1g+g2g+g3g+g4g)/4 ),
+                        ( (b1g+b2g+b3g+b4g)/4 )*/
+                                    );
                     Combinations.push_back(comb);
         }   }   }
     }
-    if(!Combinations.empty() && verbose >= 2)
+
+    #undef g2
+    #undef g1
+    #undef gtmp
+
+    if(verbose >= 2)
     {
         printf("Total palette-color combinations chosen for dithering candidates: %u\n",
             (unsigned) Combinations.size());
@@ -1425,10 +1500,21 @@ void Palette::SetHardcoded(unsigned n, ...)
     while(n--)
     {
         uint32 val = va_arg(ap, unsigned);
-        Data.push_back( val );
+        AddPaletteRGB(val);
     }
     va_end(ap);
     Analyze();
+}
+
+void Palette::AddPaletteRGB(uint32 val)
+{
+    PaletteItem item( val );
+    unsigned r,g,b;
+    item.SplitRGB(r,g,b);/*
+    item.rg = GammaCorrect(r / 255.0 );
+    item.gg = GammaCorrect(g / 255.0 );
+    item.bg = GammaCorrect(b / 255.0 );*/
+    Data.push_back(item);
 }
 
 Palette Palette::GetSlice(unsigned begin, unsigned count) const
