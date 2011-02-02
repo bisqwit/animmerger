@@ -44,6 +44,12 @@ extern enum ColorCompareMethod
     Compare_BFD_lc,
     Compare_CIEDE2000_DeltaE
 } UseCIE;
+extern enum DitheringMethod
+{
+    Dither_KnollYliluoma,
+    Dither_Yliluoma2,
+    Dither_Yliluoma3
+} Dithering;
 
 struct XYZitem { double X,Y,Z;      };
 struct LabItem { double L,a,b, C,h; };
@@ -55,12 +61,8 @@ struct LabAndLuma
     unsigned luma;
 
     LabAndLuma() {}
-    LabAndLuma(uint32 rgb) :
-        lab(RGBtoLAB( (rgb>>16)&0xFF, (rgb>>8)&0xFF, (rgb&0xFF) )),
-        luma( ((rgb>>16)&0xFF)*299u + ((rgb>>8)&0xFF)*587u + (rgb&0xFF)*114u ) {}
-    LabAndLuma(int r,int g,int b) :
-        lab(RGBtoLAB(r,g,b)),
-        luma( r*299 + g*587 + b*114) {}
+    LabAndLuma(uint32 rgb);
+    LabAndLuma(int r,int g,int b);
 };
 
 struct Palette
@@ -87,18 +89,17 @@ struct Palette
 public:
     struct DataItem
     {
-        uint32      rgb;
+        uint32      rgb;   // The rgb to be saved to a file, and input to LAB
         LabAndLuma  meta;
+        double      r,g,b; // Gamma corrected 
 
-        DataItem() : rgb(0),meta()  { }
-        DataItem(uint32 v) : rgb(v), meta(v) { }
-
-        void SplitRGB(unsigned& r, unsigned& g, unsigned& b) const
-            { r = (rgb >> 16); g = (rgb >> 8) & 0xFF; b = rgb & 0xFF; }
+        DataItem() : rgb(0), meta(), r(0),g(0),b(0) { }
+        DataItem(uint32 v);
+        DataItem(uint32 v, double R,double G,double B);
     };
     struct PaletteItem: public DataItem
     {
-        PaletteItem() : DataItem() {}
+        PaletteItem()         : DataItem()  {}
         PaletteItem(uint32 v) : DataItem(v) { }
     };
     std::vector<PaletteItem> Data;
@@ -117,13 +118,23 @@ public:
         Combination(unsigned i0,unsigned i1,unsigned i2,unsigned i3, uint32 v)
             : indexcount(4), combination(v)
             { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; indexlist[3] = i3; }
+        ////
+        Combination(unsigned i0,unsigned i1,                         uint32 v, double r,double g,double b)
+            : indexcount(2), combination(v, r,g,b)
+            { indexlist[0] = i0; indexlist[1] = i1; }
+        Combination(unsigned i0,unsigned i1,unsigned i2,             uint32 v, double r,double g,double b)
+            : indexcount(3), combination(v, r,g,b)
+            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; }
+        Combination(unsigned i0,unsigned i1,unsigned i2,unsigned i3, uint32 v, double r,double g,double b)
+            : indexcount(4), combination(v, r,g,b)
+            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; indexlist[3] = i3; }
     };
     std::vector<Combination> Combinations;
 };
 
-typedef std::vector<unsigned short> PalettePair;
+typedef std::vector<unsigned short> MixingPlan;
 
-PalettePair FindBestPalettePair(int r,int g,int b, const Palette& Palette);
+MixingPlan FindBestMixingPlan(int r,int g,int b, const Palette& Palette);
 
 struct HistogramType: public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
 {

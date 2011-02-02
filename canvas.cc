@@ -608,7 +608,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     bool was_identical = false;
 
-    if(TemporalDitherSize == 1 && animated)
+    if(TemporalDitherSize == 1 && animated && !UsingTransformations)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
@@ -737,7 +737,7 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
-    typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
+    typedef std::map<uint32, MixingPlan, std::less<uint32>, FSBAllocator<int> >
         pixel_cache_t;
 
     /* First try to create a paletted image */
@@ -781,13 +781,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither(
 
             // Find two closest entries from palette and use o8x8 dithering
             pixel_cache_t& cachepos = pixel_cache[profile];
-            PalettePair output;
+            MixingPlan output;
             pixel_cache_t::iterator i = cachepos.lower_bound(pix);
             if(i == cachepos.end() || i->first != pix)
             {
                 if(TransformColors)
                     TransformColor(r,g,b, frameno,x,y);
-                output = FindBestPalettePair(r,g,b,
+                output = FindBestMixingPlan(r,g,b,
                     CurrentPalette);
                 cachepos.insert(i, std::make_pair(pix, output));
             }
@@ -832,7 +832,7 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_NES(
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
-    typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
+    typedef std::map<uint32, MixingPlan, std::less<uint32>, FSBAllocator<int> >
         pixel_cache_t;
 
     /* First try to create a paletted image */
@@ -888,13 +888,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_NES(
                 pixel_cache_t& cachepos = pixel_cache[profile];
 
                 // Find two closest entries from palette and use o8x8 dithering
-                PalettePair output;
+                MixingPlan output;
                 pixel_cache_t::iterator i = cachepos.lower_bound(pix);
                 if(i == cachepos.end() || i->first != pix)
                 {
                     if(TransformColors)
                         TransformColor(r,g,b, frameno,x,y);
-                    output = FindBestPalettePair(r,g,b,
+                    output = FindBestMixingPlan(r,g,b,
                         CurrentPalette.GetSlice(mode*4, 4));
                     cachepos.insert(i, std::make_pair(pix, output));
                 }
@@ -988,7 +988,7 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
 {
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
 
-    typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
+    typedef std::map<uint32, MixingPlan, std::less<uint32>, FSBAllocator<int> >
         pixel_cache_t;
 
     /* First try to create a paletted image */
@@ -1036,13 +1036,13 @@ TILE_Tracker::ImgResult TILE_Tracker::SaveFrame_Palette_Dither_CGA16(
             pixel_cache_t& cachepos = pixel_cache[profile];
 
             // Find two closest entries from palette and use o8x8 dithering
-            PalettePair output;
+            MixingPlan output;
             pixel_cache_t::iterator i = cachepos.lower_bound(pix);
             if(i == cachepos.end() || i->first != pix)
             {
                 if(TransformColors)
                     TransformColor(r,g,b, frameno,x,y);
-                output = FindBestPalettePair(r,g,b,
+                output = FindBestMixingPlan(r,g,b,
                     CurrentPalette);
                 cachepos.insert(i, std::make_pair(pix, output));
             }

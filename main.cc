@@ -724,7 +724,7 @@ Options:\n\
      Load palette from the given file (png or gif, must be paletted)\n\
  --noalign\n\
      Disable automatic image aligner\n\
- --gif, -g [=always/=never/=auto]\n\
+ --gif, -g [=always|=never|=auto]\n\
      Control how GIF files are saved. Always/never/auto.\n\
      In automatic mode (default), GIF is selected for animations\n\
      if quantization was configured, PNG otherwise.\n\
@@ -930,6 +930,8 @@ DITHERING\n\
      If you have lots of time and you're rendering a high-resolution\n\
      picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
      Note that a low value of dithcount can make this option useless.\n\
+     NOTE: Combining --gamma and --dithcontrast will result in wrong\n\
+     colors. Do not use them together.\n\
 \n\
 COLOR TRANSFORMATION FUNCTION\n\
 \n\

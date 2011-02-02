@@ -793,6 +793,113 @@ Animmerger's dithering can be controlled with the following parameters:
   
 </dl>
 
+", 'dither_gamma:1.1. Gamma correction' => "
+Generated with:<br>
+<code>
+# for gamma in 0.1 0.2 0.5 1.0 1.5 2.0 2.2 2.5 3.0 10.0; do<br>
+# &nbsp; animmerger gamma_in.png -Q../cga0-pal.gif --dm 8x8 --dc 64 --gamma \$gamma<br>
+# &nbsp; mv tile-0000.png demo/gamma-\$gamma.png<br>
+# done</code>
+ <p>
+<div style=\"float:left;margin-right:3em\">
+With normal-intensity CGA palette:<br>
+(Palette entries: #000, #0A0, #A00, #A50)<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-0.1.png\"
+     alt=\"Gamma 0.1\"> --gamma=0.1<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-0.2.png\"
+     alt=\"Gamma 0.2\"> --gamma=0.2<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-0.5.png\"
+     alt=\"Gamma 0.5\"> --gamma=0.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-1.0.png\"
+     alt=\"Gamma 1.0\"> --gamma=1.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-1.5.png\"
+     alt=\"Gamma 1.5\"> --gamma=1.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-2.0.png\"
+     alt=\"Gamma 2.0\"> --gamma=2.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-2.2.png\"
+     alt=\"Gamma 2.2\"> --gamma=2.2<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-2.5.png\"
+     alt=\"Gamma 2.5\"> --gamma=2.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-3.0.png\"
+     alt=\"Gamma 3.0\"> --gamma=3.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gamma-10.0.png\"
+     alt=\"Gamma 10.0\"> --gamma=10.0<br>
+</div>
+
+<div style=\"float:left\">
+With EGA palette:<br>
+(Relevant palette entries: #000, #555, #AAA, #FFF)<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-0.1.png\"
+     alt=\"Gamma 0.1\"> --gamma=0.1<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-0.2.png\"
+     alt=\"Gamma 0.2\"> --gamma=0.2<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-0.5.png\"
+     alt=\"Gamma 0.5\"> --gamma=0.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-1.0.png\"
+     alt=\"Gamma 1.0\"> --gamma=1.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-1.5.png\"
+     alt=\"Gamma 1.5\"> --gamma=1.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-2.0.png\"
+     alt=\"Gamma 2.0\"> --gamma=2.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-2.2.png\"
+     alt=\"Gamma 2.2\"> --gamma=2.2<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-2.5.png\"
+     alt=\"Gamma 2.5\"> --gamma=2.5<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-3.0.png\"
+     alt=\"Gamma 3.0\"> --gamma=3.0<br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae_in.png\"
+     alt=\"Gamma test\"><br>
+<img width=360 height=20 src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/gammae-10.0.png\"
+     alt=\"Gamma 10.0\"> --gamma=10.0<br>
+</div>
+<br clear=all>
+ <p>
+Note that animmerger's gamma correction algorithm is somewhat disputable.
+For instance, although the former example looks good, if we try the same
+with the EGA palette, where mid-gradient values (0%, 33%, 66% and 100% white)
+actually exist in the palette, we get the latter, odd-looking result.
+It probably looks just fine on displays with such odd gamma curves, though.
+ <p>
+Conclusion: Your mileage may vary.
+
 ", 'dither_sample:1.1. Example' => "
 
 To demonstrate dithering, let us consider this example picture.
@@ -812,8 +919,20 @@ hence the odd inclusion of blue in it.
 
 ", 'dither_error:1.1.1. Dither error spread factor' => "
 
-<img width=656 height=159
+<img width=492 height=178
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_de.png\"
+     alt=\"Adjusting --ditherror option.\">
+
+<img width=328 height=178
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dex.png\"
+     alt=\"Adjusting --ditherror option.\">
+<br>
+<img width=492 height=178
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_de2.png\"
+     alt=\"Adjusting --ditherror option.\">
+
+<img width=328 height=178
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dex2.png\"
      alt=\"Adjusting --ditherror option.\">
  <p>
 The error spread factor provides a very fine-grained control over
@@ -822,8 +941,11 @@ of the value is 1.0, higher values can be used for artistic purposes.
 
 ", 'dither_matrix:1.1.1. Dither matrix size' => "
 
-<img width=656 height=159
+<img width=656 height=197
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dm.gif\"
+     alt=\"Adjusting --dithmatrix option.\"><br>
+<img width=656 height=197
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_2dm.gif\"
      alt=\"Adjusting --dithmatrix option.\">
  <p>
 The matrix shape directly controls the manner in which the different-color
@@ -846,8 +968,11 @@ to the <a href=\"http://www.youtube.com/watch?v=-Nz_QB26Clw\"
 
 ", 'dither_count:1.1.1. Dither candidate count' => "
 
-<img width=574 height=178
+<img width=574 height=197
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dc.png\"
+     alt=\"Adjusting --dithcount option.\"><br>
+<img width=574 height=197
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dc2.png\"
      alt=\"Adjusting --dithcount option.\">
  <p>
 The candidate count option directly controls how colors are mixed
@@ -864,6 +989,9 @@ palette of both input and output images, and on the dither contrast limiter.)
 
 <img width=656 height=197
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_dr.gif\"
+     alt=\"Adjusting --dithcontrast option.\"><br>
+<img width=656 height=197
+     src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/dith_2dr.gif\"
      alt=\"Adjusting --dithcontrast option.\">
  <p>
 Specifying 0 for the contrast usually works nicely, especially if the
@@ -876,6 +1004,9 @@ that might not look as good.
 Overdoing it, however, will result in a lot of overly sharp local contrast,
 which looks mostly bad. Animation is shown in the last frame for the sake
 of demonstration, because it improves the spatial color resolution.
+ <p>
+Note that using nonzero --dr with --gamma that differs
+from 1.0 is currently broken. Please avoid that combination.
 
 ", 'dither_compare:1. Color compare methods' =>  "
 
@@ -905,6 +1036,8 @@ and varied the color compare method using the <code>--cie</code> option.
 <p>
 These tests intend to show how each color-compare method
 identifies colors that most closely match the original.
+Note: I used gamma correction for these images.
+Consequently, I disabled the --dr option because these do not mix well together.
 <p>
 Produced with commandline:<br>
 <code># for e in rgb cie76 cie94 cmc ciede2000 bfd; do <br>
@@ -917,7 +1050,7 @@ Produced with commandline:<br>
 # &nbsp; # Create four-frame temporal-dithered animation of the testcard:<br>
 # &nbsp; animmerger tksmall{,,,}.png --noalign -Qdeltae_pal.png -vv \\<br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-        --dm 1x1,-4 --dc 4 --dr 1.4 --cie=\$e -pc --gif --gamma 2.0<br>
+        --dm 1x1,-4 --dc 4 --cie=\$e -pc --gif --gamma 2.0<br>
 # &nbsp; gifsicle -O2 -o demo/tk-\$e.gif -l0 -d4 tile-000[0-3].gif<br>
 #<br>
 # &nbsp; # Create an average of those four frames:<br>
@@ -955,11 +1088,7 @@ RGB. Calculated as a simple euclidean difference:
 It is very fast and does not usually cause any nasty surprises.
 However, in dithering, it usually is overly conservative and fails
 to account for psychovisuals, i.e. when some color is \"close enough\",
-and consequently, fails to achieve a pleasing result. For instance, the
-magenta square is much more wildly animated in this version than in any
-other, and its average color is also farthest from the original.
-Same goes for the lightgrey squares right above it,
-and likely many other details.
+and consequently, fails to achieve a pleasing result.
 <br clear=all>
 
 ", 'cie_cie76:1.1. CIE76' => "
@@ -977,12 +1106,7 @@ and likely many other details.
 CIE L*a*b*, where delta-E calculated as a simple euclidean difference:
 √(ΔL² + Δa² + Δb²)
 <br><br>
-It is fast and very often an improvement to RGB, and it is indeed visually
-difficult to spot anywhere that this algorithm did wrong. That is what
-psychovisuality is about, knowing what humans can distinguish and what
-they cannot. For example, the upper-right tall olive rectangle is
-considerably darker here than it was in the original, but it is not
-easy to notice it, is it?
+It is fast and very often an improvement to RGB.
 
 <br clear=all>
 
@@ -998,19 +1122,15 @@ easy to notice it, is it?
      src=\"http://bisqwit.iki.fi/jutut/kuvat/animmerger/tk-a4-cie94.png\"
      alt=\"4-frame average\" align=left>
 <br>
-CIE L*a*b* with C<sub>ab</sub>=√(a²+b²) and h<sub>ab</sub>=tan<sup>-1</sup>(b÷a),<br>
+CIE L*a*b* with C<sub>ab</sub>=√(a²+b²),<br>
 where delta-E calculated using a much more refined formula (CIE94):<br>
 √(ΔL² + ΔC<sub>ab</sub>²÷S<sub>C</sub>² + ΔH÷S<sub>h</sub>²)<br>
-with ΔH = (Δa² + Δb² − ΔC<sub>ab</sub><sup>2</sup>),<br>
+with ΔH = (Δa² + Δb² − ΔC<sub>ab</sub>²),<br>
 and S<sub>C</sub> = (1 + 0.048×√(C<sub>1ab</sub>×C<sub>2ab</sub>)),<br>
 and S<sub>h</sub> = (1 + 0.014×√(C<sub>1ab</sub>×C<sub>2ab</sub>)).<p>
 Note: Animmerger uses the deltaE squared rather than the deltaE itself,
 which is why the formula may seem different to what it is in reference
 material. (There may still be genuine errors though.)
-<br><br>
-One symptom of such error might be in the aforementioned supposedly olive
-rectangle at the top right area of the screen. It is rendered at a
-suspiciously bright tone here.
 
 <br clear=all>
 
@@ -1027,10 +1147,6 @@ suspiciously bright tone here.
      alt=\"4-frame average\" align=left>
 <br>
 CIE L*a*b* based extremely complicated formula called CIEDE2000.
-<br>
-And it seems to be worth its mathematics; the result looks really impeckable.
-Well, except for the fact that yellows, such as in the bottom of the circle,
-look greenish here. (In that specific part, RGB did almost perfectly.)
 
 <br clear=all>
 
@@ -1052,9 +1168,8 @@ CIE L*a*b* based quite complicated formula called CMC l:c, with l=1.5 and c=1.0.
 Interestingly, this operator seemed to have a huge issue with black colors;
 animmerger has a special workaround for that problem, though the darker
 green region looks weird too. In general, this has the appearance of being
-the weakest of all of these operators. The averaged picture has wrong colors
-here and there. Use it only if you are looking for a specific type of special
-effect.
+the weakest of all of these operators.
+Use it only if you are looking for a specific type of special effect.
 
 <br clear=all>
 
