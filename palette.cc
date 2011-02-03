@@ -24,6 +24,7 @@ double   DitherGamma         = 1.0;
 ColorCompareMethod UseCIE = Compare_RGB;
 DitheringMethod Dithering = Dither_KnollYliluoma;
 //DitheringMethod Dithering = Dither_Yliluoma3;
+DiffusionMethod Diffusion = Diffusion_None;
 
 namespace
 {
@@ -771,14 +772,22 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
         default:
         case Compare_RGB:
         {
+            int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
+            return (diffR*diffR)
+                 + (diffG*diffG)
+                 + (diffB*diffB)
+                 ;
+        }
+        case Compare_RGBl:
+        {
             /* Joel Yliluoma's slightly luma&saturation aware RGB compare function */
             int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
-            //const double chroma_coeff = 0.75;
-            //double lumadiff = (meta1.luma - meta2.luma) * (1/255e3);
-            return (diffR*diffR)//*(0.299/255/255*chroma_coeff)
-                 + (diffG*diffG)//*(0.587/255/255*chroma_coeff)
-                 + (diffB*diffB)//*(0.114/255/255*chroma_coeff)
-                // + lumadiff*lumadiff
+            const double chroma_coeff = 0.75;
+            double lumadiff = (meta1.luma - meta2.luma) * (1/255e3);
+            return (diffR*diffR)*(0.299/255/255*chroma_coeff)
+                 + (diffG*diffG)*(0.587/255/255*chroma_coeff)
+                 + (diffB*diffB)*(0.114/255/255*chroma_coeff)
+                 + lumadiff*lumadiff
                  ;
         }
         case Compare_CIE76_DeltaE:
@@ -1009,15 +1018,6 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
         #undef DEG2RAD
         }
     }
-}
-
-static inline double GammaCorrect(double x)
-{
-    return std::pow(x, DitherGamma);
-}
-static inline double GammaUncorrect(double x)
-{
-    return std::pow(x, 1.0 / DitherGamma);
 }
 
 static MixingPlan FindBestMixingPlan_KnollYliluoma
@@ -1269,7 +1269,7 @@ IDEA:
             i != Solution.end();
             ++i)
         {
-            if(i->second <= 1) continue;
+            //if(i->second <= 1) continue;
             //printf("Try split %06X:%u...\n", i->first,i->second);
             unsigned split_color = i->first;
             unsigned split_count = i->second;
@@ -1280,30 +1280,28 @@ IDEA:
                 current_sum[1] - pal.Data[split_color].g * portion_total,
                 current_sum[2] - pal.Data[split_color].b * portion_total };
 
-            if(split_count == 1)
+            for(unsigned c=0; c<PaletteSize; ++c)
             {
-                for(unsigned c=0; c<PaletteSize; ++c)
-                {
-                    if(c == split_color) continue;
-                    double test[3] = {
-                        GammaUncorrect( sum[0] + pal.Data[c].r*portion_total ),
-                        GammaUncorrect( sum[1] + pal.Data[c].g*portion_total ),
-                        GammaUncorrect( sum[2] + pal.Data[c].b*portion_total ) };
+                if(c == split_color) continue;
+                double test[3] = {
+                    GammaUncorrect( sum[0] + pal.Data[c].r*portion_total ),
+                    GammaUncorrect( sum[1] + pal.Data[c].g*portion_total ),
+                    GammaUncorrect( sum[2] + pal.Data[c].b*portion_total ) };
 
-                    LabAndLuma test_lab( test[0], test[1], test[2] );
-                    double penalty = ColorCompare(
-                        rin,gin,bin, input,
-                        test[0]*255, test[1]*255, test[2]*255,
-                        test_lab);
+                LabAndLuma test_lab( test[0], test[1], test[2] );
+                double penalty = ColorCompare(
+                    rin,gin,bin, input,
+                    test[0]*255, test[1]*255, test[2]*255,
+                    test_lab);
 
-                    if(penalty < current_penalty || current_penalty < 0)
-                        { current_penalty  = penalty;
-                          best_splitfrom   = split_color;
-                          best_split_to[0] = c;
-                          best_split_to[1] = c; }
-                }
+                if(penalty < best_penalty)
+                    { best_penalty  = penalty;
+                      best_splitfrom   = split_color;
+                      best_split_to[0] = c;
+                      best_split_to[1] = c; }
             }
-            else
+
+            if(split_count > 1)
             {
                 double portion1 = (split_count / 2            ) * dbllimit;
                 double portion2 = (split_count - split_count/2) * dbllimit;
@@ -1338,7 +1336,6 @@ IDEA:
                                 best_split_to[0] = a;
                                 best_split_to[1] = b;
                             }
-                            if(portion2 == 0) break;
                         }
                         else // portion1 != portion2 (split_count was uneven).
                         {

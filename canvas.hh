@@ -63,29 +63,35 @@ public:
     typedef std::pair<void*,int> ImgResult;
 
     template<bool TransformColors>
-    ImgResult SaveFrame_TrueColor(
+    gdImagePtr CreateFrame_TrueColor(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors>
-    ImgResult SaveFrame_Palette_Auto(
+    gdImagePtr CreateFrame_Palette_Auto(
         const VecType<uint32>& screen,
-        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
 
-    template<bool TransformColors>
-    ImgResult SaveFrame_Palette_Dither(
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither(
         const VecType<uint32>& screen,
-        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
 
-    template<bool TransformColors>
-    ImgResult SaveFrame_Palette_Dither_CGA16(
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_CGA16(
         const VecType<uint32>& screen,
-        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
 
-    template<bool TransformColors>
-    ImgResult SaveFrame_Palette_Dither_NES(
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_NES(
         const VecType<uint32>& screen,
-        bool Makegif, unsigned frameno, unsigned wid, unsigned hei);
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_With(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei,
+        const Palette& pal);
 
     void CreatePalette(PixelMethod method, unsigned nframes);
 

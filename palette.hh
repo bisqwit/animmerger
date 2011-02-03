@@ -3,6 +3,7 @@
 
 #include <map>
 #include <string>
+#include <cmath>
 
 #include "types.hh"
 #include "alloc/FSBAllocator.hh"
@@ -38,6 +39,7 @@ extern double   DitherGamma;
 extern enum ColorCompareMethod
 {
     Compare_RGB,
+    Compare_RGBl,
     Compare_CIE76_DeltaE,
     Compare_CIE94_DeltaE,
     Compare_CMC_lc,
@@ -50,6 +52,27 @@ extern enum DitheringMethod
     Dither_Yliluoma2,
     Dither_Yliluoma3
 } Dithering;
+extern enum DiffusionMethod
+{
+    Diffusion_None,
+    Diffusion_FloydSteinberg,
+    Diffusion_JarvisJudiceNinke,
+    Diffusion_Stucki,
+    Diffusion_Burkes,
+    Diffusion_Sierra3,
+    Diffusion_Sierra2,
+    Diffusion_Sierra24A,
+    Diffusion_StevensonArce
+} Diffusion;
+
+ inline double GammaCorrect(double x)
+{
+    return std::pow(x, DitherGamma);
+}
+inline double GammaUncorrect(double x)
+{
+    return std::pow(x, 1.0 / DitherGamma);
+}
 
 struct XYZitem { double X,Y,Z;      };
 struct LabItem { double L,a,b, C,h; };

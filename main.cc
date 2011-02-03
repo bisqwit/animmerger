@@ -652,6 +652,7 @@ int main(int argc, char** argv)
             {"yuv",        0,0,'y'},
             {"noalign",    0,0,4002},
             {"quantize",   1,0,'Q'},
+            {"dithmethod", 1,0,'D'},
             {"ditherror",  1,0,5001},  {"de",1,0,5001},
             {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
@@ -659,10 +660,9 @@ int main(int argc, char** argv)
             {"cie",        2,0,5005},
             {"gamma",      1,0,'G'},
             {"transform",  1,0,6001},
-            {0,            1,0,'D'},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -731,6 +731,8 @@ Options:\n\
      Default: auto. --gif without parameter defaults to always.\n\
      See below on details on when and how GIF files are written\n\
      depending on this option.\n\
+ --dithmethod, -D <method>[,<method>]\n\
+     Select dithering method (see below)\n\
  --ditherror, --de <float>\n\
      Set error multiplication value for the dithering algorithm.\n\
      0.0 = disable dithering. 1.0 = full dithering.\n\
@@ -902,6 +904,25 @@ REDUCING PALETTE\n\
 \n\
 DITHERING\n\
 \n\
+  Dithering methods\n\
+     The following dithering methods are defined:\n\
+      FULL NAME            SHORT NAME    Suitable for animation\n\
+       Knoll-Yliluoma       ky            Yes (positional)\n\
+       Yliluoma2            y2            Yes (positional)\n\
+       Yliluoma3            y3            Yes (positional)\n\
+       Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
+       Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
+       Stucki               s             No (diffuses +12 pixels)\n\
+       Burkes               b             No (diffuses +7 pixels)\n\
+       Sierra-3             s3            No (diffuses +10 pixels)\n\
+       Sierra-2             s2            No (diffuses +7 pixels)\n\
+       Sierra-2-4A          s24a          No (diffuses +3 pixels)\n\
+       Stevenson-Arce       sa            No (diffuses +12 pixels)\n\
+     To set the dithering method, use the --dithmethod or -D option.\n\
+     Examples:\n\
+       -Dky or --dithmethod=ky (default)\n\
+       -Dfloyd-steinberg\n\
+       -Ds24a,y2\n\
   Dithering matrix size\n\
      You can use an uneven ratio such as 8x2 to produce images\n\
      that are displayed on a device where pixels are not square.\n\
@@ -1227,6 +1248,44 @@ rate.\n\
                 break;
             }
 
+            case 'D': // dithmethod, D
+            {
+                Diffusion = Diffusion_None;
+                Dithering = Dither_KnollYliluoma;
+                bool positional_defined = false;
+                std::string optarg_save(optarg);
+                bool errors = false;
+                for(char* arg = optarg; ; arg = 0)
+                {
+                    char cm[128] = { 0 }; // List of character that exist in the input
+                    char* section = std::strtok(arg, ",");
+                    if(!section) break;
+                    for(; *section; ++section)
+                    {
+                        if(*section >= ' ' && *section <= 'z')
+                            cm[ (unsigned char) *section ] = 1;
+                    }
+                    /**/ if(cm['k'] && cm['y']) { Dithering = Dither_KnollYliluoma; positional_defined = true; }
+                    else if(cm['y'] && cm['2']) { Dithering = Dither_Yliluoma2; positional_defined = true; }
+                    else if(cm['y'] && cm['3']) { Dithering = Dither_Yliluoma3; positional_defined = true; }
+                    else if(cm['f'] && cm['s']) Diffusion = Diffusion_FloydSteinberg;
+                    else if(cm['j'] && cm['n']) Diffusion = Diffusion_JarvisJudiceNinke;
+                    else if(cm['b'])            Diffusion = Diffusion_Burkes;
+                    else if(cm['s'] && cm['4']) Diffusion = Diffusion_Sierra24A;
+                    else if(cm['s'] && cm['3']) Diffusion = Diffusion_Sierra3;
+                    else if(cm['s'] && cm['2']) Diffusion = Diffusion_Sierra2;
+                    else if(cm['s'] && cm['a']) Diffusion = Diffusion_StevensonArce;
+                    else if(cm['s'])            Diffusion = Diffusion_Stucki;
+                    else errors = true;
+                }
+                if(!positional_defined && Diffusion != Diffusion_None)
+                    { DitherMatrixWidth = DitherMatrixHeight = 1;
+                      DitherColorListSize = 1; }
+                if(errors)
+                    std::fprintf(stderr, "animmerger: Bad dither method selection: %s.\n", optarg_save.c_str());
+                break;
+            }
+
             case 5001: // ditherror, de
             {
                 char* arg = optarg;
@@ -1307,6 +1366,10 @@ rate.\n\
                     || std::strcmp(optarg, "rgb") == 0
                     || std::strcmp(optarg, "RGB") == 0)
                         UseCIE = Compare_RGB;
+                    else if(std::strcmp(optarg, "rgbl") == 0
+                         || std::strcmp(optarg, "RGBl") == 0
+                         || std::strcmp(optarg, "RGBL") == 0)
+                        UseCIE = Compare_RGBl;
                     else if(std::strcmp(optarg, "implied") == 0
                          || std::strcmp(optarg, "simple") == 0
                          || std::strcmp(optarg, "1") == 0
@@ -1459,7 +1522,9 @@ rate.\n\
     && DitherMatrixHeight == 4
     && TemporalDitherSize == 1
     && DitherColorListSize == 16
-    && DitherCombinationContrast == 0.0)
+    && DitherCombinationContrast == 0.0
+    && Diffusion == Diffusion_None
+    && Dithering == Dither_KnollYliluoma)
     {
         std::fprintf(stderr,
             "animmerger: Sorry, I cannot obey this combination of options.\n"
@@ -1530,13 +1595,24 @@ rate.\n\
             || DitherErrorFactor   == 0.0)
             {
                 std::printf(
-                    "\tDithering disabled\n");
+                    "\tPositional dithering disabled\n");
             }
             else
             {
+                const char* methodname = "?";
+                switch(Dithering)
+                {
+                    case Dither_KnollYliluoma:
+                        methodname = "Knoll-Yliluoma"; break;
+                    case Dither_Yliluoma2:
+                        methodname = "Yliluoma2"; break;
+                    case Dither_Yliluoma3:
+                        methodname = "Yliluoma3"; break;
+                }
                 std::printf(
-                    "\tDithering method: Knoll-Yliluoma positional pattern dithering\n"
+                    "\tDithering method: %s positional pattern dithering\n"
                     "\tDithering with %u color choices, Bayer matrix size: %ux%u",
+                    methodname,
                     DitherColorListSize,
                     DitherMatrixWidth, DitherMatrixHeight);
                 if(DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize == 1)
@@ -1550,6 +1626,32 @@ rate.\n\
                 std::printf("\n"
                     "\tDither color error spectrum size: %g\n",
                     DitherErrorFactor);
+            }
+            if(Diffusion != Diffusion_None)
+            {
+                const char* methodname = "?";
+                switch(Diffusion)
+                {
+                    case Diffusion_None: break;
+                    case Diffusion_FloydSteinberg:
+                        methodname = "Floyd-Steinberg"; break;
+                    case Diffusion_JarvisJudiceNinke:
+                        methodname = "Jarvis-Judice-Ninke"; break;
+                    case Diffusion_Stucki:
+                        methodname = "Stucki"; break;
+                    case Diffusion_Burkes:
+                        methodname = "Burkes"; break;
+                    case Diffusion_Sierra3:
+                        methodname = "Sierra-3"; break;
+                    case Diffusion_Sierra2:
+                        methodname = "Sierra-2"; break;
+                    case Diffusion_Sierra24A:
+                        methodname = "Sierra-2-4A"; break;
+                    case Diffusion_StevensonArce:
+                        methodname = "Stevenson-Arce"; break;
+                }
+                std::printf(
+                    "\tError-diffusion method (dithering): %s\n", methodname);
             }
         }
         else if(SaveGif == 1)
