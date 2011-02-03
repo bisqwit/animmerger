@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
+#include <cctype>
 
 #include <string.h>
 #include <getopt.h>
@@ -628,6 +629,7 @@ int main(int argc, char** argv)
     bool autoalign = true;
     MaskMethod maskmethod = MaskHole;
     bool dithering_configured = false;
+    std::string color_compare_formula;
 
     for(;;)
     {
@@ -657,7 +659,7 @@ int main(int argc, char** argv)
             {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
             {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
-            {"cie",        2,0,5005},
+            {"deltae",     2,0,5005},  {"cie",2,0,5005},
             {"gamma",      1,0,'G'},
             {"transform",  1,0,6001},
             {0,0,0,0}
@@ -678,13 +680,15 @@ Usage: animmerger [<options>] <imagefile> [<...>]\n\
 \n\
 Merges animation frames together with motion shifting.\n\
 \n\
-Options:\n\
+General options:\n\
  --help, -h\n\
      This help\n\
  --version, -V\n\
      Displays version information\n\
  --verbose, -v\n\
      Increase verbosity\n\
+\n\
+Canvas affecting options:\n\
  --mask, -m <defs>\n\
      Define a mask, see instructions below\n\
  --maskmethod, -u <value>\n\
@@ -706,6 +710,10 @@ Options:\n\
  --yuv, -y\n\
      Specifies that average-colors are to be calculated in the YUV\n\
      colorspace rather than the default RGB colorspace.\n\
+\n\
+Image aligning options:\n\
+ --bgmethod, -b <mode>\n\
+     Select pixel type for alignment tests\n\
  --refscale, -r <x>,<y>\n\
      Change the grid size that controls\n\
      how many samples are taken from the background image\n\
@@ -718,12 +726,10 @@ Options:\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
      only scroll horizontally and by 4 pixels at most per frame.\n\
- --quantize <method>,<num_colors>\n\
-     Reduce palette, see instructions below\n\
- --quantize <file>\n\
-     Load palette from the given file (png or gif, must be paletted)\n\
  --noalign\n\
      Disable automatic image aligner\n\
+\n\
+Output options:\n\
  --gif, -g [=always|=never|=auto]\n\
      Control how GIF files are saved. Always/never/auto.\n\
      In automatic mode (default), GIF is selected for animations\n\
@@ -731,6 +737,10 @@ Options:\n\
      Default: auto. --gif without parameter defaults to always.\n\
      See below on details on when and how GIF files are written\n\
      depending on this option.\n\
+ --quantize <method>,<num_colors>\n\
+     Reduce palette, see instructions below\n\
+ --quantize <file>\n\
+     Load palette from the given file (PNG or GIF, must be paletted)\n\
  --dithmethod, -D <method>[,<method>]\n\
      Select dithering method (see below)\n\
  --ditherror, --de <float>\n\
@@ -750,7 +760,7 @@ Options:\n\
      Set the maximum contrast between two or more color items\n\
      that are pre-selected for combined candidates for dithering.\n\
      The value must be in range 0..3. Default value: 1. See details below.\n\
- --cie [=<type>]\n\
+ --deltae, --cie [=<type>|=<formula>]\n\
      Select color comparison method, see details below.\n\
  --gamma [=<value>]\n\
      Select gamma to use in dithering. Default: 1.0\n\
@@ -918,11 +928,13 @@ DITHERING\n\
        Sierra-2             s2            No (diffuses +7 pixels)\n\
        Sierra-2-4A          s24a          No (diffuses +3 pixels)\n\
        Stevenson-Arce       sa            No (diffuses +12 pixels)\n\
+       Atkinson             a             No (diffuses +6 pixels, though only 75%)\n\
      To set the dithering method, use the --dithmethod or -D option.\n\
      Examples:\n\
        -Dky or --dithmethod=ky (default)\n\
        -Dfloyd-steinberg\n\
        -Ds24a,y2\n\
+\n\
   Dithering matrix size\n\
      You can use an uneven ratio such as 8x2 to produce images\n\
      that are displayed on a device where pixels are not square.\n\
@@ -936,6 +948,7 @@ DITHERING\n\
      the flicker with cost to spatial accuracy. By specifying a negative time\n\
      value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
      prominent flickering, while improving the spatial accuracy.\n\
+\n\
   Dithering contrast\n\
      The contrast is specified as a sliding scale where\n\
        0 means that no combinations are loaded.\n\
@@ -957,15 +970,18 @@ DITHERING\n\
 COLOR TRANSFORMATION FUNCTION\n\
 \n\
   The option --transform can be used to transform the image's color.\n\
+\n\
   The following identifiers are defined for the function:\n\
     r,g,b   Input color (0..255)\n\
     frameno Frame number (0..n)\n\
     x,y     Screen coordinates (x,y)\n\
+\n\
   Note that when animmerger counts color, it\n\
   will pass bogus coordinates to the x,y values.\n\
   The output value is expected to be in range 0..255, though not required.\n\
   For a description of the accepted function syntax, see:\n\
          http://iki.fi/warp/FunctionParser/\n\
+\n\
   Examples:\n\
     --transform 'r=g=b=(r*0.299+g*0.587+b*0.114)'\n\
         Renders grayscale rather than color.\n\
@@ -975,6 +991,7 @@ COLOR TRANSFORMATION FUNCTION\n\
     --transform 'g=128+127*cos(frameno*.1+x/40+y/90)' \\\n\
     --transform 'b=128+127*sin(frameno*.1+x/40+y/90+20)'\n\
         Will make the screen cycle in colors.\n\
+\n\
   Note that rendering with a transformation function is much\n\
   slower than rendering without it.\n\
 \n\
@@ -983,18 +1000,21 @@ COLOR COMPARE METHODS\n\
   For dithering purposes, animmerger has to compare colors\n\
   and decide out of many options which combination represents\n\
   the desired color best.\n\
+\n\
   The comparison algorithm can be selected from the following choices:\n\
   \n\
-    default   = 0    = RGB                 e.g. --cie=0 or --cie=rgb\n\
-    CIE76     = 76   = CIE76 Delta E       e.g. --cie or --cie=76\n\
-    CIE94     = 94   = CIE94 Delta E       e.g. --cie=94 or --cie=cie94\n\
-    CIEDE2000 = 2000 = CIEDE2000 Delta E   e.g. --cie=2000\n\
-    CMC              = CMC l:c Delta E     e.g. --cie=cmc\n\
-    BFD              = BFD l:c Delta E     e.g. --cie=bfd\n\
+    default   = 0    = RGB                 e.g. --deltae=0 or --deltae=rgb\n\
+    CIE76     = 76   = CIE76 Delta E       e.g. --deltae or --deltae=76\n\
+    CIE94     = 94   = CIE94 Delta E       e.g. --deltae=94 or --deltae=cie94\n\
+    CIEDE2000 = 2000 = CIEDE2000 Delta E   e.g. --deltae=2000\n\
+    CMC              = CMC l:c Delta E     e.g. --deltae=cmc\n\
+    BFD              = BFD l:c Delta E     e.g. --deltae=bfd\n\
+    user-defined  (see below)\n\
   \n\
   When a CIE method is selected, colors are compared in the CIE L*a*b* colorspace.\n\
   Animmerger converts RGB values into CIE using an Adobe D65 illuminant profile or\n\
   a close equivalent.\n\
+\n\
   Performance:\n\
      RGB and CIE76 are simple euclidean differences.\n\
        Because animmerger will calculate the CIE L*a*b* value\n\
@@ -1005,6 +1025,30 @@ COLOR COMPARE METHODS\n\
      CIEDE2000 includes very complicated mathematics,\n\
                and can be expected to be very slow.\n\
      BFD   is very complex.\n\
+  \n\
+  It is also possible to use a homebrew color comparison formula.\n\
+  Examples:\n\
+    --deltae='(R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2'\n\
+      This is equivalent to --deltae=RGB, though --deltae=RGB is faster.\n\
+      Note that it is not necessary to take the square root of the result,\n\
+      because animmerger only cares about whether a deltae value is larger\n\
+      or smaller than another, not about its exact value.\n\
+    --deltae='(L1-L2)^2 + (a1-a2)^2 + (b1-b2)^2'\n\
+      This is equivalent to --deltae=CIE76, though --deltae=CIE76 is faster.\n\
+    --deltae='abs(luma1-luma2)'\n\
+      This simply compares luminosity and disregards any color information.\n\
+    --deltae='hypot(a1-a2, b1-b2)'\n\
+      This simply compares chroma and disregards luminance.\n\
+  Variables supported in the color comparison formula:\n\
+    R1,G1,B1        -- RGB value (0..1 range)\n\
+    L1,a1,b1,C1,h1  -- L*a*b* and L*C*h[ab] values (unspecified range)\n\
+                       Note that h is indicated in radians, not degrees\n\
+    luma1           -- Equivalent to R1*.299 + G1*.587 + B1*.114\n\
+    And the same for color 2 (replace 1 with 2)\n\
+    gamma           -- Configured gamma correction rate\n\
+  Functions supported in the color comparison formula:\n\
+    Standard fparser functions such as cos,atan2,asinh,log10\n\
+    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n\
 \n\
 GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
   GIF is capable of paletted images of 256 colors or less.\n\
@@ -1257,13 +1301,13 @@ rate.\n\
                 bool errors = false;
                 for(char* arg = optarg; ; arg = 0)
                 {
-                    char cm[128] = { 0 }; // List of character that exist in the input
+                    char* cm[128] = { 0 }; // List of character that exist in the input
                     char* section = std::strtok(arg, ",");
                     if(!section) break;
                     for(; *section; ++section)
                     {
-                        if(*section >= ' ' && *section <= 'z')
-                            cm[ (unsigned char) *section ] = 1;
+                        unsigned char c = std::tolower(*section);
+                        if(c < 128 && !cm[c]) cm[c] = section;
                     }
                     /**/ if(cm['k'] && cm['y']) { Dithering = Dither_KnollYliluoma; positional_defined = true; }
                     else if(cm['y'] && cm['2']) { Dithering = Dither_Yliluoma2; positional_defined = true; }
@@ -1274,7 +1318,9 @@ rate.\n\
                     else if(cm['s'] && cm['4']) Diffusion = Diffusion_Sierra24A;
                     else if(cm['s'] && cm['3']) Diffusion = Diffusion_Sierra3;
                     else if(cm['s'] && cm['2']) Diffusion = Diffusion_Sierra2;
-                    else if(cm['s'] && cm['a']) Diffusion = Diffusion_StevensonArce;
+                    else if(cm['s'] && cm['a']
+                         && cm['s'] <  cm['a']) Diffusion = Diffusion_StevensonArce;
+                    else if(cm['a'])            Diffusion = Diffusion_Atkinson;
                     else if(cm['s'])            Diffusion = Diffusion_Stucki;
                     else errors = true;
                 }
@@ -1358,47 +1404,45 @@ rate.\n\
                 dithering_configured = true;
                 break;
             }
-            case 5005:
+            case 5005: // deltae
                 if(optarg)
                 {
                     if(std::strcmp(optarg, "default") == 0
                     || std::strcmp(optarg, "0") == 0
                     || std::strcmp(optarg, "rgb") == 0
                     || std::strcmp(optarg, "RGB") == 0)
-                        UseCIE = Compare_RGB;
-                    else if(std::strcmp(optarg, "rgbl") == 0
-                         || std::strcmp(optarg, "RGBl") == 0
-                         || std::strcmp(optarg, "RGBL") == 0)
-                        UseCIE = Compare_RGBl;
+                        ColorComparing = Compare_RGB;
                     else if(std::strcmp(optarg, "implied") == 0
                          || std::strcmp(optarg, "simple") == 0
                          || std::strcmp(optarg, "1") == 0
                          || std::strcmp(optarg, "76") == 0
                          || std::strcmp(optarg, "cie76") == 0
                          || std::strcmp(optarg, "CIE76") == 0)
-                        UseCIE = Compare_CIE76_DeltaE;
+                        ColorComparing = Compare_CIE76_DeltaE;
                     else if(std::strcmp(optarg, "94") == 0
                          || std::strcmp(optarg, "cie94") == 0
                          || std::strcmp(optarg, "CIE94") == 0)
-                        UseCIE = Compare_CIE94_DeltaE;
+                        ColorComparing = Compare_CIE94_DeltaE;
                     else if(std::strcmp(optarg, "cmc") == 0
                          || std::strcmp(optarg, "CMC") == 0)
-                        UseCIE = Compare_CMC_lc;
+                        ColorComparing = Compare_CMC_lc;
                     else if(std::strcmp(optarg, "bfd") == 0
                          || std::strcmp(optarg, "BFD") == 0)
-                        UseCIE = Compare_BFD_lc;
+                        ColorComparing = Compare_BFD_lc;
                     else if(std::strcmp(optarg, "2000") == 0
                          || std::strcmp(optarg, "ciede2000") == 0
                          || std::strcmp(optarg, "CIEDE2000") == 0
                          || std::strcmp(optarg, "cie2000") == 0
                          || std::strcmp(optarg, "CIE2000") == 0)
-                        UseCIE = Compare_CIEDE2000_DeltaE;
+                        ColorComparing = Compare_CIEDE2000_DeltaE;
                     else
-                        std::fprintf(stderr, "animmerger: Invalid parameter to --cie: %s. Allowed values: rgb,cmc,bfd,76,94,2000\n",
-                            optarg);
+                    {
+                        ColorComparing = Compare_fparser;
+                        color_compare_formula += optarg;
+                    }
                 }
                 else
-                    UseCIE = Compare_CIE76_DeltaE;
+                    ColorComparing = Compare_CIE76_DeltaE;
                 break;
 
             case 'v':
@@ -1470,6 +1514,9 @@ rate.\n\
     transform_b = sub_expressions + transform_b;
 
     SetColorTransformations();
+
+    if(!color_compare_formula.empty())
+        SetColorCompareFormula(color_compare_formula);
 
     if(!bgmethod0_chosen) bgmethod0 = bgmethod;
     if(!bgmethod1_chosen) bgmethod1 = bgmethod;
@@ -1649,6 +1696,8 @@ rate.\n\
                         methodname = "Sierra-2-4A"; break;
                     case Diffusion_StevensonArce:
                         methodname = "Stevenson-Arce"; break;
+                    case Diffusion_Atkinson:
+                        methodname = "Atkinson"; break;
                 }
                 std::printf(
                     "\tError-diffusion method (dithering): %s\n", methodname);

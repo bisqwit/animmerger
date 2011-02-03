@@ -9,8 +9,46 @@
 #include "palette.hh"
 #include "pixel.hh"
 #include "pixels/averagepixel.hh"
+#include "fparser.hh"
 
 std::vector<PaletteMethodItem> PaletteReductionMethod;
+
+static const char     colordiff_paramstr[] =
+    "R1,G1,B1,luma1,L1,a1,b1,C1,h1,"
+    "R2,G2,B2,luma2,L2,a2,b2,C2,h2";
+static class FunctionParserWithPaletteCCVariables: public FunctionParser
+{
+public:
+    FunctionParserWithPaletteCCVariables()
+    {
+        AddFunction("g",   FPGammaCorrect, 1);
+        AddFunction("ug",  FPGammaUncorrect, 1);
+        AddConstant("pi",  M_PI);
+        AddConstant("e",   M_E);
+    }
+    static double FPGammaCorrect(const double* vars)
+    {
+        return GammaCorrect(vars[0]);
+    }
+    static double FPGammaUncorrect(const double* vars)
+    {
+        return GammaUncorrect(vars[0]);
+    }
+} colordiff_parser;
+
+void SetColorCompareFormula(const std::string& expr)
+{
+    colordiff_parser.AddConstant("gamma", DitherGamma);
+    int error = colordiff_parser.Parse(expr.c_str(), colordiff_paramstr);
+    if(error >= 0)
+    {
+        fprintf(stderr, "Parse error (%s) in color difference formula:\n%s\n%*s\n",
+            colordiff_parser.ErrorMsg(), expr.c_str(), error+1, "^");
+        ColorComparing = Compare_RGB;
+    }
+    else
+        colordiff_parser.Optimize();
+}
 
 double DitherErrorFactor    = 1.0;
 unsigned DitherMatrixWidth  = 8;
@@ -21,7 +59,7 @@ unsigned DitherColorListSize = 0;
 double   DitherCombinationContrast = -1.0;
 double   DitherGamma         = 1.0;
 
-ColorCompareMethod UseCIE = Compare_RGB;
+ColorCompareMethod ColorComparing = Compare_RGB;
 DitheringMethod Dithering = Dither_KnollYliluoma;
 //DitheringMethod Dithering = Dither_Yliluoma3;
 DiffusionMethod Diffusion = Diffusion_None;
@@ -755,7 +793,6 @@ struct ComparePaletteLuma
         { return pal.GetLuma(a) < pal.GetLuma(b); }
 };
 
-
 /* From the paper "The CIEDE2000 Color-Difference Formula: Implementation Notes, */
 /* Supplementary Test Data, and Mathematical Observations", by */
 /* Gaurav Sharma, Wencheng Wu and Edul N. Dalal, */
@@ -767,7 +804,7 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
                     int r2,int g2,int b2, // 0..255
                     const LabAndLuma& meta2)
 {
-    switch(UseCIE)
+    switch(ColorComparing)
     {
         default:
         case Compare_RGB:
@@ -776,18 +813,6 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
             return (diffR*diffR)
                  + (diffG*diffG)
                  + (diffB*diffB)
-                 ;
-        }
-        case Compare_RGBl:
-        {
-            /* Joel Yliluoma's slightly luma&saturation aware RGB compare function */
-            int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2;
-            const double chroma_coeff = 0.75;
-            double lumadiff = (meta1.luma - meta2.luma) * (1/255e3);
-            return (diffR*diffR)*(0.299/255/255*chroma_coeff)
-                 + (diffG*diffG)*(0.587/255/255*chroma_coeff)
-                 + (diffB*diffB)*(0.114/255/255*chroma_coeff)
-                 + lumadiff*lumadiff
                  ;
         }
         case Compare_CIE76_DeltaE:
@@ -1017,6 +1042,17 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
         #undef RAD2DEG
         #undef DEG2RAD
         }
+        case Compare_fparser:
+        {
+            const double params[] =
+            {
+                r1/255.0, g1/255.0, b1/255.0,
+                meta1.luma/255e3, meta1.lab.L, meta1.lab.a, meta1.lab.b, meta1.lab.C, meta1.lab.h,
+                r2/255.0, g2/255.0, b2/255.0,
+                meta2.luma/255e3, meta2.lab.L, meta2.lab.a, meta2.lab.b, meta2.lab.C, meta2.lab.h
+            };
+            return colordiff_parser.Eval(params);
+        }
     }
 }
 
@@ -1039,15 +1075,20 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
     MixingPlan result;
     while(result.size() < GenerationLimit)
     {
-        /*if(rer<0) rer=0; if(ger<0) ger=0; if(ber<0) ber=0;
-        if(rer>1) rer=1; if(ger>1) ger=1; if(ber>1) ber=1;*/
+      #if 1
+        if(rer<0) rer=0; if(ger<0) ger=0; if(ber<0) ber=0;
+        if(rer>1) rer=1; if(ger>1) ger=1; if(ber>1) ber=1;
         int ter = /**/GammaUncorrect/**/(rer)*255.0;
         int teg = /**/GammaUncorrect/**/(ger)*255.0;
         int teb = /**/GammaUncorrect/**/(ber)*255.0;
-        /**/
+      #else
+        int ter = /**/GammaUncorrect/**/(rer)*255.0;
+        int teg = /**/GammaUncorrect/**/(ger)*255.0;
+        int teb = /**/GammaUncorrect/**/(ber)*255.0;
         if(ter<0) ter=0; else if(ter>255)ter=255;
         if(teg<0) teg=0; else if(teg>255)teg=255;
-        if(teb<0) teb=0; else if(teb>255)teb=255;/**/
+        if(teb<0) teb=0; else if(teb>255)teb=255;
+      #endif
 
         /*fprintf(stderr, "want:%.3f,%.3f,%.3f; test: %02X%02X%02X (%.3f,%.3f,%.3f)\n",
             rin_gamma,gin_gamma,bin_gamma,
@@ -1099,6 +1140,8 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
             ger += (gin_gamma - pal.Combinations[chosen].combination.g) * X;
             ber += (bin_gamma - pal.Combinations[chosen].combination.b) * X;
         }
+
+        if(least_penalty == 0.0) break; // early break for exact match
     }
     /*fprintf(stderr, "For %02X%02X%02X:", rin,gin,bin);
     for(size_t a=0; a<result.size(); ++a)
@@ -1116,6 +1159,7 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
     LabAndLuma in_meta(rin,gin,bin);
 
     const unsigned PaletteSize     = pal.Size();
+    const unsigned NumCombinations = pal.NumCombinations();
 
     size_t GenerationLimit = DitherColorListSize;
     assert(GenerationLimit > 0);
@@ -1124,12 +1168,12 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
     double so_far[3] = {0,0,0};
     unsigned proportion_total = 0;
 
-    /*bool first=true;*/
     while(result.size() < GenerationLimit)
     {
         unsigned chosen_amount = 1;
         unsigned chosen        = 0;
         const unsigned max_test_count = proportion_total ? proportion_total : 1;
+        bool chosen_comb = false;
 
         double least_penalty = -1;
         for(unsigned i=0; i<PaletteSize; ++i)
@@ -1150,31 +1194,64 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
                 if(penalty < least_penalty || least_penalty < 0)
                     { least_penalty = penalty;
                       chosen = i;
-                      chosen_amount = p; }
+                      chosen_amount = p;/*
+                      chosen_comb = false;*/ }
             }
         }
 
-        result.resize(result.size() + chosen_amount, chosen);
-
-        proportion_total += chosen_amount;
-
-        so_far[0] += pal.Data[chosen].r * chosen_amount;
-        so_far[1] += pal.Data[chosen].g * chosen_amount;
-        so_far[2] += pal.Data[chosen].b * chosen_amount;
-
-        /*if(first && proportion_total >= 4)
+        for(unsigned i=0; i<NumCombinations; ++i)
         {
-            first=false;
-            for(unsigned c=0; c<3; ++c)
+            unsigned count = pal.Combinations[i].indexcount;
+            const unsigned max_test_count_comb =
+                std::min(proportion_total,
+                         (unsigned)GenerationLimit-proportion_total-count);
+
+            double sum[3] = { so_far[0], so_far[1], so_far[2] };
+            double add[3] = { pal.Combinations[i].combination.r*count,
+                              pal.Combinations[i].combination.g*count,
+                              pal.Combinations[i].combination.b*count };
+            for(unsigned p=1; p<=max_test_count_comb; p*=2)
             {
-                unsigned chosen = result[c];
-                so_far[0] += pal.Data[chosen].r;
-                so_far[1] += pal.Data[chosen].g;
-                so_far[2] += pal.Data[chosen].b;
+                for(unsigned c=0; c<3; ++c) sum[c] += add[c];
+                for(unsigned c=0; c<3; ++c) add[c] += add[c];
+                double t = proportion_total + p*count;
+                int testr = 255 * GammaUncorrect( sum[0] / t );
+                int testg = 255 * GammaUncorrect( sum[1] / t );
+                int testb = 255 * GammaUncorrect( sum[2] / t );
+                LabAndLuma t_meta(testr, testg, testb);
+                double penalty = ColorCompare(rin,gin,bin,      in_meta,
+                                              testr,testg,testb, t_meta);
+                if(penalty < least_penalty || least_penalty < 0)
+                    { least_penalty = penalty;
+                      chosen = i;
+                      chosen_amount = p;
+                      chosen_comb = true; }
             }
-            proportion_total -= 3;
-            result.erase(result.begin(), result.begin()+3);
-        }*/
+        }
+
+        if(!chosen_comb)
+        {
+            result.resize(result.size() + chosen_amount, chosen);
+
+            proportion_total += chosen_amount;
+
+            so_far[0] += pal.Data[chosen].r * chosen_amount;
+            so_far[1] += pal.Data[chosen].g * chosen_amount;
+            so_far[2] += pal.Data[chosen].b * chosen_amount;
+        }
+        else
+        {
+            unsigned count = pal.Combinations[chosen].indexcount;
+            for(unsigned i=0; i<count; ++i)
+                result.resize(result.size() + chosen_amount,
+                              pal.Combinations[chosen].indexlist[i]);
+
+            proportion_total += chosen_amount*count;
+
+            so_far[0] += pal.Combinations[chosen].combination.r * (chosen_amount*count);
+            so_far[1] += pal.Combinations[chosen].combination.g * (chosen_amount*count);
+            so_far[2] += pal.Combinations[chosen].combination.b * (chosen_amount*count);
+        }
     }
 
     std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
@@ -1538,7 +1615,7 @@ const double illuminants[4][3*3] =
       0.019334, 0.119193, 0.950227 } };
 static const double* GetIlluminant()
 {
-    switch(UseCIE)
+    switch(ColorComparing)
     {
         case Compare_CIE76_DeltaE:
             return illuminants[2];
@@ -1643,8 +1720,8 @@ void Palette::Analyze()
             luma_threshold);
     }
 
-    bool ThreeComponent = Dithering == Dither_KnollYliluoma;
-    bool FourComponent  = Dithering == Dither_KnollYliluoma;
+    bool ThreeComponent = Dithering != Dither_Yliluoma3;
+    bool FourComponent  = Dithering != Dither_Yliluoma3;
 
     // Create some combinations
     for(unsigned a=0; a+1<PaletteSize; ++a)

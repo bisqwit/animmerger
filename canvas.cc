@@ -22,7 +22,15 @@
 
 int SaveGif = -1;
 
-static FunctionParser parser_r,parser_g,parser_b;
+static class CanvasFunctionParser: public FunctionParser
+{
+public:
+    CanvasFunctionParser()
+    {
+        AddConstant("pi",  M_PI);
+        AddConstant("e",   M_E);
+    }
+} parser_r,parser_g,parser_b;
 std::string transform_r = "r";
 std::string transform_g = "g";
 std::string transform_b = "b";
@@ -1001,6 +1009,14 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
                         put(-1,3, 12/200.0);
                         put( 1,3, 12/200.0);
                         put( 3,3,  5/200.0);
+                        break;
+                    case Diffusion_Atkinson:
+                        put( 1,0,  1/8.0);
+                        put( 2,0,  1/8.0);
+                        put(-1,1,  1/8.0);
+                        put( 0,1,  1/8.0);
+                        put( 1,1,  1/8.0);
+                        put( 0,2,  1/8.0);
                         break;
                 }
             }

@@ -1032,7 +1032,7 @@ Here are two example truecolor* pictures, and the
 <p>
 I quantized it using the websafe palette and dithered using
 <code>--dm 1x1 --dc 1 --dr 0</code> (i.e. no dithering),
-and varied the color compare method using the <code>--cie</code> option.
+and varied the color compare method using the <code>--deltae</code> option.
 <p>
 These tests intend to show how each color-compare method
 identifies colors that most closely match the original.
@@ -1044,13 +1044,13 @@ Produced with commandline:<br>
 # &nbsp; # Render the chroma&amp;luma test image without dithering:<br>
 # &nbsp; animmerger deltae_base.png -Qdeltae_pal.png -vv \\<br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-        --dm=1x1 --dc=1 --dr=0 --cie=\$e --gamma 2.0<br>
+        --dm=1x1 --dc=1 --dr=0 --deltae=\$e --gamma 2.0<br>
 # &nbsp; mv tile-0000.png demo/deltae_\$e.png<br>
 #<br>
 # &nbsp; # Create four-frame temporal-dithered animation of the testcard:<br>
 # &nbsp; animmerger tksmall{,,,}.png --noalign -Qdeltae_pal.png -vv \\<br>
 &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-        --dm 1x1,-4 --dc 4 --cie=\$e -pc --gif --gamma 2.0<br>
+        --dm 1x1,-4 --dc 4 --deltae=\$e -pc --gif --gamma 2.0<br>
 # &nbsp; gifsicle -O2 -o demo/tk-\$e.gif -l0 -d4 tile-000[0-3].gif<br>
 #<br>
 # &nbsp; # Create an average of those four frames:<br>
@@ -1246,7 +1246,7 @@ and a lens flare effect was added:<br>
 Produced with:<br>
 <code>
 # ./animmerger --gif snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
-# &nbsp; &nbsp; &nbsp; &nbsp; -pv -l25 --cie -Qd,64 -Qd,32 --dr 0 --dc 16 \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; -pv -l25 --deltae -Qd,64 -Qd,32 --dr 0 --dc 16 \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform \"luma:=r*.299+g*.587+b*.114; pi:=atan2(0,-1);px:=238;py:=135;\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform \"xy:=(abs(x-px)*abs(y-py)/200^2);\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform \"rad:=hypot(x-px,y-py)^1.2;\" \\<br>

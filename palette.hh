@@ -39,13 +39,13 @@ extern double   DitherGamma;
 extern enum ColorCompareMethod
 {
     Compare_RGB,
-    Compare_RGBl,
     Compare_CIE76_DeltaE,
     Compare_CIE94_DeltaE,
     Compare_CMC_lc,
     Compare_BFD_lc,
-    Compare_CIEDE2000_DeltaE
-} UseCIE;
+    Compare_CIEDE2000_DeltaE,
+    Compare_fparser
+} ColorComparing;
 extern enum DitheringMethod
 {
     Dither_KnollYliluoma,
@@ -62,7 +62,8 @@ extern enum DiffusionMethod
     Diffusion_Sierra3,
     Diffusion_Sierra2,
     Diffusion_Sierra24A,
-    Diffusion_StevensonArce
+    Diffusion_StevensonArce,
+    Diffusion_Atkinson
 } Diffusion;
 
  inline double GammaCorrect(double x)
@@ -173,5 +174,7 @@ double ColorCompare(int r1,int g1,int b1, // 0..255
                     const LabAndLuma&,
                     int r2,int g2,int b2, // 0..255
                     const LabAndLuma& );
+
+void SetColorCompareFormula(const std::string& expr);
 
 #endif
