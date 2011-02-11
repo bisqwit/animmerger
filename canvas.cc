@@ -893,7 +893,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             dither_cache_t::iterator i = dither_cache.lower_bound(pix);
             if(i == dither_cache.end() || i->first != pix)
             {
-                output = FindBestMixingPlan(r,g,b,a, pal);
+                LabAndLuma input(pix);
+                output = FindBestMixingPlan(input, pal);
                 dither_cache.insert(i, std::make_pair(pix, output));
             }
             else
@@ -1176,10 +1177,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_NES(
                             r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
                         }
                         diff += ColorCompare(
-                            r1/down,g1/down,b1/down, 0,
-                            LabAndLuma( r1/down,g1/down,b1/down ),
-                            r2/down,g2/down,b2/down, 0,
-                            LabAndLuma( r2/down,g2/down,b2/down ) );
+                            LabAndLuma( r1/down,g1/down,b1/down, 0 ),
+                            LabAndLuma( r2/down,g2/down,b2/down, 0 ) );
                     }
                 if(diff < bestdiff || bestdiff < 0)
                     { bestdiff = diff; bestmode = mode; }

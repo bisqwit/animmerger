@@ -86,10 +86,13 @@ struct LabAndLuma
 {
     LabItem lab;
     int     luma;
+    uint32  rgb;     // The rgb to be saved to a file, and input to LAB
+    double  r,g,b,a; // gamma corrected
 
     LabAndLuma() {}
-    LabAndLuma(uint32 rgb);
-    LabAndLuma(int r,int g,int b);
+    LabAndLuma(uint32 val);
+    LabAndLuma(int R,int G,int B, int A=0);
+    LabAndLuma(uint32 val, double R,double G,double B,double A);
 };
 
 struct Palette
@@ -102,38 +105,26 @@ struct Palette
     size_t NumCombinations() const { return Combinations.size(); }
 
     uint32 GetColor(unsigned index) const { return Data[index].rgb; }
-    int    GetLuma(unsigned index) const { return Data[index].meta.luma; }
-    const LabItem& GetLAB(unsigned index) const { return Data[index].meta.lab; }
-    const LabAndLuma& GetMeta(unsigned index) const { return Data[index].meta; }
+    int    GetLuma(unsigned index) const { return Data[index].luma; }
+    const LabAndLuma& GetMeta(unsigned index) const { return Data[index]; }
 
     uint32 GetCombinationColor(unsigned index) const { return Combinations[index].combination.rgb; }
-    int    GetCombinationLuma(unsigned index) const { return Combinations[index].combination.meta.luma; }
-    const LabItem& GetCombinationLAB(unsigned index) const { return Combinations[index].combination.meta.lab; }
-    const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination.meta; }
+    int    GetCombinationLuma(unsigned index) const { return Combinations[index].combination.luma; }
+    const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination; }
 
     Palette GetSlice(unsigned offset, unsigned count) const;
     void AddPaletteRGB(uint32 p);
 public:
-    struct DataItem
+    struct PaletteItem: public LabAndLuma
     {
-        uint32      rgb;     // The rgb to be saved to a file, and input to LAB
-        LabAndLuma  meta;
-        double      r,g,b,a; // Gamma corrected 
-
-        DataItem() : rgb(0), meta(), r(0),g(0),b(0) { }
-        DataItem(uint32 v);
-        DataItem(uint32 v, double R,double G,double B,double A);
-    };
-    struct PaletteItem: public DataItem
-    {
-        PaletteItem()         : DataItem()  {}
-        PaletteItem(uint32 v) : DataItem(v) { }
+        PaletteItem()         : LabAndLuma()  {}
+        PaletteItem(uint32 v) : LabAndLuma(v) { }
     };
     std::vector<PaletteItem> Data;
     struct Combination
     {
         std::vector<unsigned> indexlist;
-        DataItem combination;
+        LabAndLuma combination;
 
         Combination(const std::vector<unsigned>& i, uint32 v)
             : indexlist(i), combination(v) { }
@@ -143,26 +134,18 @@ public:
     };
     std::vector<Combination> Combinations;
 
-    KDTree<unsigned,4> DataTree;
     KDTree<unsigned,4> CombinationTree;
 
     std::pair<unsigned,double>
-        FindClosestDataIndex
-            (int r,int g,int b,int a,
-             const LabAndLuma& meta) const;
-    std::pair<unsigned,double>
-        FindClosestCombinationIndex
-            (int r,int g,int b,int a,
-             const LabAndLuma& meta) const;
+        FindClosestCombinationIndex(const LabAndLuma& meta) const;
 };
 
 typedef std::vector<unsigned short> MixingPlan;
 
-MixingPlan FindBestMixingPlan
-    (int r,int g,int b,int a,
-     const Palette& Palette);
+MixingPlan FindBestMixingPlan(const LabAndLuma& input,  const Palette& Palette);
 
-struct HistogramType: public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
+struct HistogramType
+    : public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
 {
 };
 
@@ -172,10 +155,7 @@ Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
 std::vector<unsigned> CreateDispersedDitheringMatrix();
 std::vector<unsigned> CreateTemporalDitheringMatrix();
 
-double ColorCompare(int r1,int g1,int b1,int a1, // 0..255 (0..127 for alpha)
-                    const LabAndLuma&,
-                    int r2,int g2,int b2,int a2, // 0..255 (0..127 for alpha)
-                    const LabAndLuma& );
+double ColorCompare(const LabAndLuma&, const LabAndLuma& );
 
 void SetColorCompareFormula(const std::string& expr);
 
