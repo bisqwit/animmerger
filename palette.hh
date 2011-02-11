@@ -8,6 +8,8 @@
 #include "types.hh"
 #include "alloc/FSBAllocator.hh"
 
+#include "kdtree.hh"
+
 #define DefinePaletteMethods(callback) \
     callback(m,MedianCut) \
     callback(d,Diversity) \
@@ -49,6 +51,7 @@ extern enum ColorCompareMethod
 extern enum DitheringMethod
 {
     Dither_KnollYliluoma,
+    Dither_Yliluoma1,
     Dither_Yliluoma2,
     Dither_Yliluoma3
 } Dithering;
@@ -129,31 +132,23 @@ public:
     std::vector<PaletteItem> Data;
     struct Combination
     {
-        unsigned indexcount;
-        unsigned indexlist[4];
+        std::vector<unsigned> indexlist;
         DataItem combination;
 
-        Combination(unsigned i0,unsigned i1,                         uint32 v)
-            : indexcount(2), combination(v)
-            { indexlist[0] = i0; indexlist[1] = i1; }
-        Combination(unsigned i0,unsigned i1,unsigned i2,             uint32 v)
-            : indexcount(3), combination(v)
-            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; }
-        Combination(unsigned i0,unsigned i1,unsigned i2,unsigned i3, uint32 v)
-            : indexcount(4), combination(v)
-            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; indexlist[3] = i3; }
-        ////
-        Combination(unsigned i0,unsigned i1,                         uint32 v, double r,double g,double b)
-            : indexcount(2), combination(v, r,g,b)
-            { indexlist[0] = i0; indexlist[1] = i1; }
-        Combination(unsigned i0,unsigned i1,unsigned i2,             uint32 v, double r,double g,double b)
-            : indexcount(3), combination(v, r,g,b)
-            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; }
-        Combination(unsigned i0,unsigned i1,unsigned i2,unsigned i3, uint32 v, double r,double g,double b)
-            : indexcount(4), combination(v, r,g,b)
-            { indexlist[0] = i0; indexlist[1] = i1; indexlist[2] = i2; indexlist[3] = i3; }
+        Combination(const std::vector<unsigned>& i, uint32 v)
+            : indexlist(i), combination(v) { }
+        Combination(const std::vector<unsigned>& i, uint32 v, double r,double g,double b)
+            : indexlist(i), combination(v, r,g,b) { }
     };
     std::vector<Combination> Combinations;
+
+    KDTree<unsigned> DataTree;
+    KDTree<unsigned> CombinationTree;
+
+    std::pair<unsigned,double>
+        FindClosestDataIndex(int r,int g,int b, const LabAndLuma& meta) const;
+    std::pair<unsigned,double>
+        FindClosestCombinationIndex(int r,int g,int b, const LabAndLuma& meta) const;
 };
 
 typedef std::vector<unsigned short> MixingPlan;

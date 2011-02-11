@@ -12,6 +12,7 @@ ARCHFILES=\
 	vectype.hh \
 	binaryheap.hh \
 	openmp.hh \
+	kdtree.hh \
 	pixel.cc pixel.hh \
 	pixels/firstpixel.hh \
 	pixels/lastpixel.hh \

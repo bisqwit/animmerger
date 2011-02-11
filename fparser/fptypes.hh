@@ -61,7 +61,8 @@ namespace FUNCTIONPARSERTYPES
         cLog2by, /* log2by(x,y) = log2(x) * y */
         cNop,    /* Used by fpoptimizer internally; should not occur in bytecode */
 #endif
-        cSinCos, /* sin(x) followed by cos(x) (two values are pushed to stack) */
+        cSinCos,   /* sin(x) followed by cos(x) (two values are pushed to stack) */
+        cSinhCosh, /* hyperbolic equivalent of sincos */
         cAbsAnd,    /* As cAnd,       but assume both operands are absolute values */
         cAbsOr,     /* As cOr,        but assume both operands are absolute values */
         cAbsNot,    /* As cAbsNot,    but assume the operand is an absolute value */

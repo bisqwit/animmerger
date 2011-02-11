@@ -896,7 +896,6 @@ Note that animmerger's gamma correction algorithm is somewhat disputable.
 For instance, although the former example looks good, if we try the same
 with the EGA palette, where mid-gradient values (0%, 33%, 66% and 100% white)
 actually exist in the palette, we get the latter, odd-looking result.
-It probably looks just fine on displays with such odd gamma curves, though.
  <p>
 Conclusion: Your mileage may vary.
 

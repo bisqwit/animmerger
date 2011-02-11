@@ -22,7 +22,7 @@
 
 int SaveGif = -1;
 
-static class CanvasFunctionParser: public FunctionParser
+class CanvasFunctionParser: public FunctionParser
 {
 public:
     CanvasFunctionParser()
@@ -30,7 +30,9 @@ public:
         AddConstant("pi",  M_PI);
         AddConstant("e",   M_E);
     }
-} parser_r,parser_g,parser_b;
+};
+
+static CanvasFunctionParser parser_r,parser_g,parser_b;
 std::string transform_r = "r";
 std::string transform_g = "g";
 std::string transform_b = "b";
@@ -843,9 +845,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
     std::vector<float> Errors(
         UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8)*3 : 0 );
 
-    const int n = UseErrorDiffusion ? 1 : omp_get_num_procs();
-
-    #pragma omp parallel for schedule(static,2) num_threads(n)
+    #pragma omp parallel for schedule(static,2) if(!UseErrorDiffusion)
     for(unsigned y=0; y<hei; ++y)
     {
         transform_caches_t& transform_cache = GetTransformCache();
@@ -858,6 +858,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
                 pix = 0x7F000000u;
             if(TransformColors)
                 pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
+
+            //pix &= 0xFFFCFCFCu; // speed hack
 
             int r = (pix >> 16)&0xFF;
             int g = (pix >>  8)&0xFF;

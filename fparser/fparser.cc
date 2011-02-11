@@ -37,7 +37,6 @@ using namespace FUNCTIONPARSERTYPES;
 # define unlikely(x) (x)
 #endif
 
-
 //=========================================================================
 // Opcode analysis functions
 //=========================================================================
@@ -153,6 +152,48 @@ bool FUNCTIONPARSERTYPES::IsBinaryOpcode(unsigned op)
           return true;
     }
     return (op < FUNC_AMOUNT && Functions[op].params == 2);
+}
+
+bool FUNCTIONPARSERTYPES::IsCommutativeOrParamSwappableBinaryOpcode(unsigned op)
+{
+    switch(op)
+    {
+      case cAdd:
+      case cMul:
+      case cEqual: case cNEqual:
+      case cAnd: case cAbsAnd:
+      case cOr: case cAbsOr:
+      case cMin: case cMax: case cHypot:
+          return true;
+      case cDiv: case cSub: case cRDiv: case cRSub:
+          return true;
+      case cLess: case cGreater:
+      case cLessOrEq: case cGreaterOrEq: return true;
+    }
+    return false;
+}
+
+unsigned FUNCTIONPARSERTYPES::GetParamSwappedBinaryOpcode(unsigned op)
+{
+    switch(op)
+    {
+      case cAdd:
+      case cMul:
+      case cEqual: case cNEqual:
+      case cAnd: case cAbsAnd:
+      case cOr: case cAbsOr:
+      case cMin: case cMax: case cHypot:
+          return op;
+      case cDiv: return cRDiv;
+      case cSub: return cRSub;
+      case cRDiv: return cDiv;
+      case cRSub: return cSub;
+      case cLess: return cGreater;
+      case cGreater: return cLess;
+      case cLessOrEq: return cGreaterOrEq;
+      case cGreaterOrEq: return cLessOrEq;
+    }
+    return op; // Error
 }
 
 bool FUNCTIONPARSERTYPES::HasInvalidRangesOpcode(unsigned op)
@@ -298,6 +339,15 @@ ValueT FUNCTIONPARSERTYPES::fp_pow(const ValueT& x, const ValueT& y)
 //=========================================================================
 namespace
 {
+    const unsigned FP_ParamGuardMask = 1U << (sizeof(unsigned) * 8u - 1u);
+    // ^ This mask is used to prevent cFetch/other opcode's parameters
+    //   from being confused into opcodes or variable indices within the
+    //   bytecode optimizer. Because the way it is tested in bytecoderules.dat
+    //   for speed reasons, it must also be the sign-bit of the "int" datatype.
+    //   Perhaps an "assert(int(X | FP_ParamGuardMask) < 0)"
+    //   might be justified to put somewhere in the code, just in case?
+
+
     /* Reads an UTF8-encoded sequence which forms a valid identifier name from
        the given input string and returns its length. If bit 31 is set, the
        return value also contains the internal function opcode (defined in
@@ -469,7 +519,7 @@ namespace
         if(*str == 'p' || *str == 'P')
         {
             const char* str2 = str+1;
-            long p_exponent = strtol(str2, (char**) &str2, 10);
+            long p_exponent = strtol(str2, const_cast<char**> (&str2), 10);
             if(str2 != str+1 && p_exponent == (long)(int)p_exponent)
             {
                 exponent += (int)p_exponent;
@@ -477,7 +527,7 @@ namespace
             }
         }
 
-        if(endptr) *endptr = (char*) str;
+        if(endptr) *endptr = const_cast<char*> (str);
 
         Value_t result = ldexp(Value_t(mantissa_buffer[0]), exponent);
         for(unsigned p=1; p<n_limbs; ++p)
@@ -1115,7 +1165,7 @@ int FunctionParserBase<Value_t>::ParseFunction(const char* function,
     if(mHasByteCodeFlags)
     {
         for(unsigned i = unsigned(mData->mByteCode.size()); i-- > 0; )
-            mData->mByteCode[i] &= ~0x80000000U;
+            mData->mByteCode[i] &= ~FP_ParamGuardMask;
     }
 
     if(mParseErrorType != FP_NO_ERROR) return int(mErrorLocation - function);
@@ -1234,6 +1284,23 @@ namespace
     const double EpsilonOrZero = 0.0;
 #endif
 
+    /* Needed by fp_opcode_add.inc if tracing is enabled */
+    template<typename Value_t>
+    std::string findName(const NamePtrsMap<Value_t>& nameMap,
+                         unsigned index,
+                         typename NameData<Value_t>::DataType type)
+    {
+        for(typename NamePtrsMap<Value_t>::const_iterator
+                iter = nameMap.begin();
+            iter != nameMap.end();
+            ++iter)
+        {
+            if(iter->second.type == type && iter->second.index == index)
+                return std::string(iter->first.name,
+                                   iter->first.name + iter->first.nameLength);
+        }
+        return "?";
+    }
 }
 
 template<typename Value_t>
@@ -2239,7 +2306,7 @@ template<typename Value_t> template<bool PutFlag>
 inline void FunctionParserBase<Value_t>::PushOpcodeParam
     (unsigned value)
 {
-    mData->mByteCode.push_back(value | (PutFlag ? 0x80000000U : 0u));
+    mData->mByteCode.push_back(value | (PutFlag ? FP_ParamGuardMask : 0u));
     if(PutFlag) mHasByteCodeFlags = true;
 }
 
@@ -2247,7 +2314,7 @@ template<typename Value_t> template<bool PutFlag>
 inline void FunctionParserBase<Value_t>::PutOpcodeParamAt
     (unsigned value, unsigned offset)
 {
-    mData->mByteCode[offset] = value | (PutFlag ? 0x80000000U : 0u);
+    mData->mByteCode[offset] = value | (PutFlag ? FP_ParamGuardMask : 0u);
     if(PutFlag) mHasByteCodeFlags = true;
 }
 
@@ -2353,7 +2420,7 @@ Value_t FunctionParserBase<Value_t>::Eval(const Value_t* Vars)
               {
                   const Value_t s = fp_sin(Stack[SP]);
 #               ifndef FP_NO_EVALUATION_CHECKS
-                  if(s == 0) { mEvalErrorType=1; return Value_t(0); }
+                  if(s == Value_t(0)) { mEvalErrorType=1; return Value_t(0); }
 #               endif
                   Stack[SP] = Value_t(1)/s; break;
               }
@@ -2628,6 +2695,10 @@ Value_t FunctionParserBase<Value_t>::Eval(const Value_t* Vars)
               fp_sinCos(Stack[SP], Stack[SP+1], Stack[SP]);
               ++SP;
               break;
+          case cSinhCosh:
+              fp_sinhCosh(Stack[SP], Stack[SP+1], Stack[SP]);
+              ++SP;
+              break;
 
           case cAbsNot:
               Stack[SP] = fp_absNot(Stack[SP]); break;
@@ -2835,23 +2906,6 @@ namespace
         {
             dest << ' ';
         }
-    }
-
-    template<typename Value_t>
-    std::string findName(const NamePtrsMap<Value_t>& nameMap,
-                         unsigned index,
-                         typename NameData<Value_t>::DataType type)
-    {
-        for(typename NamePtrsMap<Value_t>::const_iterator
-                iter = nameMap.begin();
-            iter != nameMap.end();
-            ++iter)
-        {
-            if(iter->second.type == type && iter->second.index == index)
-                return std::string(iter->first.name,
-                                   iter->first.name + iter->first.nameLength);
-        }
-        return "?";
     }
 
     const struct PowiMuliType
@@ -3063,7 +3117,7 @@ void FunctionParserBase<Value_t>::PrintByteCode(std::ostream& dest,
                 std::string        operation_prefix;
                 std::ostringstream operation_value;
                 int prio = 0;
-                if(exponent == 1.0)
+                if(exponent == Value_t(1.0))
                 {
                     if(opcode != cDup) goto not_powi_or_muli;
                     Value_t factor =
@@ -3286,7 +3340,7 @@ void FunctionParserBase<Value_t>::PrintByteCode(std::ostream& dest,
                         case cRad: n = "rad"; params = 1; break;
 
     #ifndef FP_DISABLE_EVAL
-                        case cEval: n = "eval"; params = mData->mVariablesAmount;
+                        case cEval: n = "eval"; params = mData->mVariablesAmount; break;
     #endif
 
                         case cFetch:
@@ -3332,6 +3386,22 @@ void FunctionParserBase<Value_t>::PrintByteCode(std::ostream& dest,
                                 stack.push_back(cos);
                             }
                             output << "sincos";
+                            produces = 0;
+                            break;
+                        }
+                        case cSinhCosh:
+                        {
+                            if(showExpression)
+                            {
+                                std::pair<int, std::string> sinh = stack.back();
+                                std::pair<int, std::string> cosh(
+                                    0, "cosh(" + sinh.second + ")");
+                                sinh.first = 0;
+                                sinh.second = "sinh(" + sinh.second + ")";
+                                stack.back() = sinh;
+                                stack.push_back(cosh);
+                            }
+                            output << "sinhcosh";
                             produces = 0;
                             break;
                         }

@@ -917,9 +917,10 @@ DITHERING\n\
   Dithering methods\n\
      The following dithering methods are defined:\n\
       FULL NAME            SHORT NAME    Suitable for animation\n\
-       Knoll-Yliluoma       ky            Yes (positional)\n\
+       Yliluoma1            y1            Yes (positional)\n\
        Yliluoma2            y2            Yes (positional)\n\
        Yliluoma3            y3            Yes (positional)\n\
+       Knoll-Yliluoma       ky            Yes (positional)\n\
        Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
        Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
        Stucki               s             No (diffuses +12 pixels)\n\
@@ -1310,6 +1311,7 @@ rate.\n\
                         if(c < 128 && !cm[c]) cm[c] = section;
                     }
                     /**/ if(cm['k'] && cm['y']) { Dithering = Dither_KnollYliluoma; positional_defined = true; }
+                    else if(cm['y'] && cm['1']) { Dithering = Dither_Yliluoma1; positional_defined = true; }
                     else if(cm['y'] && cm['2']) { Dithering = Dither_Yliluoma2; positional_defined = true; }
                     else if(cm['y'] && cm['3']) { Dithering = Dither_Yliluoma3; positional_defined = true; }
                     else if(cm['f'] && cm['s']) Diffusion = Diffusion_FloydSteinberg;
@@ -1650,16 +1652,20 @@ rate.\n\
                 switch(Dithering)
                 {
                     case Dither_KnollYliluoma:
-                        methodname = "Knoll-Yliluoma"; break;
+                        methodname = "Knoll-Yliluoma positional pattern dithering"; break;
+                    case Dither_Yliluoma1:
+                        methodname = "Yliluoma1 ordered dithering"; break;
                     case Dither_Yliluoma2:
-                        methodname = "Yliluoma2"; break;
+                        methodname = "Yliluoma2 positional dithering"; break;
                     case Dither_Yliluoma3:
-                        methodname = "Yliluoma3"; break;
+                        methodname = "Yliluoma3 positional dithering"; break;
                 }
                 std::printf(
-                    "\tDithering method: %s positional pattern dithering\n"
+                    "\tDithering method: %s\n"
+                    "\tDithering contrast modifier: %g\n"
                     "\tDithering with %u color choices, Bayer matrix size: %ux%u",
                     methodname,
+                    DitherCombinationContrast,
                     DitherColorListSize,
                     DitherMatrixWidth, DitherMatrixHeight);
                 if(DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize == 1)
@@ -1670,9 +1676,12 @@ rate.\n\
                         TemporalDitherSize,
                         TemporalDitherMSB ? "MSB" : "LSB");
                 }
-                std::printf("\n"
-                    "\tDither color error spectrum size: %g\n",
-                    DitherErrorFactor);
+                if(Dithering == Dither_KnollYliluoma)
+                {
+                    std::printf("\n"
+                        "\tDither color error spectrum size: %g\n",
+                        DitherErrorFactor);
+                }
             }
             if(Diffusion != Diffusion_None)
             {
