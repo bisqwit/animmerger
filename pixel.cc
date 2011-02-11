@@ -477,7 +477,7 @@ void Array256x256of_Base::PutSectionInto
         for(unsigned x=0; x<width; ++x)
         {
             uint32 pix = source[p+x];
-            if(pix & 0xFF000000u) continue;
+            if( pix >= 0x7F000000 ) continue;
             /* Do not plot transparent pixels */
             Set(index+x, pix, timer);
         }
@@ -612,8 +612,8 @@ public:
             for(unsigned x=0; x<width; ++x)
             {
                 uint32 pix = source[p+x];
-                if(pix & 0xFF000000u) continue;
-                /* Do not plot transparent pixels */
+                if( pix >= 0x7F000000 ) continue;
+                /* Do not plot completely transparent pixels */
                 data[index+x].set(pix, timer);
             }
     }

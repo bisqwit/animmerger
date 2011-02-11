@@ -20,6 +20,10 @@ public:
         {
             coord[0] = a; coord[1] = b; coord[2] = c;
         }
+        KDPoint(double a,double b,double c,double d)
+        {
+            coord[0] = a; coord[1] = b; coord[2] = c; coord[3] = d;
+        }
 
         KDPoint(double v[K])
         {

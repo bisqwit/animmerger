@@ -773,8 +773,8 @@ gdImagePtr TILE_Tracker::CreateFrame_TrueColor(
     unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-    gdImageAlphaBlending(im, false);
-    gdImageSaveAlpha(im, true);
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
 
     #pragma omp parallel for schedule(static)
     for(unsigned y=0; y<hei; ++y)
@@ -800,8 +800,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Auto(
     unsigned frameno, unsigned wid, unsigned hei)
 {
     gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-    gdImageAlphaBlending(im, false);
-    gdImageSaveAlpha(im, true);
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
 
     #pragma omp parallel for schedule(static)
     for(unsigned y=0; y<hei; ++y)
@@ -832,18 +832,18 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
     /* First try to create a paletted image */
     gdImagePtr im = gdImageCreate(wid,hei);
 
-    gdImageAlphaBlending(im, false);
-    gdImageSaveAlpha(im, true);
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
     for(unsigned a=0; a<pal.Size(); ++a)
     {
         unsigned pix = pal.GetColor(a);
-        gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
+        gdImageColorAllocateAlpha(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
     }
     gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
 
     const unsigned ErrorDiffusionMaxHeight = 4;
     std::vector<float> Errors(
-        UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8)*3 : 0 );
+        UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8)*4 : 0 );
 
     #pragma omp parallel for schedule(static,2) if(!UseErrorDiffusion)
     for(unsigned y=0; y<hei; ++y)
@@ -866,23 +866,26 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             int b = (pix      )&0xFF;
             int a = (pix >> 24); if(a&0x80) a>>=1;
 
-            float orig_color[3] = { (float) GammaCorrect(r/255.0),
+            float orig_color[4] = { (float) GammaCorrect(r/255.0),
                                     (float) GammaCorrect(g/255.0),
-                                    (float) GammaCorrect(b/255.0) };
+                                    (float) GammaCorrect(b/255.0),
+                                    (float) GammaCorrect(a/128.0) };
 
             if(UseErrorDiffusion)
             {
-                float* pos = &Errors[ ((y%ErrorDiffusionMaxHeight)*(wid+8) + (x+4)) * 3 + 0];
-                for(unsigned c=0; c<3; ++c) orig_color[c] += pos[c];
-                for(unsigned c=0; c<3; ++c) pos[c] = 0.0f;
+                float* pos = &Errors[ ((y%ErrorDiffusionMaxHeight)*(wid+8) + (x+4)) * 4 + 0];
+                for(unsigned c=0; c<4; ++c) orig_color[c] += pos[c];
+                for(unsigned c=0; c<4; ++c) pos[c] = 0.0f;
                 r = int( 255*GammaUncorrect( orig_color[0] ) );
                 g = int( 255*GammaUncorrect( orig_color[1] ) );
                 b = int( 255*GammaUncorrect( orig_color[2] ) );
+                a = int( 127*GammaUncorrect( orig_color[3] ) );
 
                 if(r < 0) r = 0; else if(r > 255) r = 255;
                 if(g < 0) g = 0; else if(g > 255) g = 255;
                 if(b < 0) b = 0; else if(b > 255) b = 255;
-                pix = (pix & 0xFF000000) | ((r << 16) + (g << 8) + b);
+                if(a < 0) a = 0; else if(a > 127) a = 127;
+                pix = (a << 24) + (r << 16) + (g << 8) + b;
             }
 
             // Find two closest entries from palette and use o8x8 dithering
@@ -890,7 +893,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             dither_cache_t::iterator i = dither_cache.lower_bound(pix);
             if(i == dither_cache.end() || i->first != pix)
             {
-                output = FindBestMixingPlan(r,g,b, pal);
+                output = FindBestMixingPlan(r,g,b,a, pal);
                 dither_cache.insert(i, std::make_pair(pix, output));
             }
             else
@@ -919,13 +922,14 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
 
             if(UseErrorDiffusion)
             {
-                float flterror[3] = { float(pal.Data[color].r) - orig_color[0],
+                float flterror[4] = { float(pal.Data[color].r) - orig_color[0],
                                       float(pal.Data[color].g) - orig_color[1],
-                                      float(pal.Data[color].b) - orig_color[2] };
+                                      float(pal.Data[color].b) - orig_color[2],
+                                      float(pal.Data[color].a) - orig_color[3] };
                 #define put(xo,yo, factor) \
-                  for(unsigned c=0; c<3; ++c) \
+                  for(unsigned c=0; c<4; ++c) \
                     Errors[ (((y+yo)%ErrorDiffusionMaxHeight)*(wid+8) \
-                            + (x+xo+4))*3 + c] -= flterror[c]*(factor##f)
+                            + (x+xo+4))*4 + c] -= flterror[c]*(factor##f)
                 switch(Diffusion)
                 {
                     case Diffusion_None: break;
@@ -1137,7 +1141,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_NES(
     for(unsigned a=0; a<CurrentPalette.Size(); ++a)
     {
         unsigned pix = CurrentPalette.GetColor(a);
-        gdImageColorAllocate(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
+        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
     }
     gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
 
@@ -1172,9 +1176,9 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_NES(
                             r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
                         }
                         diff += ColorCompare(
-                            r1/down,g1/down,b1/down,
+                            r1/down,g1/down,b1/down, 0,
                             LabAndLuma( r1/down,g1/down,b1/down ),
-                            r2/down,g2/down,b2/down,
+                            r2/down,g2/down,b2/down, 0,
                             LabAndLuma( r2/down,g2/down,b2/down ) );
                     }
                 if(diff < bestdiff || bestdiff < 0)

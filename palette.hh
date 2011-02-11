@@ -85,7 +85,7 @@ LabItem RGBtoLAB(int r,int g,int b);
 struct LabAndLuma
 {
     LabItem lab;
-    unsigned luma;
+    int     luma;
 
     LabAndLuma() {}
     LabAndLuma(uint32 rgb);
@@ -102,12 +102,12 @@ struct Palette
     size_t NumCombinations() const { return Combinations.size(); }
 
     uint32 GetColor(unsigned index) const { return Data[index].rgb; }
-    unsigned GetLuma(unsigned index) const { return Data[index].meta.luma; }
+    int    GetLuma(unsigned index) const { return Data[index].meta.luma; }
     const LabItem& GetLAB(unsigned index) const { return Data[index].meta.lab; }
     const LabAndLuma& GetMeta(unsigned index) const { return Data[index].meta; }
 
     uint32 GetCombinationColor(unsigned index) const { return Combinations[index].combination.rgb; }
-    unsigned GetCombinationLuma(unsigned index) const { return Combinations[index].combination.meta.luma; }
+    int    GetCombinationLuma(unsigned index) const { return Combinations[index].combination.meta.luma; }
     const LabItem& GetCombinationLAB(unsigned index) const { return Combinations[index].combination.meta.lab; }
     const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination.meta; }
 
@@ -116,13 +116,13 @@ struct Palette
 public:
     struct DataItem
     {
-        uint32      rgb;   // The rgb to be saved to a file, and input to LAB
+        uint32      rgb;     // The rgb to be saved to a file, and input to LAB
         LabAndLuma  meta;
-        double      r,g,b; // Gamma corrected 
+        double      r,g,b,a; // Gamma corrected 
 
         DataItem() : rgb(0), meta(), r(0),g(0),b(0) { }
         DataItem(uint32 v);
-        DataItem(uint32 v, double R,double G,double B);
+        DataItem(uint32 v, double R,double G,double B,double A);
     };
     struct PaletteItem: public DataItem
     {
@@ -137,23 +137,30 @@ public:
 
         Combination(const std::vector<unsigned>& i, uint32 v)
             : indexlist(i), combination(v) { }
-        Combination(const std::vector<unsigned>& i, uint32 v, double r,double g,double b)
-            : indexlist(i), combination(v, r,g,b) { }
+        Combination(const std::vector<unsigned>& i, uint32 v,
+                    double r,double g,double b,double a)
+            : indexlist(i), combination(v, r,g,b,a) { }
     };
     std::vector<Combination> Combinations;
 
-    KDTree<unsigned> DataTree;
-    KDTree<unsigned> CombinationTree;
+    KDTree<unsigned,4> DataTree;
+    KDTree<unsigned,4> CombinationTree;
 
     std::pair<unsigned,double>
-        FindClosestDataIndex(int r,int g,int b, const LabAndLuma& meta) const;
+        FindClosestDataIndex
+            (int r,int g,int b,int a,
+             const LabAndLuma& meta) const;
     std::pair<unsigned,double>
-        FindClosestCombinationIndex(int r,int g,int b, const LabAndLuma& meta) const;
+        FindClosestCombinationIndex
+            (int r,int g,int b,int a,
+             const LabAndLuma& meta) const;
 };
 
 typedef std::vector<unsigned short> MixingPlan;
 
-MixingPlan FindBestMixingPlan(int r,int g,int b, const Palette& Palette);
+MixingPlan FindBestMixingPlan
+    (int r,int g,int b,int a,
+     const Palette& Palette);
 
 struct HistogramType: public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
 {
@@ -165,9 +172,9 @@ Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
 std::vector<unsigned> CreateDispersedDitheringMatrix();
 std::vector<unsigned> CreateTemporalDitheringMatrix();
 
-double ColorCompare(int r1,int g1,int b1, // 0..255
+double ColorCompare(int r1,int g1,int b1,int a1, // 0..255 (0..127 for alpha)
                     const LabAndLuma&,
-                    int r2,int g2,int b2, // 0..255
+                    int r2,int g2,int b2,int a2, // 0..255 (0..127 for alpha)
                     const LabAndLuma& );
 
 void SetColorCompareFormula(const std::string& expr);
