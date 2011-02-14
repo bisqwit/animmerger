@@ -1,10 +1,12 @@
-VERSION=1.5.0-pre2
+VERSION=1.5.0-pre3
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
 ARCHFILES=\
+	histogram.cc histogram.hh \
 	palette.cc palette.hh \
 	canvas.cc canvas.hh \
+	dither.cc dither.hh \
 	align.cc align.hh \
 	types.hh \
 	settype.hh \
@@ -41,7 +43,8 @@ FPOBJS=\
 CPPFLAGS += -Ifparser
 	
 OBJS=\
-	main.o canvas.o pixel.o align.o palette.o
+	main.o canvas.o pixel.o align.o \
+	palette.o histogram.o dither.o
 PROGS=\
 	animmerger
 
@@ -70,9 +73,13 @@ all: $(PROGS) doc/README.html
 animmerger: $(OBJS) $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
-animmerger_nes: main.o pixel.o align.o palette.o canvas_nes.o $(FPOBJS)
+animmerger_nes: \
+		main.o pixel.o align.o palette.o histogram.o dither.o \
+		canvas_nes.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-animmerger_cga16: main.o pixel.o align.o palette.o canvas_cga16.o $(FPOBJS)
+animmerger_cga16: \
+		main.o pixel.o align.o palette.o histogram.o dither.o \
+		canvas_cga16.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 canvas_nes.o: canvas.cc
 	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DNESmode=1

@@ -4,6 +4,7 @@
 #include "align.hh"
 #include "openmp.hh"
 #include "palette.hh"
+#include "dither.hh"
 
 #include "pixels/averagepixel.hh"
 
@@ -657,7 +658,7 @@ int main(int argc, char** argv)
             {"ditherror",  1,0,5001},  {"de",1,0,5001},
             {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
             {"dithcount",  1,0,5003},  {"dc",1,0,5003},
-            {"dithcontrast",1,0,5004}, {"dr",1,0,5004},
+            {"dithcombine",1,0,5004}, {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
             {"deltae",     2,0,5005},  {"cie",2,0,5005},
             {"gamma",      1,0,'G'},
             {"transform",  1,0,6001},
@@ -755,10 +756,11 @@ Output options:\n\
      Value 1 disables dithering.\n\
      This number should not be made larger than x*y*time.\n\
      Default: 32 or x*y*time, whichever is smaller.\n\
- --dithcontrast, --dr <float>\n\
+ --dithcombine, --dr <float>[,<combinationlimit>[,<changeslimit>]]]\n\
      Set the maximum contrast between two or more color items\n\
      that are pre-selected for combined candidates for dithering.\n\
-     The value must be in range 0..3. Default value: 1. See details below.\n\
+     The value must be in range 0..3. Default value: 1.\n\
+     See details below.\n\
  --deltae, --cie [=<type>|=<formula>]\n\
      Select color comparison method, see details below.\n\
  --gamma [=<value>]\n\
@@ -919,7 +921,7 @@ DITHERING\n\
        Yliluoma1            y1            Yes (positional)\n\
        Yliluoma2            y2            Yes (positional)\n\
        Yliluoma3            y3            Yes (positional)\n\
-       Knoll-Yliluoma       ky            Yes (positional)\n\
+       Yliluoma1Iterative   ky            Yes (positional)\n\
        Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
        Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
        Stucki               s             No (diffuses +12 pixels)\n\
@@ -949,7 +951,7 @@ DITHERING\n\
      value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
      prominent flickering, while improving the spatial accuracy.\n\
 \n\
-  Dithering contrast\n\
+  Dithering combine control (--dithcombine)\n\
      The contrast is specified as a sliding scale where\n\
        0 means that no combinations are loaded.\n\
        1 represents the average luma difference between\n\
@@ -964,8 +966,58 @@ DITHERING\n\
      If you have lots of time and you're rendering a high-resolution\n\
      picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
      Note that a low value of dithcount can make this option useless.\n\
-     NOTE: Combining --gamma and --dithcontrast will result in wrong\n\
-     colors. Do not use them together.\n\
+     \n\
+     --dithcombine takes up to three parameters:\n\
+         <float>\n\
+            Contrast, as described above.\n\
+         <combinationlimit>\n\
+            Maximum number of colors to combine.\n\
+            This value defaults to DithCount, but it may be lower.\n\
+            Lower values are faster. It must be at least 1.\n\
+         <changeslimit>\n\
+            Maximum number of _different_ colors to combine.\n\
+            For example, depth 16 & changes 2 means that up to 16 colors\n\
+            are mixed, but the list can contain only 2 distinct colors.\n\
+            If you specify a negative value, it means that identical colors\n\
+            are not mixed together at all; all candidate components are distinct.\n\
+            It is the fastest option, though not best quality.\n\
+     Examples:\n\
+       --dithcombine 2,4,2\n\
+          Select all combinations of up to 4 palette colors where:\n\
+            - The difference between dimmest and brightest colors in the mix\n\
+              is equal or less than 100% of the maximum difference between\n\
+              consecutive elements in the luma-sorted palette\n\
+            - Only 2 distinct palette indices may occur in the mix\n\
+       --dithcombine 3,16,-1\n\
+          Select all combinations of up to 16 palette colors where:\n\
+            - All palette indices are distinct (same index does not appear twice)\n\
+            - No restrictions on how bright&dim colors are mixed together\n\
+       --dithcombine 0\n\
+          No precalculated mixes. For Yliluoma1 and Yliluoma3 dithers,\n\
+          this means that no dithering is done at all. For Yliluoma1Improved\n\
+          and Yliluoma2, this is the fastest possible option.\n\
+\n\
+Ordered dithering method differences:\n\
+\n\
+  Yliluoma1\n\
+     Completely reliant on --dithcombine to provide\n\
+     the selection of mix candidates.\n\
+     Ignores the --ditherror parameter.\n\
+     Ignores the --dithcount parameter (which still controls the defaults\n\
+                                        to --dithcombine though)\n\
+     Fastest. Depending on --dithcombine, quality may be good or bad.\n\
+  Yliluoma1Iterative\n\
+     Can be improved with --dithcombine, but does not depend on it at all.\n\
+     The only dither that uses --ditherror parameter.\n\
+     Fast. Quality adequate in most cases.\n\
+  Yliluoma2\n\
+     Can be improved with --dithcombine.\n\
+     Ignores the --ditherror parameter.\n\
+     Slow.\n\
+  Yliluoma3\n\
+     Only uses color combinations of 1 or 2 items.\n\
+     Ignores the --ditherror parameter.\n\
+     Slow.\n\
 \n\
 COLOR TRANSFORMATION FUNCTION\n\
 \n\
@@ -1295,7 +1347,7 @@ rate.\n\
             case 'D': // dithmethod, D
             {
                 Diffusion = Diffusion_None;
-                Dithering = Dither_KnollYliluoma;
+                Dithering = Dither_Yliluoma1Iterative;
                 bool positional_defined = false;
                 std::string optarg_save(optarg);
                 bool errors = false;
@@ -1309,11 +1361,15 @@ rate.\n\
                         unsigned char c = std::tolower(*section);
                         if(c < 128 && !cm[c]) cm[c] = section;
                     }
-                    /**/ if(cm['k'] && cm['y']) { Dithering = Dither_KnollYliluoma; positional_defined = true; }
+                    /**/ if(cm['k'] && cm['y']) { Dithering = Dither_Yliluoma1Iterative; positional_defined = true; }
+                    else if(cm['y'] && cm['1']
+                         && cm['i'] && cm['1'][1]=='i') 
+                                                { Dithering = Dither_Yliluoma1Iterative; positional_defined = true; }
                     else if(cm['y'] && cm['1']) { Dithering = Dither_Yliluoma1; positional_defined = true; }
                     else if(cm['y'] && cm['2']) { Dithering = Dither_Yliluoma2; positional_defined = true; }
                     else if(cm['y'] && cm['3']) { Dithering = Dither_Yliluoma3; positional_defined = true; }
-                    else if(cm['f'] && cm['s']) Diffusion = Diffusion_FloydSteinberg;
+                    else if(cm['f'] && (cm['s']||cm['y']>cm['f']))
+                                                Diffusion = Diffusion_FloydSteinberg;
                     else if(cm['j'] && cm['n']) Diffusion = Diffusion_JarvisJudiceNinke;
                     else if(cm['b'])            Diffusion = Diffusion_Burkes;
                     else if(cm['s'] && cm['4']) Diffusion = Diffusion_Sierra24A;
@@ -1392,15 +1448,39 @@ rate.\n\
                 dithering_configured = true;
                 break;
             }
-            case 5004: // dithcontrast, dr
+            case 5004: // dithcombine, dr
             {
                 char* arg = optarg;
-                double tmp = strtod(arg, 0);
-                DitherCombinationContrast = tmp;
-                if(tmp < 0.0 || tmp > 3.0)
+                double   contrast       = -1;
+                long     recursionlimit = 0;
+                long     changeslimit   = 0;
+                int result = sscanf(arg, "%lf,%ld,%ld", &contrast,&recursionlimit,&changeslimit);
+                DitherCombinationContrast = -1.0; // re-enable heuristic.
+                if(result < 1)
+                    std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                else if(contrast < 0.0 || contrast > 3.0)
+                    std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", contrast);
+                else
+                    DitherCombinationContrast = contrast;
+                if(result >= 2)
                 {
-                    std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", tmp);
-                    DitherCombinationContrast = -1.0; // re-enable heuristic.
+                    if(recursionlimit < 1)
+                        std::fprintf(stderr, "animmerger: Bad dither combination limit: %ld\n", recursionlimit);
+                    else
+                        DitherCombinationRecursionLimit = recursionlimit;
+                    if(result >= 3)
+                    {
+                        if(changeslimit < 0)
+                            { DitherCombinationChangesLimit = ~0u;
+                              DitherCombinationAllowSame    = false; }
+                        else if(changeslimit < 1)
+                            std::fprintf(stderr, "animmerger: Bad dither combination changes limit: %ld\n", changeslimit);
+                        else
+                        {
+                            DitherCombinationChangesLimit = changeslimit;
+                            DitherCombinationAllowSame    = true;
+                        }
+                    }
                 }
                 dithering_configured = true;
                 break;
@@ -1568,7 +1648,7 @@ rate.\n\
     && DitherColorListSize == 16
     && DitherCombinationContrast == 0.0
     && Diffusion == Diffusion_None
-    && Dithering == Dither_KnollYliluoma)
+    && Dithering == Dither_Yliluoma1Iterative)
     {
         std::fprintf(stderr,
             "animmerger: Sorry, I cannot obey this combination of options.\n"
@@ -1577,6 +1657,47 @@ rate.\n\
             "            And due to that patent, this method cannot be implemented\n"
             "            in free software. Method patents are annoying, we all know.\n");
         return -1;
+    }
+
+    switch(Dithering)
+    {
+        case Dither_Yliluoma1:
+            // Finding the single best-matching candidate
+            if(DitherCombinationRecursionLimit == 1
+            || DitherCombinationChangesLimit==1)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma1 dithering to work properly, more than 1 distinct elements should be allowed in a mix (--dithcombine).\n");
+            }
+            break;
+        case Dither_Yliluoma1Iterative:
+            // Finding the best-matching candidate, repeat with error diffusion
+            if(DitherCombinationAllowSame
+            && DitherCombinationChangesLimit > DitherCombinationRecursionLimit)
+            {
+            }
+            break;
+        case Dither_Yliluoma2:
+            // Find the best-matching candidate, repeat find best-improving candidate with count
+            break;
+        case Dither_Yliluoma3:
+            // Subdivision of DitherColorListSize, replacing with colorpairs or colors
+            if(DitherCombinationRecursionLimit == 0)
+                DitherCombinationRecursionLimit = 2;
+            else if(DitherCombinationRecursionLimit > 2)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma3 dithering, upper limit for combination limit is 2.\n");
+                DitherCombinationRecursionLimit = 2;
+            }
+            if(DitherCombinationChangesLimit == 0)
+                DitherCombinationChangesLimit = 2;
+            if(DitherCombinationChangesLimit != 2)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma3 dithering to work properly, changes limit should be 2.\n");
+                if(DitherCombinationChangesLimit > 2)
+                    DitherCombinationRecursionLimit = 2;
+            }
+            DitherCombinationAllowSame = false;
+            break;
     }
 
     if(verbose)
@@ -1636,7 +1757,11 @@ rate.\n\
             std::printf("\n");
 
             if(DitherColorListSize == 1
-            || DitherErrorFactor   == 0.0)
+            || DitherErrorFactor   == 0.0
+            || (DitherCombinationRecursionLimit==1 &&
+                           (Dithering == Dither_Yliluoma1
+                         || Dithering == Dither_Yliluoma3))
+              )
             {
                 std::printf(
                     "\tPositional dithering disabled\n");
@@ -1646,21 +1771,26 @@ rate.\n\
                 const char* methodname = "?";
                 switch(Dithering)
                 {
-                    case Dither_KnollYliluoma:
-                        methodname = "Knoll-Yliluoma positional pattern dithering"; break;
                     case Dither_Yliluoma1:
-                        methodname = "Yliluoma1 ordered dithering"; break;
+                        methodname = "Yliluoma1 ordered dithering (single-shot)"; break;
                     case Dither_Yliluoma2:
                         methodname = "Yliluoma2 positional dithering"; break;
                     case Dither_Yliluoma3:
                         methodname = "Yliluoma3 positional dithering"; break;
+                    case Dither_Yliluoma1Iterative:
+                        methodname = "Yliluoma1 ordered dithering (iterative)"; break;
                 }
                 std::printf(
                     "\tDithering method: %s\n"
-                    "\tDithering contrast modifier: %g\n"
+                    "\tDithering combination control: contrast=%g, recursionlimit=%u%s, maxchanges=%u%s, allowsame=%s\n"
                     "\tDithering with %u color choices, Bayer matrix size: %ux%u",
                     methodname,
                     DitherCombinationContrast,
+                    DitherCombinationRecursionLimit,
+                        DitherCombinationRecursionLimit?"":" (auto)",
+                    DitherCombinationChangesLimit,
+                        DitherCombinationChangesLimit  ?"":" (auto)",
+                    DitherCombinationAllowSame ? "yes" : "no",
                     DitherColorListSize,
                     DitherMatrixWidth, DitherMatrixHeight);
                 if(DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize == 1)
@@ -1671,7 +1801,7 @@ rate.\n\
                         TemporalDitherSize,
                         TemporalDitherMSB ? "MSB" : "LSB");
                 }
-                if(Dithering == Dither_KnollYliluoma)
+                if(Dithering == Dither_Yliluoma1Iterative)
                 {
                     std::printf("\n"
                         "\tDither color error spectrum size: %g\n",

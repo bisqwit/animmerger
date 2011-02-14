@@ -6,6 +6,7 @@
 #include "canvas.hh"
 #include "align.hh"
 #include "palette.hh"
+#include "dither.hh"
 
 #include "fparser.hh"
 
@@ -917,8 +918,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
     gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
 
     const unsigned ErrorDiffusionMaxHeight = 4;
-    std::vector<float> Errors(
-        UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8)*4 : 0 );
+    std::vector<GammaColorVec> Errors(
+        UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8) : 0 );
 
     #pragma omp parallel for schedule(static,2) if(!UseErrorDiffusion)
     for(unsigned y=0; y<hei; ++y)
@@ -941,26 +942,19 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             int b = (pix      )&0xFF;
             int a = (pix >> 24); if(a&0x80) a>>=1;
 
-            float orig_color[4] = { (float) GammaCorrect(r/255.0),
-                                    (float) GammaCorrect(g/255.0),
-                                    (float) GammaCorrect(b/255.0),
-                                    (float) GammaCorrect(a/127.0) };
+            GammaColorVec orig_color = ColorInfo(r,g,b,a).gammac;
 
             if(UseErrorDiffusion)
             {
-                float* pos = &Errors[ ((y%ErrorDiffusionMaxHeight)*(wid+8) + (x+4)) * 4 + 0];
-                for(unsigned c=0; c<4; ++c) orig_color[c] += pos[c];
-                for(unsigned c=0; c<4; ++c) pos[c] = 0.0f;
-                r = int( 255*GammaUncorrect( orig_color[0] ) );
-                g = int( 255*GammaUncorrect( orig_color[1] ) );
-                b = int( 255*GammaUncorrect( orig_color[2] ) );
-                a = int( 127*GammaUncorrect( orig_color[3] ) );
+                GammaColorVec* pos = &Errors[ ((y%ErrorDiffusionMaxHeight)*(wid+8) + (x+4)) + 0];
+                orig_color += *pos;
+                *pos       = GammaColorVec(0.0f);
 
-                if(r < 0) r = 0; else if(r > 255) r = 255;
-                if(g < 0) g = 0; else if(g > 255) g = 255;
-                if(b < 0) b = 0; else if(b > 255) b = 255;
-                if(a < 0) a = 0; else if(a > 127) a = 127;
-                pix = (a << 24) + (r << 16) + (g << 8) + b;
+                /*GammaColorVec clamped = orig_color;
+                clamped.ClampTo0and1();
+                pix = clamped.GetGammaUncorrectedRGB();*/
+                orig_color.ClampTo0and1();
+                pix = orig_color.GetGammaUncorrectedRGB();
             }
 
             // Find two closest entries from palette and use o8x8 dithering
@@ -968,7 +962,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             dither_cache_t::iterator i = dither_cache.lower_bound(pix);
             if(i == dither_cache.end() || i->first != pix)
             {
-                ColorInfo input(pix, orig_color[0],orig_color[1],orig_color[2],orig_color[3]);
+                ColorInfo input(pix, orig_color);
                 output = FindBestMixingPlan(input, pal);
                 dither_cache.insert(i, std::make_pair(pix, output));
             }
@@ -998,14 +992,10 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
 
             if(UseErrorDiffusion)
             {
-                float flterror[4] = { float(pal.Data[color].gammac.r) - orig_color[0],
-                                      float(pal.Data[color].gammac.g) - orig_color[1],
-                                      float(pal.Data[color].gammac.b) - orig_color[2],
-                                      float(pal.Data[color].gammac.a) - orig_color[3] };
+                GammaColorVec flterror = pal.Data[color].gammac - orig_color;
                 #define put(xo,yo, factor) \
-                  for(unsigned c=0; c<4; ++c) \
                     Errors[ (((y+yo)%ErrorDiffusionMaxHeight)*(wid+8) \
-                            + (x+xo+4))*4 + c] -= flterror[c]*(factor##f)
+                            + (x+xo+4)) ] -= flterror * (factor##f)
                 switch(Diffusion)
                 {
                     case Diffusion_None: break;
