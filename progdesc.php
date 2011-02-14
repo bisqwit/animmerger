@@ -1245,14 +1245,14 @@ and a lens flare effect was added:<br>
 Produced with:<br>
 <code>
 # ./animmerger --gif snaps/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF \\<br>
-# &nbsp; &nbsp; &nbsp; &nbsp; -pv -l25 --deltae -Qd,64 -Qd,32 --dr 0 --dc 16 \\<br>
-# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"luma:=r*.299+g*.587+b*.114; pi:=atan2(0,-1);px:=238;py:=135;\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; -pv -l25 --deltae=2000 -Qq,36 -Qd,32 --dr 0 --dm 8x8 --dc 32 -Dky -vv \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"luma:=r*.299+g*.587+b*.114; px:=238;py:=135;\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform \"xy:=(abs(x-px)*abs(y-py)/200^2);\" \\<br>
-# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"rad:=hypot(x-px,y-py)^1.2;\" \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform \"rad:=hypot(x-px,y-py)^1.3/(1.8+0.02*cos(((frameno/25+.5)%1)^2*-2*pi));\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform \"v:=luma+(300-min(300,rad))+(200-min(300,(xy+1e-6)^0.6*7e3));\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform r=\"r*v/(255*0.299*2.2)\" \\<br>
 # &nbsp; &nbsp; &nbsp; &nbsp; --transform g=\"g*pow(v,1.2)/(255*0.587*3.1)\" \\<br>
-# &nbsp; &nbsp; &nbsp; &nbsp; --transform b=\"b*v/(255*0.114*1.7)+50*(1.35+cos(1+(y+x*.2)*pi/100))\" -vv<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; --transform b=\"b*v/(255*0.114*1.7)+50*(1.35+cos(1+(y+x*.2)*pi/100))\"<br>
 # gifsicle -O2 -o demo/trans.gif -d3 -l0 tile-????.gif</code>
 
 ", 'caveats:1. Caveats' => "

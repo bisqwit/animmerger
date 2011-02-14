@@ -116,13 +116,12 @@ namespace
     struct DiversityInfo
     {
         // Smallest distance from all so-far chosen colors
-        //unsigned min_dist;
         double min_dist;
         // Which color index (of so-far chosen colors) is most similar to this
         unsigned closest;
         // Color and use count
         unsigned count;
-        LabAndLuma meta;
+        ColorInfo meta;
 
         DiversityInfo(const HistItem& i)
             : min_dist(1e99), closest(~0u),
@@ -141,7 +140,13 @@ namespace
          bool blend=false)
     {
         const unsigned colors_originally = Histogram.size();
-        if(colors_originally <= target_colors) return;
+        if(colors_originally <= target_colors)
+        {
+            std::fprintf(stderr,
+                "Not reducing histogram, aiming for %u colors and input has %u\n",
+                target_colors, colors_originally);
+            return;
+        }
 
         /* 1. Initialize lore and sort the colors in order of popularity. */
         std::vector<DiversityInfo> Lore;
@@ -161,7 +166,7 @@ namespace
             {
                 /* 2.1a. Choose the most popular remaining color */
                 for(chosen=0; chosen < colors_originally; ++chosen)
-                    if(Lore[chosen].min_dist != 0)
+                    if(Lore[chosen].min_dist != 0.0)
                         break;
             }
             else
@@ -178,7 +183,7 @@ namespace
             /* 2.2. Add the color */
             Lore[chosen].min_dist = 0;
             Lore[chosen].closest  = nadapt; // Closest to it is itself.
-            const LabAndLuma& chosen_meta = Lore[chosen].meta;
+            const ColorInfo& chosen_meta = Lore[chosen].meta;
 
             /* 2.3. Adjust the distances for remaining colors */
             for(unsigned i=0; i<colors_originally; ++i)
@@ -186,7 +191,6 @@ namespace
                 {
                     // If the distance to the newest addition is shorter
                     // than the previous one, mark it as the closest one.
-                    //unsigned dist = ColorDiff(chosencolor, Lore[i].meta.rgb);
                     double dist = ColorCompare(chosen_meta, Lore[i].meta);
                     if(dist < Lore[i].min_dist)
                     {
@@ -200,15 +204,15 @@ namespace
         {
             for(unsigned i=0; i<nadapt; ++i)
             {
-                HistItem chosen(DefaultPixel, 0);
+                HistItem product(DefaultPixel, 0);
                 for(unsigned j=0; j<Lore.size(); ++j)
                     if(Lore[j].closest == i)
                     {
-                        chosen.second += Lore[j].count;
+                        product.second += Lore[j].count;
                         if(Lore[j].min_dist == 0.0)
-                            chosen.first = Lore[j].meta.rgb;
+                            product.first = Lore[j].meta.rgb;
                     }
-                Histogram.insert(chosen);
+                Histogram.insert(product);
             }
         }
         else
@@ -221,7 +225,7 @@ namespace
             for(unsigned i=0; i<nadapt; ++i)
             {
                 AveragePixel total;
-                HistItem chosen;
+                HistItem product;
                 unsigned count_total=0, mismatch_count_total=0;
                 // For each original palette color
                 // that most resembles this one...
@@ -232,8 +236,8 @@ namespace
                         count_total += Lore[j].count;
                         if(Lore[j].min_dist == 0.0)
                         {
-                            chosen.first = Lore[j].meta.rgb;
-                            chosen.second = Lore[j].count;
+                            product.first = Lore[j].meta.rgb;
+                            product.second = Lore[j].count;
                         }
                         else
                             mismatch_count_total += Lore[j].count;
@@ -244,15 +248,15 @@ namespace
                 {
                     // Favor, by a small margin, the color the plain
                     // diversity algorithm would pick.
-                    total.set_n( chosen.first, chosen.second * 2 );
-                    chosen.first = total.get();
+                    total.set_n( product.first, product.second * 2 );
+                    product.first = total.get();
                 }
-                chosen.second = count_total;
+                product.second = count_total;
                 // By chance, it might be possible that blending produces
                 // colors that are identical to other non-blended colors.
                 // To not lose color-use counts, use []+= rather than insert.
-                Histogram[chosen.first] += chosen.second;
-                //Histogram.insert(chosen);
+                Histogram[product.first] += product.second;
+                //Histogram.insert(product);
             }
         }
         std::fprintf(stderr, "%s-reduced to %u colors (aimed for %u)\n",
@@ -780,8 +784,8 @@ struct ComparePaletteLuma
         { return pal.GetLuma(a) < pal.GetLuma(b); }
 };
 
-double ColorCompare(const LabAndLuma& meta1,
-                    const LabAndLuma& meta2)
+double ColorCompare(const ColorInfo& meta1,
+                    const ColorInfo& meta2)
 {
   #define DEG2RAD(xx) (M_PI/180.0 * (xx))
     switch(ColorComparing)
@@ -789,16 +793,16 @@ double ColorCompare(const LabAndLuma& meta1,
         default:
         case Compare_RGB:
         {
-            int r1 = (meta1.rgb >> 16) & 0xFF, r2 = (meta2.rgb >> 16) & 0xFF;
-            int g1 = (meta1.rgb >>  8) & 0xFF, g2 = (meta2.rgb >>  8) & 0xFF;
-            int b1 = (meta1.rgb      ) & 0xFF, b2 = (meta2.rgb      ) & 0xFF;
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int r1 = meta1.R, r2 = meta2.R;
+            int g1 = meta1.G, g2 = meta2.G;
+            int b1 = meta1.B, b2 = meta2.B;
+            int a1 = meta1.A, a2 = meta2.A;
             int diffR = r1-r2, diffG = g1-g2, diffB = b1-b2, diffA = a1-a2;
             return diffR*diffR + diffG*diffG + diffB*diffB + diffA*diffA;
         }
         case Compare_CIE76_DeltaE:
         {
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int a1 = meta1.A, a2 = meta2.A;
             double dL = meta1.lab.L - meta2.lab.L;
             double da = meta1.lab.a - meta2.lab.a;
             double db = meta1.lab.b - meta2.lab.b;
@@ -808,7 +812,7 @@ double ColorCompare(const LabAndLuma& meta1,
         }
         case Compare_CIE94_DeltaE:
         {
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int a1 = meta1.A, a2 = meta2.A;
             double dL = meta1.lab.L - meta2.lab.L;
             double da = meta1.lab.a - meta2.lab.a;
             double db = meta1.lab.b - meta2.lab.b;
@@ -834,7 +838,7 @@ double ColorCompare(const LabAndLuma& meta1,
         case Compare_CMC_lc:
         {
             const double l = 0.5, c = 1; // Lightness and chroma parameters
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int a1 = meta1.A, a2 = meta2.A;
             int diffA = a1-a2;
             double dl = meta2.lab.L - meta1.lab.L;
             if(meta1.lab.L <= 0.0 || meta2.lab.L <= 0.0)
@@ -862,18 +866,12 @@ double ColorCompare(const LabAndLuma& meta1,
         case Compare_BFD_lc:
         {
             const double l = 1.5, c = 1; // Lightness and chroma parameters
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int a1 = meta1.A, a2 = meta2.A;
             int diffA = a1-a2;
-            double Y1 = 100*((meta1.lab.L > 7.996969)
-                        ? std::pow( (meta1.lab.L+16)/116, 3.0)
-                        : (meta1.lab.L / 903.3));
-            double Y2 = 100*((meta2.lab.L > 7.996969)
-                        ? std::pow( (meta2.lab.L+16)/116, 3.0)
-                        : (meta2.lab.L / 903.3));
             /*double bfd1 = 54.6 * std::log(Y1+1.5) - 9.6;
             double bfd2 = 54.6 * std::log(Y2+1.5) - 9.6;
             double deltaBFD = bfd2 - bfd1;*/
-            double deltaBFD_l = (54.6/l) * (std::log((Y2+1.5) / (Y1+1.5)));
+            double deltaBFD_l = (54.6/l) * (std::log((meta2.xyz.Y+1.5) / (meta1.xyz.Y+1.5)));
             double da = meta2.lab.a - meta1.lab.a;
             double db = meta2.lab.b - meta1.lab.b;
             double dC = meta2.lab.C - meta1.lab.C;
@@ -910,7 +908,7 @@ double ColorCompare(const LabAndLuma& meta1,
             /* Color Res. Appl., vol. 30, no. 1, pp. 21-30, Feb. 2005. */
             /* Return the CIEDE2000 Delta E color difference measure squared, for two Lab values */
 
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            int a1 = meta1.A, a2 = meta2.A;
             int diffA = a1-a2;
             const double v25p7 = 6103515625.0; // 25^7
             const double d180 = DEG2RAD(180), d360 = DEG2RAD(360);
@@ -963,16 +961,15 @@ double ColorCompare(const LabAndLuma& meta1,
 
         case Compare_fparser:
         {
-            int r1 = (meta1.rgb >> 16) & 0xFF, r2 = (meta2.rgb >> 16) & 0xFF;
-            int g1 = (meta1.rgb >>  8) & 0xFF, g2 = (meta2.rgb >>  8) & 0xFF;
-            int b1 = (meta1.rgb      ) & 0xFF, b2 = (meta2.rgb      ) & 0xFF;
-            int a1 = (meta1.rgb >> 24) & 0x7F, a2 = (meta2.rgb >> 24) & 0x7F;
+            const double div255 = 1/255.0, div127 = 1/127.0, div255000 = 1/255e3;
             const double params[] =
             {
-                r1/255.0, g1/255.0, b1/255.0, a1/127.0,
-                meta1.luma/255e3, meta1.lab.L, meta1.lab.a, meta1.lab.b, meta1.lab.C, meta1.lab.h,
-                r2/255.0, g2/255.0, b2/255.0, a2/127.0,
-                meta2.luma/255e3, meta2.lab.L, meta2.lab.a, meta2.lab.b, meta2.lab.C, meta2.lab.h
+                meta1.R*div255, meta1.G*div255, meta1.B*div255, meta1.A*div127,
+                meta1.luma*div255000,
+                meta1.lab.L, meta1.lab.a, meta1.lab.b, meta1.lab.C, meta1.lab.h,
+                meta2.R*div255, meta2.G*div255, meta2.B*div255, meta2.A*div127,
+                meta2.luma*div255000,
+                meta2.lab.L, meta2.lab.a, meta2.lab.b, meta2.lab.C, meta2.lab.h
             };
             return colordiff_parser.Eval(params);
         }
@@ -981,23 +978,18 @@ double ColorCompare(const LabAndLuma& meta1,
 }
 
 std::pair<unsigned,double>
-    Palette::FindClosestCombinationIndex(const LabAndLuma& test_lab) const
+    Palette::FindClosestCombinationIndex(const ColorInfo& test_lab) const
 {
     switch(ColorComparing)
     {
         case Compare_RGB:
         {
-            unsigned r = (test_lab.rgb >> 16) & 0xFF;
-            unsigned g = (test_lab.rgb >> 8) & 0xFF;
-            unsigned b = (test_lab.rgb) & 0xFF;
-            unsigned a = (test_lab.rgb >> 24) & 0x7F;
-            KDTree<unsigned,4>::KDPoint q( r,g,b, a);
+            KDTree<unsigned,4>::KDPoint q( test_lab.R, test_lab.G, test_lab.B, test_lab.A);
             return CombinationTree.nearest_info(q);
         }
         case Compare_CIE76_DeltaE:
         {
-            unsigned a = (test_lab.rgb >> 24) & 0x7F;
-            KDTree<unsigned,4>::KDPoint q( test_lab.lab.L, test_lab.lab.a, test_lab.lab.b, a );
+            KDTree<unsigned,4>::KDPoint q( test_lab.lab.L, test_lab.lab.a, test_lab.lab.b, test_lab.A );
             return CombinationTree.nearest_info(q);
         }
         default:
@@ -1017,7 +1009,7 @@ std::pair<unsigned,double>
 
 
 static MixingPlan FindBestMixingPlan_KnollYliluoma
-    (const LabAndLuma& input,
+    (const ColorInfo& input,
      const Palette& pal)
 {
     const double X = DitherErrorFactor; // Error multiplication value
@@ -1025,10 +1017,10 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
     size_t GenerationLimit = DitherColorListSize;
     assert(GenerationLimit > 0);
 
-    double rin_gamma = input.r; // What we want to accomplish
-    double gin_gamma = input.g;
-    double bin_gamma = input.b;
-    double ain_gamma = input.a;
+    double rin_gamma = input.gammac.r; // What we want to accomplish
+    double gin_gamma = input.gammac.g;
+    double bin_gamma = input.gammac.b;
+    double ain_gamma = input.gammac.a;
     double rer=rin_gamma, ger=gin_gamma, ber=bin_gamma, aer=ain_gamma;
 
     MixingPlan result;
@@ -1047,7 +1039,7 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
             ter,teg,teb,
             rer,ger,ber);*/
 
-        LabAndLuma test_lab(test, rer,ger,ber,aer);
+        ColorInfo test_lab(test, rer,ger,ber,aer);
 
         //size_t capacity = GenerationLimit - result.size();
 
@@ -1061,10 +1053,10 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
         }
         for(size_t i=0; i<pal.Combinations[chosen].indexlist.size(); ++i)
             result.push_back( pal.Combinations[chosen].indexlist[i] );
-        rer += (rin_gamma - pal.Combinations[chosen].combination.r) * X;
-        ger += (gin_gamma - pal.Combinations[chosen].combination.g) * X;
-        ber += (bin_gamma - pal.Combinations[chosen].combination.b) * X;
-        aer += (ain_gamma - pal.Combinations[chosen].combination.a) * X;
+        rer += (rin_gamma - pal.Combinations[chosen].combination.gammac.r) * X;
+        ger += (gin_gamma - pal.Combinations[chosen].combination.gammac.g) * X;
+        ber += (bin_gamma - pal.Combinations[chosen].combination.gammac.b) * X;
+        aer += (ain_gamma - pal.Combinations[chosen].combination.gammac.a) * X;
     }
     /*fprintf(stderr, "For %02X%02X%02X:", rin,gin,bin);
     for(size_t a=0; a<result.size(); ++a)
@@ -1077,7 +1069,7 @@ static MixingPlan FindBestMixingPlan_KnollYliluoma
 }
 
 static MixingPlan FindBestMixingPlan_Yliluoma1
-    (const LabAndLuma& input,
+    (const ColorInfo& input,
      const Palette& pal)
 {
     std::pair<unsigned,double>
@@ -1089,7 +1081,7 @@ static MixingPlan FindBestMixingPlan_Yliluoma1
 }
 
 static MixingPlan FindBestMixingPlan_Yliluoma2
-    (const LabAndLuma& input,
+    (const ColorInfo& input,
      const Palette& pal)
 {
     const unsigned NumCombinations = pal.NumCombinations();
@@ -1118,10 +1110,10 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
                                (unsigned)GenerationLimit-proportion_total-count);
 
             double sum[4] = { so_far[0], so_far[1], so_far[2], so_far[3] };
-            double add[4] = { pal.Combinations[i].combination.r*count,
-                              pal.Combinations[i].combination.g*count,
-                              pal.Combinations[i].combination.b*count,
-                              pal.Combinations[i].combination.a*count };
+            double add[4] = { pal.Combinations[i].combination.gammac.r*count,
+                              pal.Combinations[i].combination.gammac.g*count,
+                              pal.Combinations[i].combination.gammac.b*count,
+                              pal.Combinations[i].combination.gammac.a*count };
             for(unsigned p=1; p<=max_test_count_comb; p*=2)
             {
                 for(unsigned c=0; c<4; ++c) sum[c] += add[c];
@@ -1132,7 +1124,7 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
                                              (int)(255*GammaUncorrect(sum[1]*t)),
                                              (int)(255*GammaUncorrect(sum[2]*t)),
                                              (int)(127*(sum[3]*t)) );
-                LabAndLuma test_lab(test, sum[0]*t, sum[1]*t, sum[2]*t, sum[3]*t);
+                ColorInfo test_lab(test, sum[0]*t, sum[1]*t, sum[2]*t, sum[3]*t);
                 double penalty = ColorCompare(input, test_lab);
                 if(penalty < least_penalty || least_penalty < 0)
                     { least_penalty = penalty;
@@ -1148,10 +1140,10 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
 
         proportion_total += chosen_amount*count;
 
-        so_far[0] += pal.Combinations[chosen].combination.r * (chosen_amount*count);
-        so_far[1] += pal.Combinations[chosen].combination.g * (chosen_amount*count);
-        so_far[2] += pal.Combinations[chosen].combination.b * (chosen_amount*count);
-        so_far[3] += pal.Combinations[chosen].combination.a * (chosen_amount*count);
+        so_far[0] += pal.Combinations[chosen].combination.gammac.r * (chosen_amount*count);
+        so_far[1] += pal.Combinations[chosen].combination.gammac.g * (chosen_amount*count);
+        so_far[2] += pal.Combinations[chosen].combination.gammac.b * (chosen_amount*count);
+        so_far[3] += pal.Combinations[chosen].combination.gammac.a * (chosen_amount*count);
     }
 
     std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
@@ -1166,7 +1158,7 @@ static MixingPlan FindBestMixingPlan_Yliluoma2
 }
 
 static MixingPlan FindBestMixingPlan_Yliluoma3
-    (const LabAndLuma& input,
+    (const ColorInfo& input,
      const Palette& pal)
 {
 /***
@@ -1232,10 +1224,10 @@ IDEA:
             j != Solution.end();
             ++j)
         {
-            current_sum[0] += pal.Data[ j->first ].r * j->second * dbllimit;
-            current_sum[1] += pal.Data[ j->first ].g * j->second * dbllimit;
-            current_sum[2] += pal.Data[ j->first ].b * j->second * dbllimit;
-            current_sum[3] += pal.Data[ j->first ].a * j->second * dbllimit;
+            current_sum[0] += pal.Data[ j->first ].gammac.r * j->second * dbllimit;
+            current_sum[1] += pal.Data[ j->first ].gammac.g * j->second * dbllimit;
+            current_sum[2] += pal.Data[ j->first ].gammac.b * j->second * dbllimit;
+            current_sum[3] += pal.Data[ j->first ].gammac.a * j->second * dbllimit;
         }
 
         for(std::map<unsigned,unsigned>::iterator
@@ -1250,10 +1242,10 @@ IDEA:
             double portion_total = split_count * dbllimit;
 
             double sum[4] = {
-                current_sum[0] - pal.Data[split_color].r * portion_total,
-                current_sum[1] - pal.Data[split_color].g * portion_total,
-                current_sum[2] - pal.Data[split_color].b * portion_total,
-                current_sum[3] - pal.Data[split_color].a * portion_total };
+                current_sum[0] - pal.Data[split_color].gammac.r * portion_total,
+                current_sum[1] - pal.Data[split_color].gammac.g * portion_total,
+                current_sum[2] - pal.Data[split_color].gammac.b * portion_total,
+                current_sum[3] - pal.Data[split_color].gammac.a * portion_total };
 
             if(true)
             {
@@ -1271,10 +1263,10 @@ IDEA:
                         if(a == split_color || b == split_color) continue;
                         if(portion1 == portion2 || a == b)
                         {
-                            const double R = pal.Combinations[c].combination.r * portion_total;
-                            const double G = pal.Combinations[c].combination.g * portion_total;
-                            const double B = pal.Combinations[c].combination.b * portion_total;
-                            const double A = pal.Combinations[c].combination.a * portion_total;
+                            const double R = pal.Combinations[c].combination.gammac.r * portion_total;
+                            const double G = pal.Combinations[c].combination.gammac.g * portion_total;
+                            const double B = pal.Combinations[c].combination.gammac.b * portion_total;
+                            const double A = pal.Combinations[c].combination.gammac.a * portion_total;
 
                             int test = gdTrueColorAlpha( (int)(255*GammaUncorrect(sum[0]+R)),
                                                          (int)(255*GammaUncorrect(sum[1]+G)),
@@ -1282,7 +1274,7 @@ IDEA:
                                                          (int)(127*(sum[3]+A)) );
 
                             // Figure out if this split is better than what we had
-                            LabAndLuma test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
+                            ColorInfo test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
                             double penalty = ColorCompare(input, test_lab);
 
                             if(penalty < best_penalty)
@@ -1297,10 +1289,10 @@ IDEA:
                         {
                           if(1)
                           {
-                            const double R = pal.Data[a].r*portion1 + pal.Data[b].r*portion2;
-                            const double G = pal.Data[a].g*portion1 + pal.Data[b].g*portion2;
-                            const double B = pal.Data[a].b*portion1 + pal.Data[b].b*portion2;
-                            const double A = pal.Data[a].a*portion1 + pal.Data[b].a*portion2;
+                            const double R = pal.Data[a].gammac.r*portion1 + pal.Data[b].gammac.r*portion2;
+                            const double G = pal.Data[a].gammac.g*portion1 + pal.Data[b].gammac.g*portion2;
+                            const double B = pal.Data[a].gammac.b*portion1 + pal.Data[b].gammac.b*portion2;
+                            const double A = pal.Data[a].gammac.a*portion1 + pal.Data[b].gammac.a*portion2;
 
                             int test = gdTrueColorAlpha( (int)(255*GammaUncorrect(sum[0]+R)),
                                                          (int)(255*GammaUncorrect(sum[1]+G)),
@@ -1308,7 +1300,7 @@ IDEA:
                                                          (int)(127*(sum[3]+A)) );
 
                             // Figure out if this split is better than what we had
-                            LabAndLuma test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
+                            ColorInfo test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
                             double penalty = ColorCompare(input, test_lab);
 
                             if(penalty < best_penalty)
@@ -1321,10 +1313,10 @@ IDEA:
                           }
                           if(1)
                           {
-                            const double R = pal.Data[b].r*portion1 + pal.Data[a].r*portion2;
-                            const double G = pal.Data[b].g*portion1 + pal.Data[a].g*portion2;
-                            const double B = pal.Data[b].b*portion1 + pal.Data[a].b*portion2;
-                            const double A = pal.Data[b].a*portion1 + pal.Data[a].a*portion2;
+                            const double R = pal.Data[b].gammac.r*portion1 + pal.Data[a].gammac.r*portion2;
+                            const double G = pal.Data[b].gammac.g*portion1 + pal.Data[a].gammac.g*portion2;
+                            const double B = pal.Data[b].gammac.b*portion1 + pal.Data[a].gammac.b*portion2;
+                            const double A = pal.Data[b].gammac.a*portion1 + pal.Data[a].gammac.a*portion2;
 
                             int test = gdTrueColorAlpha( (int)(255*GammaUncorrect(sum[0]+R)),
                                                          (int)(255*GammaUncorrect(sum[1]+G)),
@@ -1332,7 +1324,7 @@ IDEA:
                                                          (int)(127*(sum[3]+A)) );
 
                             // Figure out if this split is better than what we had
-                            LabAndLuma test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
+                            ColorInfo test_lab(test, sum[0]+R, sum[1]+G, sum[2]+B, sum[3]+A);
                             double penalty = ColorCompare(input, test_lab);
 
                             if(penalty < best_penalty)
@@ -1372,7 +1364,7 @@ IDEA:
     return result;
 }
 
-MixingPlan FindBestMixingPlan(const LabAndLuma& input, const Palette& pal)
+MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
 {
     switch(Dithering)
     {
@@ -1478,71 +1470,6 @@ Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
     return result;
 }
 
-const double illuminants[4][3*3] =
-  { { // CIE C illuminant
-      0.488718, 0.176204, 0.000000,
-      0.310680, 0.812985, 0.0102048,
-      0.200602, 0.0108109, 0.989795 },
-    { // Adobe D65 illuminant
-      0.576700, 0.297361, 0.0270328,
-      0.185556, 0.627355, 0.0706879,
-      0.188212, 0.0752847, 0.99124 },
-    { // What is this?
-      0.412453, 0.357580, 0.180423,
-      0.212671, 0.715160, 0.072169,
-      0.019334, 0.119193, 0.950227 } };
-static const double* GetIlluminant()
-{
-    switch(ColorComparing)
-    {
-        case Compare_CIE76_DeltaE:
-            return illuminants[2];
-        default:
-            return illuminants[0];
-    }
-}
-
-template<typename T>
-static XYZitem RGBtoXYZ(T r,T g,T b)
-{
-    const double* illum = GetIlluminant();
-    double R = /*GammaCorrect*/(r / 255.0);
-    double G = /*GammaCorrect*/(g / 255.0);
-    double B = /*GammaCorrect*/(b / 255.0);
-    XYZitem result = {
-      ((illum[0])*R + (illum[3])*G + (illum[6])*B),
-      ((illum[1])*R + (illum[4])*G + (illum[7])*B),
-      ((illum[2])*R + (illum[5])*G + (illum[8])*B) };
-    return result;
-}
-LabItem XYZtoLAB(const XYZitem& xyz)
-{
-    // Use Profile illuminant - D65 */
-    const double* illum = GetIlluminant();
-    double Xn = 1.0/(illum[0]+illum[1]+illum[2]);
-    double Yn = 1.0/(illum[3]+illum[4]+illum[5]);
-    double Zn = 1.0/(illum[6]+illum[7]+illum[8]);
-    double x = xyz.X * Xn;
-    double y = xyz.Y * Yn;
-    double z = xyz.Z * Zn;
-    const double threshold1 = (6*6*6.0)/(29*29*29.0);
-    const double threshold2 = (29*29.0)/(6*6*3.0);
-    double x1 = (x > threshold1) ? pow(x, 1.0/3.0) : (threshold2*x)+(4/29.0);
-    double y1 = (y > threshold1) ? pow(y, 1.0/3.0) : (threshold2*y)+(4/29.0);
-    double z1 = (z > threshold1) ? pow(z, 1.0/3.0) : (threshold2*z)+(4/29.0);
-    LabItem result;
-    result.L = (29*4)*y1 - (4*4);
-    result.a = (500*(x1-y1) );
-    result.b = (200*(y1-z1) );
-    result.C = std::sqrt(result.a*result.a + result.b+result.b);
-    result.h = std::atan2(result.b, result.a);
-    return result;
-}
-LabItem RGBtoLAB(int r,int g,int b)
-{
-    return XYZtoLAB( RGBtoXYZ(r,g,b) );
-}
-
 // How VERY awkward it is when one wants to change a nested loops
 // algorithm into a recursive form so that the number of nested loops
 // can be arbitrary. Dozens of variables...
@@ -1575,10 +1502,10 @@ static void MakeCombinations(
             }
         if(too_big) continue;
 
-        const double rn = palData[b].r; // Gamma corrected R,G,B
-        const double gn = palData[b].g;
-        const double bn = palData[b].b;
-        const double an = palData[b].a;
+        const double rn = palData[b].gammac.r; // Gamma corrected R,G,B
+        const double gn = palData[b].gammac.g;
+        const double bn = palData[b].gammac.b;
+        const double an = palData[b].gammac.a;
 
         double our_sum_r = rsum+rn;
         double our_sum_g = gsum+gn;
@@ -1718,16 +1645,19 @@ void Palette::Analyze()
     {
         case Dither_Yliluoma1:
             RecursionLimit = DitherColorListSize;
-            ChangesLimit   = 2;//DitherColorListSize;
+            ChangesLimit   = DitherColorListSize;
             break;
         case Dither_Yliluoma2:
         case Dither_Yliluoma3:
             RecursionLimit = 2;
             break;
         case Dither_KnollYliluoma:
-            RecursionLimit = 1;//(DitherColorListSize+1)/2;
+            RecursionLimit = DitherColorListSize > 2
+                                 ? (DitherColorListSize+1)/2
+                                 : DitherColorListSize;
             if(RecursionLimit > 8) RecursionLimit = 8;
-            ChangesLimit   = (DitherColorListSize+1)/2;
+            ChangesLimit   = RecursionLimit;
+            if(ChangesLimit > 3) ChangesLimit = 3;
     }
 
     if(verbose >= 1)
@@ -1740,15 +1670,9 @@ void Palette::Analyze()
     for(unsigned a=0; a<PaletteSize; ++a)
     for(unsigned b=a+1; b<PaletteSize; ++b)
     {
-        /*unsigned pix1 = GetColor(a);
-        unsigned pix2 = GetColor(b);
-        int r1 = (pix1 >> 16) & 0xFF, g1 = (pix1 >> 8) & 0xFF, b1 = (pix1) & 0xFF;
-        int r2 = (pix2 >> 16) & 0xFF, g2 = (pix2 >> 8) & 0xFF, b2 = (pix2) & 0xFF;*/
         palDifferences[a*PaletteSize+b] =
         palDifferences[b*PaletteSize+a] =
-            std::abs( GetLuma(a) - GetLuma(b) );/*
-            ColorCompare(r1,g1,b1, GetMeta(a),
-                         r2,g2,b2, GetMeta(b));*/
+            std::abs( GetLuma(a) - GetLuma(b) );
     }
 
     std::vector<unsigned> temp;
@@ -1802,20 +1726,14 @@ void Palette::Analyze()
     {
         if(ColorComparing == Compare_RGB)
         {
-            uint32 color = Combinations[a].combination.rgb;
-            int r1 = (color >> 16) & 0xFF;
-            int g1 = (color >> 8) & 0xFF;
-            int b1 = (color) & 0xFF;
-            int a1 = (color >> 24) & 0x7F;
-            KDTree<unsigned,4>::KDPoint p( r1,g1,b1, a1 );
+            const ColorInfo& meta = Combinations[a].combination;
+            KDTree<unsigned,4>::KDPoint p( meta.R, meta.G, meta.B, meta.A );
             CombinationTree.insert(p, a);
         }
         else if(ColorComparing == Compare_CIE76_DeltaE)
         {
-            uint32 color = Combinations[a].combination.rgb;
-            int a1 = (color >> 24) & 0x7F;
-            const LabItem& lab = Combinations[a].combination.lab;
-            KDTree<unsigned,4>::KDPoint p( lab.L, lab.a, lab.b, a1 );
+            const ColorInfo& meta = Combinations[a].combination;
+            KDTree<unsigned,4>::KDPoint p( meta.lab.L, meta.lab.a, meta.lab.b, meta.A );
             CombinationTree.insert(p, a);
         }
     }
@@ -1849,42 +1767,110 @@ void Palette::AddPaletteRGB(uint32 val)
     Data.push_back( val);
 }
 
-LabAndLuma::LabAndLuma(uint32 val)
-    : lab(RGBtoLAB( (val>>16)&0xFF, (val>>8)&0xFF, (val&0xFF) )),
-      luma( ((val>>16)&0xFFu)*299u
-          + ((val>> 8)&0xFFu)*587u
-          + ((val    )&0xFFu)*114u
-          ),
-      rgb(val),
-      r( GammaCorrect( ((val>>16)&0xFFu)/255.0 ) ),
-      g( GammaCorrect( ((val>> 8)&0xFFu)/255.0 ) ),
-      b( GammaCorrect( ((val    )&0xFFu)/255.0 ) ),
-      a(             ( ((val>>24)&0x7Fu)/127.0 ) )
+
+const double illuminants[4][3*3] =
+  { { // CIE C illuminant
+      0.488718, 0.176204, 0.000000,
+      0.310680, 0.812985, 0.0102048,
+      0.200602, 0.0108109, 0.989795 },
+    { // Adobe D65 illuminant
+      0.576700, 0.297361, 0.0270328,
+      0.185556, 0.627355, 0.0706879,
+      0.188212, 0.0752847, 0.99124 },
+    { // What is this?
+      0.412453, 0.357580, 0.180423,
+      0.212671, 0.715160, 0.072169,
+      0.019334, 0.119193, 0.950227 } };
+static const double* GetIlluminant()
 {
+    switch(ColorComparing)
+    {
+        case Compare_CIE76_DeltaE:
+            return illuminants[2];
+        default:
+            return illuminants[0];
+    }
 }
 
-LabAndLuma::LabAndLuma(uint32 val, double R,double G,double B,double A)
-    : lab(RGBtoLAB( (val>>16)&0xFF, (val>>8)&0xFF, (val&0xFF) )),
-      luma( ((val>>16)&0xFFu)*299u
-          + ((val>> 8)&0xFFu)*587u
-          + ((val    )&0xFFu)*114u
-          ),
-      rgb(val),
-      r(R), g(G), b(B), a(A)
+template<bool HaveLuma, bool HaveGamma, bool HaveXYZ, bool HaveLAB>
+void ColorInfo::MakeNeeded()
 {
+    // Luma is always needed (Analyze and most dithers break without it)
+    if(!HaveLuma)
+    {
+        luma = R*299 + G*587 + B*114;
+    }
+
+    // Gamma is always needed (all dithers use it, including error diffusion)
+    if(!HaveGamma)
+    {
+        gammac.r = GammaCorrect( R/255.0 );
+        gammac.g = GammaCorrect( G/255.0 );
+        gammac.b = GammaCorrect( B/255.0 );
+        gammac.a = A/127.0;
+    }
+
+    // Don't calculate L*a*b* if we will not need it.
+    // Only RGB comparison doesn't need it.
+    if(!HaveLAB
+    && ColorComparing != Compare_RGB)
+    {
+        if(!HaveXYZ)
+        {
+            const double* illum = GetIlluminant();
+            // double Rn = gammac.r, Gn = gammac.g, Bn = gammac.b;
+            double Rn = R/255.0, Gn=G/255.0, Bn=B/255.0;
+            xyz.X = (illum[0])*Rn + (illum[3])*Gn + (illum[6])*Bn;
+            xyz.Y = (illum[1])*Rn + (illum[4])*Gn + (illum[7])*Bn;
+            xyz.Z = (illum[2])*Rn + (illum[5])*Gn + (illum[8])*Bn;
+        }
+        // Use Profile illuminant - D65 */
+        const double* illum = GetIlluminant();
+        double Xn = 1.0 / (illum[0]+illum[1]+illum[2]);
+        double Yn = 1.0 / (illum[3]+illum[4]+illum[5]);
+        double Zn = 1.0 / (illum[6]+illum[7]+illum[8]);
+        double x = xyz.X * Xn;
+        double y = xyz.Y * Yn;
+        double z = xyz.Z * Zn;
+        const double threshold1 = (6*6*6.0)/(29*29*29.0);
+        const double threshold2 = (29*29.0)/(6*6*3.0);
+        double x1 = (x > threshold1) ? pow(x, 1.0/3.0) : (threshold2*x)+(4/29.0);
+        double y1 = (y > threshold1) ? pow(y, 1.0/3.0) : (threshold2*y)+(4/29.0);
+        double z1 = (z > threshold1) ? pow(z, 1.0/3.0) : (threshold2*z)+(4/29.0);
+        lab.L = (29*4)*y1 - (4*4);
+        lab.a = (500*(x1-y1) );
+        lab.b = (200*(y1-z1) );
+
+        // Of color comparison algorithms that
+        // might need L*a*b*, only CIE76 doesn't need C & h
+        if(ColorComparing != Compare_CIE76_DeltaE)
+        {
+            lab.C = std::sqrt(lab.a*lab.a + lab.b+lab.b);
+            lab.h = std::atan2(lab.b, lab.a);
+        }
+    }
 }
 
-LabAndLuma::LabAndLuma(int R,int G,int B, int A)
-    : lab(RGBtoLAB(R,G,B)),
-      luma( (R*299)
-          + (G*587)
-          + (B*114) ),
-      rgb( gdTrueColorAlpha(R,G,B, 0) ),
-      r( GammaCorrect( R/255.0 ) ),
-      g( GammaCorrect( G/255.0 ) ),
-      b( GammaCorrect( B/255.0 ) ),
-      a( A/127.0 )
+ColorInfo::ColorInfo(uint32 val)
 {
+    rgb = val;
+    MakeNeeded<false,false,false,false> ();
+}
+
+ColorInfo::ColorInfo(uint32 val, double rr,double gg,double bb,double aa)
+{
+    rgb = val;
+    gammac.r = rr;
+    gammac.g = gg;
+    gammac.b = bb;
+    gammac.a = aa;
+    MakeNeeded<false,true,false,false> ();
+}
+
+ColorInfo::ColorInfo(int rr,int gg,int bb, int aa)
+{
+    rgb = gdTrueColorAlpha(rr,gg,bb, aa);
+    MakeNeeded<false,false,false,false> ();
 }
 
 Palette Palette::GetSlice(unsigned begin, unsigned count) const

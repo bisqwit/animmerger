@@ -622,7 +622,6 @@ namespace
 int main(int argc, char** argv)
 {
     VecType<AlphaRange> alpha_ranges;
-    std::string sub_expressions;
 
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
@@ -1041,7 +1040,7 @@ COLOR COMPARE METHODS\n\
     --deltae='hypot(a1-a2, b1-b2)'\n\
       This simply compares chroma and disregards luminance.\n\
   Variables supported in the color comparison formula:\n\
-    R1,G1,B1        -- RGB value (0..1 range)\n\
+    R1,G1,B1,A1     -- RGB+alpha value (0..1 range)\n\
     L1,a1,b1,C1,h1  -- L*a*b* and L*C*h[ab] values (unspecified range)\n\
                        Note that h is indicated in radians, not degrees\n\
     luma1           -- Equivalent to R1*.299 + G1*.587 + B1*.114\n\
@@ -1489,7 +1488,7 @@ rate.\n\
                 }
                 if(!touch_r && !touch_g && !touch_b)
                 {
-                    sub_expressions += arg;
+                    transform_common += arg;
                 }
                 if(touch_r) transform_r = arg;
                 if(touch_g) transform_g = arg;
@@ -1510,10 +1509,6 @@ rate.\n\
             }
         }
     }
-
-    transform_r = sub_expressions + transform_r;
-    transform_g = sub_expressions + transform_g;
-    transform_b = sub_expressions + transform_b;
 
     SetColorTransformations();
 

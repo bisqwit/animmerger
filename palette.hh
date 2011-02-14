@@ -69,30 +69,65 @@ extern enum DiffusionMethod
     Diffusion_Atkinson
 } Diffusion;
 
- inline double GammaCorrect(double x)
+inline double GammaCorrect(double x)
 {
-    return std::pow(x, DitherGamma);
+    //return std::pow(x, DitherGamma);
+    if(DitherGamma == 1.0) return x;
+    if(DitherGamma == 2.0) return x*x;
+    if(DitherGamma == 1.5) return x * std::sqrt(x);
+    return std::exp(std::log(x) * DitherGamma);
 }
 inline double GammaUncorrect(double x)
 {
-    return std::pow(x, 1.0 / DitherGamma);
+    //return std::pow(x, 1.0 / DitherGamma);
+    if(DitherGamma == 1.0) return x;
+    if(DitherGamma == 2.0) return std::sqrt(x);
+    return std::exp(std::log(x) / DitherGamma);
 }
 
-struct XYZitem { double X,Y,Z;      };
-struct LabItem { double L,a,b, C,h; };
-LabItem XYZtoLAB(const XYZitem& xyz);
-LabItem RGBtoLAB(int r,int g,int b);
-struct LabAndLuma
+struct ColorInfo
 {
-    LabItem lab;
+    // 32-bit ARGB, as it is saved/loaded with a file:
+    union
+    {
+        uint32 rgb;
+      #ifdef IS_BIG_ENDIAN
+        struct { unsigned char A,R,G,B; };
+      #else
+        struct { unsigned char B,G,R,A; };
+      #endif
+    };
+    // Luma in 0..255000 range:
     int     luma;
-    uint32  rgb;     // The rgb to be saved to a file, and input to LAB
-    double  r,g,b,a; // gamma corrected
-
-    LabAndLuma() {}
-    LabAndLuma(uint32 val);
-    LabAndLuma(int R,int G,int B, int A=0);
-    LabAndLuma(uint32 val, double R,double G,double B,double A);
+    // ARGB, gamma corrected, all values in 0..1 range:
+    struct
+    {
+        double  r,g,b,a;
+    } gammac;
+    // CIE XYZ value
+    struct
+    {
+        double  X,Y,Z;
+    } xyz;
+    // CIE L*a*b* value
+    struct
+    {
+        double  L,a,b, C,h;
+    } lab;
+public:
+    // Dummy constructor
+    ColorInfo() {}
+    // Constructor with 32-bit ARGB value
+    ColorInfo(uint32 val);
+    // Constructor with 32-bit ARGB value in separate fields
+    ColorInfo(int rr,int gg,int bb, int aa=0);
+    // Constructor with 32-bit ARGB value + gamma-corrected values
+    // Use this constructor if you already have the gamma-corrected
+    // values, so they will not need to be recalculated.
+    ColorInfo(uint32 val, double rr,double gg,double bb,double aa);
+private:
+    template<bool HaveLuma, bool HaveGamma, bool HaveXYZ, bool HaveLAB>
+    inline void MakeNeeded();
 };
 
 struct Palette
@@ -106,25 +141,25 @@ struct Palette
 
     uint32 GetColor(unsigned index) const { return Data[index].rgb; }
     int    GetLuma(unsigned index) const { return Data[index].luma; }
-    const LabAndLuma& GetMeta(unsigned index) const { return Data[index]; }
+    const ColorInfo& GetMeta(unsigned index) const { return Data[index]; }
 
     uint32 GetCombinationColor(unsigned index) const { return Combinations[index].combination.rgb; }
     int    GetCombinationLuma(unsigned index) const { return Combinations[index].combination.luma; }
-    const LabAndLuma& GetCombinationMeta(unsigned index) const { return Combinations[index].combination; }
+    const ColorInfo& GetCombinationMeta(unsigned index) const { return Combinations[index].combination; }
 
     Palette GetSlice(unsigned offset, unsigned count) const;
     void AddPaletteRGB(uint32 p);
 public:
-    struct PaletteItem: public LabAndLuma
+    struct PaletteItem: public ColorInfo
     {
-        PaletteItem()         : LabAndLuma()  {}
-        PaletteItem(uint32 v) : LabAndLuma(v) { }
+        PaletteItem()         : ColorInfo()  {}
+        PaletteItem(uint32 v) : ColorInfo(v) { }
     };
     std::vector<PaletteItem> Data;
     struct Combination
     {
         std::vector<unsigned> indexlist;
-        LabAndLuma combination;
+        ColorInfo combination;
 
         Combination(const std::vector<unsigned>& i, uint32 v)
             : indexlist(i), combination(v) { }
@@ -137,12 +172,12 @@ public:
     KDTree<unsigned,4> CombinationTree;
 
     std::pair<unsigned,double>
-        FindClosestCombinationIndex(const LabAndLuma& meta) const;
+        FindClosestCombinationIndex(const ColorInfo& meta) const;
 };
 
 typedef std::vector<unsigned short> MixingPlan;
 
-MixingPlan FindBestMixingPlan(const LabAndLuma& input,  const Palette& Palette);
+MixingPlan FindBestMixingPlan(const ColorInfo& input,  const Palette& Palette);
 
 struct HistogramType
     : public std::map<uint32, unsigned, std::less<uint32>, FSBAllocator<int> >
@@ -155,7 +190,7 @@ Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
 std::vector<unsigned> CreateDispersedDitheringMatrix();
 std::vector<unsigned> CreateTemporalDitheringMatrix();
 
-double ColorCompare(const LabAndLuma&, const LabAndLuma& );
+double ColorCompare(const ColorInfo&, const ColorInfo& );
 
 void SetColorCompareFormula(const std::string& expr);
 

@@ -129,6 +129,7 @@ public:
     bool IsHeavyDithering(bool animated) const;
 };
 
+extern std::string transform_common;
 extern std::string transform_r;
 extern std::string transform_g;
 extern std::string transform_b;

@@ -25,14 +25,24 @@ int SaveGif = -1;
 class CanvasFunctionParser: public FunctionParser
 {
 public:
+    static double MakeRGB(const double* vars)
+    {
+        int r = vars[0], g = vars[1], b = vars[2];
+        if(r < 0) r = 0; if(r > 255) r = 255;
+        if(g < 0) g = 0; if(g > 255) g = 255;
+        if(b < 0) b = 0; if(b > 255) b = 255;
+        return double( (r<<16) + (g<<8) + (b) );
+    }
     CanvasFunctionParser()
     {
         AddConstant("pi",  M_PI);
         AddConstant("e",   M_E);
+        AddFunction("make_rgb", MakeRGB, 3);
     }
 };
 
-static CanvasFunctionParser parser_r,parser_g,parser_b;
+static CanvasFunctionParser transformation_parser;
+std::string transform_common;
 std::string transform_r = "r";
 std::string transform_g = "g";
 std::string transform_b = "b";
@@ -46,72 +56,135 @@ bool TransformationBsameAsG = false;
 
 void SetColorTransformations()
 {
-    int r_error = parser_r.Parse(transform_r.c_str(), "r,g,b,frameno,x,y");
-    int g_error = parser_g.Parse(transform_g.c_str(), "r,g,b,frameno,x,y");
-    int b_error = parser_b.Parse(transform_b.c_str(), "r,g,b,frameno,x,y");
-    if(r_error >= 0 || g_error >= 0 || b_error >= 0)
+    // First, for diagnostics, parse each color component separately
     {
-        if(r_error >= 0)
-            fprintf(stderr, "Parse error (%s) in red color formula:\n%s\n%*s\n",
-                parser_r.ErrorMsg(), transform_r.c_str(), r_error+1, "^");
-        if(g_error >= 0)
-            fprintf(stderr, "Parse error (%s) in green color formula:\n%s\n%*s\n",
-                parser_g.ErrorMsg(), transform_g.c_str(), g_error+1, "^");
-        if(b_error >= 0)
-            fprintf(stderr, "Parse error (%s) in blue color formula:\n%s\n%*s\n",
-                parser_b.ErrorMsg(), transform_b.c_str(), b_error+1, "^");
-        return;
+        std::string tmp_r = transform_common + transform_r;
+        std::string tmp_g = transform_common + transform_g;
+        std::string tmp_b = transform_common + transform_b;
+        CanvasFunctionParser parser_r;
+        CanvasFunctionParser parser_g;
+        CanvasFunctionParser parser_b;
+        int r_error = parser_r.Parse(tmp_r.c_str(), "r,g,b,frameno,x,y");
+        int g_error = parser_g.Parse(tmp_g.c_str(), "r,g,b,frameno,x,y");
+        int b_error = parser_b.Parse(tmp_b.c_str(), "r,g,b,frameno,x,y");
+        if(r_error >= 0 || g_error >= 0 || b_error >= 0)
+        {
+            if(r_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in red color formula:\n%s\n%*s\n",
+                    parser_r.ErrorMsg(), tmp_r.c_str(), r_error+1, "^");
+            if(g_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in green color formula:\n%s\n%*s\n",
+                    parser_g.ErrorMsg(), tmp_g.c_str(), g_error+1, "^");
+            if(b_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in blue color formula:\n%s\n%*s\n",
+                    parser_b.ErrorMsg(), tmp_b.c_str(), b_error+1, "^");
+            return;
+        }
     }
-    parser_r.Optimize();
-    parser_g.Optimize();
-    parser_b.Optimize();
-    TransformationDependsOnX       = false;
-    TransformationDependsOnY       = false;
-    TransformationDependsOnFrameNo = false;
+
     TransformationGsameAsR = transform_g == transform_r;
     TransformationBsameAsR = transform_b == transform_r;
     TransformationBsameAsG = transform_b == transform_g;
+    // Then produce an optimized parser that produces all components at once
+    std::string merged = transform_common;
+    std::string r_expr = transform_r;
+    std::string g_expr = transform_g;
+    std::string b_expr = transform_b;
+    if(TransformationGsameAsR || TransformationBsameAsR)
+    {
+        merged += "animmerger_R:=(" + r_expr + ");";
+        r_expr = "animmerger_R";
+    }
+    if(TransformationGsameAsR)
+        g_expr = "animmerger_R";
+    else if(TransformationBsameAsG)
+    {
+        merged += "animmerger_G:=(" + g_expr + ");";
+        g_expr = "animmerger_G";
+    }
+    if(TransformationBsameAsR)
+        b_expr = "animmerger_R";
+    else if(TransformationBsameAsG)
+        b_expr = "animmerger_G";
+    merged += "make_rgb(" + r_expr + "," + g_expr + "," + b_expr + ")";
+
+    int error = transformation_parser.Parse(merged.c_str(), "r,g,b,frameno,x,y");
+    if(error >= 0)
+    {
+        if(error >= 0)
+            std::fprintf(stderr, "Parse error (%s) in color formula:\n%s\n%*s\n",
+                transformation_parser.ErrorMsg(), merged.c_str(), error+1, "^");
+        return;
+    }
+
     UsingTransformations = transform_r != "r"
                         || transform_g != "g"
                         || transform_b != "b";
+
     if(UsingTransformations)
     {
-        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,frameno,y") >= 0
-        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,frameno,y") >= 0
-        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,frameno,y") >= 0)
+        if(verbose >= 1)
+        {
+            std::printf("Merged color transformation formula: %s\n", merged.c_str());
+            if(verbose >= 3)
+            {
+                std::printf("Bytecode before optimization:\n");
+                std::fflush(stdout);
+                transformation_parser.PrintByteCode(std::cout);
+                std::cout << std::flush;
+            }
+        }
+        transformation_parser.Optimize();
+        transformation_parser.Optimize();
+        if(verbose >= 3)
+        {
+            std::printf("Bytecode after optimization:\n");
+            std::fflush(stdout);
+            transformation_parser.PrintByteCode(std::cout);
+            std::cout << std::flush;
+        }
+    }
+
+    TransformationDependsOnX       = false;
+    TransformationDependsOnY       = false;
+    TransformationDependsOnFrameNo = false;
+    if(UsingTransformations)
+    {
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,frameno,y") >= 0)
             TransformationDependsOnX = true;
-        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,frameno,x") >= 0
-        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,frameno,x") >= 0
-        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,frameno,x") >= 0)
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,frameno,x") >= 0)
             TransformationDependsOnY = true;
-        if(FunctionParser().Parse(transform_r.c_str(), "r,g,b,x,y") >= 0
-        || FunctionParser().Parse(transform_g.c_str(), "r,g,b,x,y") >= 0
-        || FunctionParser().Parse(transform_b.c_str(), "r,g,b,x,y") >= 0)
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,x,y") >= 0)
             TransformationDependsOnFrameNo = true;
+
+        if(verbose >= 2)
+        {
+            std::printf(" - Found out that it %s on the X coordinate\n",
+                TransformationDependsOnX ? "depends":"doesn't depend"
+                );
+            std::printf(" - Found out that it %s on the Y coordinate\n",
+                TransformationDependsOnY ? "depends":"doesn't depend"
+                );
+            std::printf(" - Found out that it %s on the frame number\n",
+                TransformationDependsOnFrameNo ? "depends":"doesn't depend"
+                );
+        }
     }
 }
-void TransformColor(int&r, int&g, int&b, unsigned frameno,unsigned x,unsigned y)
+inline double TransformColor(int r, int g, int b, unsigned frameno,unsigned x,unsigned y)
 {
-    double vars[6] = {
+    double vars[6] =
+    {
         double(r), double(g), double(b),
         double(frameno), double(x), double(y)
     };
-    r = parser_r.Eval(vars); if(r<0) r=0; else if(r>255) r=255;
-    if(TransformationGsameAsR)
-        g = r;
-    else
-    {
-        g = parser_g.Eval(vars); if(g<0) g=0; else if(g>255) g=255;
-        if(TransformationBsameAsR) { b = r; return; }
-    }
-    if(TransformationBsameAsG) { b = g; return; }
-    b = parser_b.Eval(vars); if(b<0) b=0; else if(b>255) b=255;
+    return transformation_parser.Eval(vars);
 }
 void TransformColor(uint32& pix, unsigned frameno,unsigned x,unsigned y)
 {
     int r = (pix >> 16) & 0xFF, g = (pix >> 8) & 0xFF, b = (pix & 0xFF);
-    TransformColor(r,g,b, frameno,x,y);
-    pix = (pix & 0xFF000000u) + (r<<16) + (g<<8) + b;
+    double pix_dbl = TransformColor(r,g,b, frameno,x,y);
+    pix = (pix & 0xFF000000u) | ((unsigned) pix_dbl);
 }
 
 static inline bool veq
@@ -452,11 +525,13 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
         const int xmi = xmin, xma = xmax;
         const unsigned wid = xma-xmi;
         const unsigned hei = yma-ymi;
-        fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
+        std::fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
         VecType<uint32> prev_frame;
         for(unsigned frameno=0; frameno<nframes; frameno+=1)
         {
-            fprintf(stderr, "\rFrame %u/%u...", frameno+1, nframes); fflush(stderr);
+            std::fprintf(stderr, "\rFrame %u/%u, %u so far...",
+                frameno+1, nframes, (unsigned) Histogram.size());
+            std::fflush(stderr);
           #if 1
             /* Only count histogram from content that
              * changes between previous and current frame
@@ -513,7 +588,7 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
           #endif
         }
         // Reduce the histogram into a usable palette
-        fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
+        std::fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     }
     return Histogram;
 }
@@ -869,7 +944,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             float orig_color[4] = { (float) GammaCorrect(r/255.0),
                                     (float) GammaCorrect(g/255.0),
                                     (float) GammaCorrect(b/255.0),
-                                    (float) GammaCorrect(a/128.0) };
+                                    (float) GammaCorrect(a/127.0) };
 
             if(UseErrorDiffusion)
             {
@@ -893,7 +968,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             dither_cache_t::iterator i = dither_cache.lower_bound(pix);
             if(i == dither_cache.end() || i->first != pix)
             {
-                LabAndLuma input(pix);
+                ColorInfo input(pix, orig_color[0],orig_color[1],orig_color[2],orig_color[3]);
                 output = FindBestMixingPlan(input, pal);
                 dither_cache.insert(i, std::make_pair(pix, output));
             }
@@ -923,10 +998,10 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
 
             if(UseErrorDiffusion)
             {
-                float flterror[4] = { float(pal.Data[color].r) - orig_color[0],
-                                      float(pal.Data[color].g) - orig_color[1],
-                                      float(pal.Data[color].b) - orig_color[2],
-                                      float(pal.Data[color].a) - orig_color[3] };
+                float flterror[4] = { float(pal.Data[color].gammac.r) - orig_color[0],
+                                      float(pal.Data[color].gammac.g) - orig_color[1],
+                                      float(pal.Data[color].gammac.b) - orig_color[2],
+                                      float(pal.Data[color].gammac.a) - orig_color[3] };
                 #define put(xo,yo, factor) \
                   for(unsigned c=0; c<4; ++c) \
                     Errors[ (((y+yo)%ErrorDiffusionMaxHeight)*(wid+8) \
@@ -1177,8 +1252,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_NES(
                             r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
                         }
                         diff += ColorCompare(
-                            LabAndLuma( r1/down,g1/down,b1/down, 0 ),
-                            LabAndLuma( r2/down,g2/down,b2/down, 0 ) );
+                            ColorInfo( r1/down,g1/down,b1/down, 0 ),
+                            ColorInfo( r2/down,g2/down,b2/down, 0 ) );
                     }
                 if(diff < bestdiff || bestdiff < 0)
                     { bestdiff = diff; bestmode = mode; }
