@@ -1,6 +1,7 @@
 #include "dither.hh"
 #include "palette.hh"
 #include "pixel.hh" // for verbose
+#include "maptype.hh"
 
 #include <algorithm>
 
@@ -633,7 +634,7 @@ void Palette::Analyze()
 
     if(verbose >= 2)
     {
-        typedef std::map<size_t,size_t,std::less<size_t>,FSBAllocator<int> > CountMapType;
+        typedef MapType<size_t,size_t> CountMapType;
         CountMapType Counts;
 
         for(size_t a=0; a<Combinations.size(); ++a)
