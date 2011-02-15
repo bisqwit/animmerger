@@ -1,4 +1,4 @@
-#include "histogram.hh"
+#include "quantize.hh"
 #include "palette.hh"
 
 #include "pixel.hh"

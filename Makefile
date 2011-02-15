@@ -3,7 +3,7 @@ ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
 ARCHFILES=\
-	histogram.cc histogram.hh \
+	quantize.cc quantize.hh \
 	palette.cc palette.hh \
 	canvas.cc canvas.hh \
 	dither.cc dither.hh \
@@ -45,7 +45,7 @@ CPPFLAGS += -Ifparser
 	
 OBJS=\
 	main.o canvas.o pixel.o align.o \
-	palette.o histogram.o dither.o \
+	palette.o quantize.o dither.o \
 	mask.o
 PROGS=\
 	animmerger
@@ -77,12 +77,12 @@ animmerger: $(OBJS) $(FPOBJS)
 
 animmerger_nes: \
 		main.o pixel.o align.o palette.o \
-		histogram.o dither.o mask.o \
+		quantize.o dither.o mask.o \
 		canvas_nes.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 animmerger_cga16: \
 		main.o pixel.o align.o palette.o \
-		histogram.o dither.o mask.o \
+		quantize.o dither.o mask.o \
 		canvas_cga16.o $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 canvas_nes.o: canvas.cc

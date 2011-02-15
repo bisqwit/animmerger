@@ -4,6 +4,7 @@
 #include "maptype.hh"
 
 #include <algorithm>
+#include <map>
 
 double DitherErrorFactor    = 1.0;
 unsigned DitherMatrixWidth  = 8;
@@ -112,6 +113,11 @@ struct ComparePaletteLuma
 
 namespace
 {
+    ////////////
+    /* Algorithm 1: Find best-matching combination.
+     * Algorithm 1b: Iteratively add combinations that counter the accumulated error.
+     * KD-Tree can be used. Because of that, this algorithm is fast.
+     */
     template<bool Iterative>
     MixingPlan FindBestMixingPlan_Yliluoma1
         (const ColorInfo& input,
@@ -145,6 +151,29 @@ namespace
         return result;
     }
 
+    ////////////
+    /* Algorithm 2: Find best-matching combination.
+     *              Iteratively add combinations that improve the result.
+     *              This algorithm has the best quality, but it is also slowest.
+     *              It is not perfect, because the initial guess may be wrong.
+     * KD-Tree cannot be used.
+     *
+     * Each each step, we have:
+     *
+     *    so_far           = sum of colors added so far
+     *    proportion_total = so_far/proportion_total = average perceived color
+     *
+     * Find a combination to be added, such that
+     *
+     *    (so_far + combination.gammac * combination.size * repeatcount)
+     *    --------------------------------------------------------------
+     *         (proportion_total + combination.size * repeatcount)
+     *
+     *   best matches input.
+     *   After decision is found, add
+     *        combination.gammac * combination.size * repeatcount
+     *   into so_far. Repeat until enough combinations have been added.
+     */
     MixingPlan FindBestMixingPlan_Yliluoma2
         (const ColorInfo& input,
          const Palette& pal)
@@ -174,14 +203,11 @@ namespace
                         : std::min(proportion_total,
                                    (unsigned)GenerationLimit-proportion_total-count);
 
-                GammaColorVec sum = so_far;
                 GammaColorVec add = pal.Combinations[i].combination.gammac * double(count);
-                for(unsigned p=1; p<=max_test_count_comb; p*=2)
+                for(unsigned p=1; p<=max_test_count_comb; p+=p, add+=add)
                 {
-                    sum += add;
-                    add += add;
                     double t = 1.0 / (proportion_total + p*count);
-                    double penalty = ColorCompare(input, ColorInfo(sum * t) );
+                    double penalty = ColorCompare(input, ColorInfo( (so_far+add) * t) );
                     if(penalty < least_penalty || least_penalty < 0)
                         { least_penalty = penalty;
                           chosen = i;
@@ -200,46 +226,26 @@ namespace
         }
 
         std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
-    /*
-        fprintf(stderr, "For %02X%02X%02X:", rin,gin,bin);
-        for(size_t a=0; a<result.size(); ++a)
-            fprintf(stderr, " [%2u]%06X",
-                result[a],
-                pal.GetColor(result[a]));
-        fprintf(stderr, "\n");*/
         return result;
     }
 
+    ////////////
+    /* Algorithm 3: Find best-matching combination.
+     *              Recursively split one color into
+     *              two equal portions (of different colors),
+     *              if said split improves the result.
+     * KD-Tree cannot be used, except for the initial combination.
+     */
     MixingPlan FindBestMixingPlan_Yliluoma3
         (const ColorInfo& input,
          const Palette& pal)
     {
-    /***
-
-    IDEA:
-        Result is a map<color, count>.
-
-        For a 8x8 map, it begins with <closest color, 64>.
-
-        For each more-than-1 color in the result,
-        figure out if there exists a pair of colors,
-        that could replace that color in 50%-50% proportion.
-        Such as 64x blue --> 32x red + 32x violet
-                32x red --> 16x someother + 16x yadah.
-        Possibly, only consider colors that do not
-        currently exist in the map.
-
-    *******/
-
         const unsigned NumCombinations = pal.NumCombinations();
 
         std::map<
             unsigned, unsigned,
             std::less<unsigned>, FSBAllocator<int>
         > Solution;
-
-        // The penalty of our currently "best" solution.
-        double current_penalty = -1;
 
         // First, find the closest color to the input color.
         if(1)
@@ -258,6 +264,8 @@ namespace
             }
         }
 
+        // The penalty of our currently "best" solution.
+        double current_penalty = -1;
         double dbllimit = 1.0 / DitherColorListSize;
         while(current_penalty > 0.0)
         {
@@ -284,7 +292,6 @@ namespace
                 ++i)
             {
                 //if(i->second <= 1) continue;
-                //printf("Try split %06X:%u...\n", i->first,i->second);
                 unsigned split_color = i->first;
                 unsigned split_count = i->second;
                 double portion_total = split_count * dbllimit;
@@ -381,6 +388,7 @@ namespace
         return result;
     }
 
+    ////////////
     void MakeCombinations(
         const std::vector<Palette::PaletteItem>& palData,
         const std::vector<int>& palDifferences,
@@ -550,12 +558,11 @@ void Palette::Analyze()
     // Create some combinations
     switch(Dithering)
     {
-        case Dither_Yliluoma2:
-            if(DitherCombinationRecursionLimit == 0)
+          /*if(DitherCombinationRecursionLimit == 0)
                 DitherCombinationRecursionLimit = DitherCombinationAllowSame ? 4 : 2;
             if(DitherCombinationChangesLimit == 0)
                 DitherCombinationChangesLimit = DitherCombinationRecursionLimit;
-            break;
+            break;*/
         case Dither_Yliluoma1:
             if(DitherCombinationRecursionLimit == 0)
                 DitherCombinationRecursionLimit = DitherColorListSize;
@@ -567,6 +574,7 @@ void Palette::Analyze()
             }
             break;
         case Dither_Yliluoma1Iterative:
+        case Dither_Yliluoma2:
             if(DitherCombinationRecursionLimit == 0)
             {
                 DitherCombinationRecursionLimit

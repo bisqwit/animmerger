@@ -7,7 +7,6 @@
 #include "types.hh"
 
 #include "kdtree.hh"
-#include "histogram.hh"
 
 #define DefinePaletteMethods(callback) \
     callback(m,MedianCut) \
@@ -305,8 +304,6 @@ public:
 typedef std::vector<unsigned short> MixingPlan;
 
 MixingPlan FindBestMixingPlan(const ColorInfo& input,  const Palette& Palette);
-
-Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
 
 double ColorCompare(const ColorInfo&, const ColorInfo& );
 void SetColorCompareFormula(const std::string& expr);

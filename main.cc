@@ -1343,9 +1343,11 @@ rate.\n\
 
         unsigned sx = gdImageSX(im), sy = gdImageSY(im);
         pixels.resize(sx*sy);
-        for(unsigned p=0, y=0; y<sy; ++y)
-            for(unsigned x=0; x<sx; ++x,++p)
-                pixels[p] = gdImageGetTrueColorPixel(im, x,y);
+      #pragma omp parallel for schedule(static)
+        for(unsigned y=0; y<sy; ++y)
+            for(unsigned p=y*sx, x=0; x<sx; ++x)
+                pixels[p+x] = gdImageGetTrueColorPixel(im, x,y);
+
         gdImageDestroy(im);
 
         MaskImage(pixels, sx,sy);

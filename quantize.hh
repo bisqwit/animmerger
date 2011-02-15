@@ -13,4 +13,6 @@ struct HistogramType
 
 void ReduceHistogram(HistogramType& Histogram);
 
+struct Palette MakePalette(const HistogramType& hist, unsigned MaxColors);
+
 #endif

@@ -7,7 +7,7 @@
 #include "align.hh"
 #include "palette.hh"
 #include "dither.hh"
-
+#include "quantize.hh"
 #include "fparser.hh"
 
 #ifdef _OPENMP
