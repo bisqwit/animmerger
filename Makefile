@@ -1,4 +1,4 @@
-VERSION=1.5.0-pre3
+VERSION=1.5.0
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
