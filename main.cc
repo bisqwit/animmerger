@@ -1259,10 +1259,10 @@ rate.\n\
                         TemporalDitherSize,
                         TemporalDitherMSB ? "MSB" : "LSB");
                 }
+                std::printf("\n");
                 if(Dithering == Dither_Yliluoma1Iterative)
                 {
-                    std::printf("\n"
-                        "\tDither color error spectrum size: %g\n",
+                    std::printf("\tDither color error spectrum size: %g\n",
                         DitherErrorFactor);
                 }
             }

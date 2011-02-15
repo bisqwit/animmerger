@@ -115,7 +115,9 @@ namespace
 {
     ////////////
     /* Algorithm 1: Find best-matching combination.
+     *              Single-shot, extremely fast, especially if KD-tree is used.
      * Algorithm 1b: Iteratively add combinations that counter the accumulated error.
+     *               Fast, especially if KD-tree is used.
      * KD-Tree can be used. Because of that, this algorithm is fast.
      */
     template<bool Iterative>
@@ -389,82 +391,114 @@ namespace
     }
 
     ////////////
-    void MakeCombinations(
-        const std::vector<Palette::PaletteItem>& palData,
-        const std::vector<int>& palDifferences,
-        std::vector<Palette::Combination>& Combinations,
-        unsigned begin, std::vector<unsigned>& indices,
-        const GammaColorVec& insum,
-        size_t RecursionLimit,
-        size_t ChangesLimit,
-        const int MaxDifference)
+    struct CombinationMaker
     {
-        if(RecursionLimit <= 0) return;
-
-        double mul = 1.0 / (indices.size() + 1);
-
-        const unsigned RecursionLevel = indices.size();
-        indices.push_back(0);
-        const unsigned PaletteSize = palData.size();
-
-        for(unsigned b = begin; b < PaletteSize; ++b)
+        const std::vector<Palette::PaletteItem>& PaletteData;
+        const std::vector<unsigned>& luma_order;
+        const int MaxDifference;
+    private:
+        std::vector<int> PalDifferences;
+        std::vector<unsigned> indices;
+    public:
+        CombinationMaker
+            (const std::vector<Palette::PaletteItem>& p,
+             const std::vector<unsigned>& lo,
+             int md)
+            : PaletteData(p),
+              luma_order(lo),
+              MaxDifference(md),
+              PalDifferences( p.size()*p.size(), 0 )
         {
-            bool too_big = false;
-            for(unsigned a=0; a<RecursionLevel; ++a)
-                if( palDifferences[ b*PaletteSize + indices[a] ] > MaxDifference)
-                {
-                    too_big = true;
-                    break;
-                }
-            if(too_big) continue;
-
-            const GammaColorVec nvec = palData[b].gammac; // Gamma corrected R,G,B
-            GammaColorVec our_sum = insum + nvec;
-            indices.back() = b;
-
-            if(true)
+            const unsigned PaletteSize = p.size();
+            // Note: a+1 is correct.
+            // a==b gives a difference of 0, which is default.
+            for(unsigned a=0; a<PaletteSize; ++a)
+            for(unsigned b=a+1; b<PaletteSize; ++b)
             {
-                GammaColorVec combined = our_sum * mul;
-                uint32 uncorrected_rgb = combined.GetGammaUncorrectedRGB();
-                //^  Gamma uncorrected R,G,B
-
-                // Do not insert combinations that yield the lone component color
-                if(RecursionLevel == 0
-                || uncorrected_rgb != palData[b].rgb)
-                {
-                    if(verbose >= 3)
-                    {
-                        printf("Candidate %u, %06X(%.4f,%.4f,%.4f): ",
-                            unsigned(Combinations.size()),
-                            uncorrected_rgb,
-                            combined.r,combined.g,combined.b);
-                        for(size_t a=0; a<indices.size(); ++a)
-                            printf(" %06X", palData[ indices[a] ].rgb);
-                        printf("\n");
-                    }
-                    Combinations.push_back(
-                        Palette::Combination(indices, uncorrected_rgb, combined) );
-                }
+                PalDifferences[a*PaletteSize+b] =
+                PalDifferences[b*PaletteSize+a] =
+                    std::abs( p[a].luma - p[b].luma );
             }
-
-            size_t WasSame = RecursionLevel == 0 ? 0
-                           : b == indices[indices.size()-2];
-
-            unsigned next_begin = b;
-            if(!DitherCombinationAllowSame || ChangesLimit == 0)
-                ++next_begin;
-
-            MakeCombinations(palData, palDifferences,
-                Combinations,
-                next_begin,indices, our_sum,
-                RecursionLimit-1,
-                ChangesLimit - WasSame,
-                MaxDifference);
         }
-        indices.pop_back();
-    }
+
+        void Make(
+            std::vector<Palette::Combination>& Combinations,
+            unsigned begin,
+            const GammaColorVec& insum,
+            size_t RecursionLimit,
+            size_t ChangesLimit)
+        {
+            if(RecursionLimit <= 0) return;
+
+            double mul = 1.0 / (indices.size() + 1);
+
+            const unsigned RecursionLevel = indices.size();
+            indices.push_back(0);
+            const unsigned PaletteSize = PaletteData.size();
+
+            for(unsigned bb = begin; bb < PaletteSize; ++bb)
+            {
+                const unsigned b = luma_order[bb];
+
+                bool too_big = false;
+                for(unsigned a=0; a<RecursionLevel; ++a)
+                    if( PalDifferences[ b*PaletteSize + indices[a] ] > MaxDifference)
+                    {
+                        too_big = true;
+                        break;
+                    }
+                if(too_big) break; //continue;
+
+                const GammaColorVec nvec = PaletteData[b].gammac; // Gamma corrected R,G,B
+                GammaColorVec our_sum = insum + nvec;
+                indices.back() = b;
+
+                if(true)
+                {
+                    GammaColorVec combined = our_sum * mul;
+                    uint32 uncorrected_rgb = combined.GetGammaUncorrectedRGB();
+                    //^  Gamma uncorrected R,G,B
+
+                    // Do not insert combinations that yield the lone component color
+                    if(RecursionLevel == 0
+                    || uncorrected_rgb != PaletteData[b].rgb)
+                    {
+                        if(verbose >= 3)
+                        {
+                            printf("Candidate %u, %06X(%.4f,%.4f,%.4f): ",
+                                unsigned(Combinations.size()),
+                                uncorrected_rgb,
+                                combined.r,combined.g,combined.b);
+                            for(size_t a=0; a<indices.size(); ++a)
+                                printf(" %06X", PaletteData[ indices[a] ].rgb);
+                            printf("\n");
+                        }
+                        Combinations.push_back(
+                            Palette::Combination(indices, uncorrected_rgb, combined) );
+                    }
+                }
+
+                size_t WasSame = RecursionLevel == 0 ? 0
+                               : b == indices[indices.size()-2];
+
+                unsigned next_begin = bb;
+                if(!DitherCombinationAllowSame || ChangesLimit == 0)
+                    ++next_begin;
+
+                Make(Combinations, next_begin, our_sum,
+                    RecursionLimit - 1,
+                    ChangesLimit - WasSame);
+            }
+            indices.pop_back();
+        }
+    };
 } /* namespace */
 
+/* FindBestMixingPlan:
+ *   Task: Find the combination of palette colors that,
+ *   when mixed together, the average of them (gamma-corrected)
+ *   best resembles the input color (using ColorCompare).
+ */
 MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
 {
     switch(Dithering)
@@ -479,10 +513,6 @@ MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
             return FindBestMixingPlan_Yliluoma3(input, pal);
     }
 }
-
-// How VERY awkward it is when one wants to change a nested loops
-// algorithm into a recursive form so that the number of nested loops
-// can be arbitrary. Dozens of variables...
 
 void Palette::Analyze()
 {
@@ -605,23 +635,11 @@ void Palette::Analyze()
         std::fflush(stdout);
     }
 
-    std::vector<int> palDifferences( PaletteSize*PaletteSize, 0 );
-    for(unsigned a=0; a<PaletteSize; ++a)
-    for(unsigned b=a+1; b<PaletteSize; ++b)
-    {
-        palDifferences[a*PaletteSize+b] =
-        palDifferences[b*PaletteSize+a] =
-            std::abs( GetLuma(a) - GetLuma(b) );
-    }
-
-    std::vector<unsigned> temp;
-    MakeCombinations(Data,
-        palDifferences,
-        Combinations,
-        0, temp, GammaColorVec(0.0),
+  { CombinationMaker maker(Data, luma_order, luma_threshold);
+    maker.Make(Combinations,
+        0, GammaColorVec(0.0),
         DitherCombinationRecursionLimit,
-        DitherCombinationChangesLimit,
-        luma_threshold);
+        DitherCombinationChangesLimit); }
 
     if(Dithering == Dither_Yliluoma1
     || Dithering == Dither_Yliluoma1Iterative)
