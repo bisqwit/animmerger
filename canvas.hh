@@ -4,6 +4,7 @@
 #include "pixel.hh"
 #include "vectype.hh"
 #include "alloc/FSBAllocator.hh"
+#include "palette.hh"
 
 #include <vector>
 #include <map>
@@ -41,8 +42,9 @@ class TILE_Tracker
     unsigned SequenceBegin;
     unsigned CurrentTimer;
 
-    uint32 Palette[256];
-    unsigned PaletteSize;
+    Palette CurrentPalette;
+    std::vector<unsigned> DitheringMatrix;
+    std::vector<unsigned> TemporalMatrix;
 
 public:
     TILE_Tracker() : LastFilename(), SequenceBegin(0), CurrentTimer(0)
@@ -55,8 +57,46 @@ public:
     }
 
     void Save(unsigned method = ~0u);
+
     void SaveFrame(PixelMethod method, unsigned timer, unsigned imgcounter);
+
+    typedef std::pair<void*,int> ImgResult;
+
+    template<bool TransformColors>
+    gdImagePtr CreateFrame_TrueColor(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors>
+    gdImagePtr CreateFrame_Palette_Auto(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_CGA16(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_NES(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_With(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei,
+        const Palette& pal);
+
     void CreatePalette(PixelMethod method, unsigned nframes);
+
+    template<bool TransformColors>
+    struct HistogramType CountColors(PixelMethod method, unsigned nframes);
 
     void Reset();
 
@@ -85,6 +125,14 @@ public:
                   );
 
     void NextFrame();
+
+    bool IsHeavyDithering(bool animated) const;
 };
+
+extern std::string transform_common;
+extern std::string transform_r;
+extern std::string transform_g;
+extern std::string transform_b;
+void SetColorTransformations();
 
 #endif

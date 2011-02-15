@@ -6,8 +6,187 @@
 #include "canvas.hh"
 #include "align.hh"
 #include "palette.hh"
+#include "dither.hh"
+#include "quantize.hh"
+#include "fparser.hh"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+#ifndef NESmode
+# define NESmode   0
+#endif
+#ifndef CGA16mode
+# define CGA16mode 0
+#endif
 
 int SaveGif = -1;
+
+class CanvasFunctionParser: public FunctionParser
+{
+public:
+    static double MakeRGB(const double* vars)
+    {
+        int r = vars[0], g = vars[1], b = vars[2];
+        if(r < 0) r = 0; if(r > 255) r = 255;
+        if(g < 0) g = 0; if(g > 255) g = 255;
+        if(b < 0) b = 0; if(b > 255) b = 255;
+        return double( (r<<16) + (g<<8) + (b) );
+    }
+    CanvasFunctionParser()
+    {
+        AddConstant("pi",  M_PI);
+        AddConstant("e",   M_E);
+        AddFunction("make_rgb", MakeRGB, 3);
+    }
+};
+
+static CanvasFunctionParser transformation_parser;
+std::string transform_common;
+std::string transform_r = "r";
+std::string transform_g = "g";
+std::string transform_b = "b";
+bool UsingTransformations = false;
+bool TransformationDependsOnX       = false;
+bool TransformationDependsOnY       = false;
+bool TransformationDependsOnFrameNo = false;
+bool TransformationGsameAsR = false;
+bool TransformationBsameAsR = false;
+bool TransformationBsameAsG = false;
+
+void SetColorTransformations()
+{
+    // First, for diagnostics, parse each color component separately
+    {
+        std::string tmp_r = transform_common + transform_r;
+        std::string tmp_g = transform_common + transform_g;
+        std::string tmp_b = transform_common + transform_b;
+        CanvasFunctionParser parser_r;
+        CanvasFunctionParser parser_g;
+        CanvasFunctionParser parser_b;
+        int r_error = parser_r.Parse(tmp_r.c_str(), "r,g,b,frameno,x,y");
+        int g_error = parser_g.Parse(tmp_g.c_str(), "r,g,b,frameno,x,y");
+        int b_error = parser_b.Parse(tmp_b.c_str(), "r,g,b,frameno,x,y");
+        if(r_error >= 0 || g_error >= 0 || b_error >= 0)
+        {
+            if(r_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in red color formula:\n%s\n%*s\n",
+                    parser_r.ErrorMsg(), tmp_r.c_str(), r_error+1, "^");
+            if(g_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in green color formula:\n%s\n%*s\n",
+                    parser_g.ErrorMsg(), tmp_g.c_str(), g_error+1, "^");
+            if(b_error >= 0)
+                std::fprintf(stderr, "Parse error (%s) in blue color formula:\n%s\n%*s\n",
+                    parser_b.ErrorMsg(), tmp_b.c_str(), b_error+1, "^");
+            return;
+        }
+    }
+
+    TransformationGsameAsR = transform_g == transform_r;
+    TransformationBsameAsR = transform_b == transform_r;
+    TransformationBsameAsG = transform_b == transform_g;
+    // Then produce an optimized parser that produces all components at once
+    std::string merged = transform_common;
+    std::string r_expr = transform_r;
+    std::string g_expr = transform_g;
+    std::string b_expr = transform_b;
+    if(TransformationGsameAsR || TransformationBsameAsR)
+    {
+        merged += "animmerger_R:=(" + r_expr + ");";
+        r_expr = "animmerger_R";
+    }
+    if(TransformationGsameAsR)
+        g_expr = "animmerger_R";
+    else if(TransformationBsameAsG)
+    {
+        merged += "animmerger_G:=(" + g_expr + ");";
+        g_expr = "animmerger_G";
+    }
+    if(TransformationBsameAsR)
+        b_expr = "animmerger_R";
+    else if(TransformationBsameAsG)
+        b_expr = "animmerger_G";
+    merged += "make_rgb(" + r_expr + "," + g_expr + "," + b_expr + ")";
+
+    int error = transformation_parser.Parse(merged.c_str(), "r,g,b,frameno,x,y");
+    if(error >= 0)
+    {
+        if(error >= 0)
+            std::fprintf(stderr, "Parse error (%s) in color formula:\n%s\n%*s\n",
+                transformation_parser.ErrorMsg(), merged.c_str(), error+1, "^");
+        return;
+    }
+
+    UsingTransformations = transform_r != "r"
+                        || transform_g != "g"
+                        || transform_b != "b";
+
+    if(UsingTransformations)
+    {
+        if(verbose >= 1)
+        {
+            std::printf("Merged color transformation formula: %s\n", merged.c_str());
+            if(verbose >= 3)
+            {
+                std::printf("Bytecode before optimization:\n");
+                std::fflush(stdout);
+                transformation_parser.PrintByteCode(std::cout);
+                std::cout << std::flush;
+            }
+        }
+        transformation_parser.Optimize();
+        transformation_parser.Optimize();
+        if(verbose >= 3)
+        {
+            std::printf("Bytecode after optimization:\n");
+            std::fflush(stdout);
+            transformation_parser.PrintByteCode(std::cout);
+            std::cout << std::flush;
+        }
+    }
+
+    TransformationDependsOnX       = false;
+    TransformationDependsOnY       = false;
+    TransformationDependsOnFrameNo = false;
+    if(UsingTransformations)
+    {
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,frameno,y") >= 0)
+            TransformationDependsOnX = true;
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,frameno,x") >= 0)
+            TransformationDependsOnY = true;
+        if(CanvasFunctionParser().Parse(merged.c_str(), "r,g,b,x,y") >= 0)
+            TransformationDependsOnFrameNo = true;
+
+        if(verbose >= 2)
+        {
+            std::printf(" - Found out that it %s on the X coordinate\n",
+                TransformationDependsOnX ? "depends":"doesn't depend"
+                );
+            std::printf(" - Found out that it %s on the Y coordinate\n",
+                TransformationDependsOnY ? "depends":"doesn't depend"
+                );
+            std::printf(" - Found out that it %s on the frame number\n",
+                TransformationDependsOnFrameNo ? "depends":"doesn't depend"
+                );
+        }
+    }
+}
+inline double TransformColor(int r, int g, int b, unsigned frameno,unsigned x,unsigned y)
+{
+    double vars[6] =
+    {
+        double(r), double(g), double(b),
+        double(frameno), double(x), double(y)
+    };
+    return transformation_parser.Eval(vars);
+}
+void TransformColor(uint32& pix, unsigned frameno,unsigned x,unsigned y)
+{
+    int r = (pix >> 16) & 0xFF, g = (pix >> 8) & 0xFF, b = (pix & 0xFF);
+    double pix_dbl = TransformColor(r,g,b, frameno,x,y);
+    pix = (pix & 0xFF000000u) | ((unsigned) pix_dbl);
+}
 
 static inline bool veq
     (const VecType<uint32>& a,
@@ -251,6 +430,26 @@ TILE_Tracker::PutScreen
     }
 }
 
+bool TILE_Tracker::IsHeavyDithering(bool animated) const
+{
+    if(!PaletteReductionMethod.empty() && !(SaveGif == -1 && !animated))
+    {
+        // Will use dithering engine, so check if the dithering
+        // will incur a significant load. If it does, do threading
+        // per scanline rather than by frame.
+        if(DitherColorListSize > 1
+        && DitherErrorFactor > 0.0
+        && DitherColorListSize *
+             (CurrentPalette.Size() + CurrentPalette.NumCombinations())
+           > 1000
+          )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void TILE_Tracker::Save(unsigned method)
 {
     if(CurrentTimer == 0)
@@ -270,6 +469,14 @@ void TILE_Tracker::Save(unsigned method)
 
     std::fprintf(stderr, "Saving(%d)\n", CurrentTimer);
 
+    if(!PaletteReductionMethod.empty())
+    {
+        DitheringMatrix = CreateDispersedDitheringMatrix();
+        TemporalMatrix = CreateTemporalDitheringMatrix();
+    }
+
+    omp_set_nested(1);
+
     if(animated)
     {
         unsigned SavedTimer = CurrentTimer;
@@ -280,86 +487,170 @@ void TILE_Tracker::Save(unsigned method)
                 SavedTimer = LoopingLogLength;
         }
 
-        if(SaveGif == 1 || animated)
+        if(!PaletteReductionMethod.empty())
         {
-            if(!PaletteReductionMethod.empty())
-                CreatePalette( (PixelMethod) method, SavedTimer );
+            CreatePalette( (PixelMethod) method, SavedTimer );
         }
 
-        #pragma omp parallel for schedule(dynamic) ordered
         for(unsigned frame=0; frame<SavedTimer; frame+=1)
         {
             //std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
             //    frame, SavedTimer, SequenceBegin);
             SaveFrame( (PixelMethod)method, frame, SequenceBegin + frame);
         }
-
         fflush(stdout);
     }
     else
     {
-        /* This dummy OMP loop is required, because SaveFrame()
-         * contains an ordered statement, which must never exist
-         * without a surrounding "for ordered" statement context.
-         */
-      #pragma omp parallel for ordered schedule(static,1)
+        if(!PaletteReductionMethod.empty())
+        {
+            CreatePalette( (PixelMethod) method, 1 );
+        }
+
         for(unsigned dummy=0; dummy<1; ++dummy)
             SaveFrame( (PixelMethod)method, 0, SequenceBegin);
     }
 }
 
-void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
+template<bool TransformColors>
+HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
 {
     HistogramType Histogram;
-    const int ymi = ymin, yma = ymax;
-    const int xmi = xmin, xma = xmax;
-    const unsigned wid = xma-xmi;
-    const unsigned hei = yma-ymi;
-    fprintf(stderr, "Counting colors...\n");
-    VecType<uint32> prev_frame;
-    for(unsigned frameno=0; frameno<nframes; frameno+=1)
+
+    // Create a historgram of the used colors, unless it's going
+    // to be replaced immediately thereafter.
+    if(PaletteReductionMethod.empty()
+    || PaletteReductionMethod.front().filename.empty())
     {
-      #if 1
-        /* Only count histogram from content that
-         * changes between previous and current frame
-         */
-        VecType<uint32> frame ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
-        unsigned a=0;
-        for(; a < prev_frame.size() && a < frame.size(); ++a)
+        const int ymi = ymin, yma = ymax;
+        const int xmi = xmin, xma = xmax;
+        const unsigned wid = xma-xmi;
+        const unsigned hei = yma-ymi;
+        std::fprintf(stderr, "Counting colors... (%u frames)\n", nframes);
+        VecType<uint32> prev_frame;
+        for(unsigned frameno=0; frameno<nframes; frameno+=1)
         {
-            if(frame[a] != prev_frame[a])
+            std::fprintf(stderr, "\rFrame %u/%u, %u so far...",
+                frameno+1, nframes, (unsigned) Histogram.size());
+            std::fflush(stderr);
+          #if 1
+            /* Only count histogram from content that
+             * changes between previous and current frame
+             */
+            VecType<uint32> frame ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
+            unsigned a=0;
+            for(; a < prev_frame.size() && a < frame.size(); ++a)
             {
-                ++Histogram[prev_frame[a]];
-                ++Histogram[frame[a]];
+                if(frame[a] != prev_frame[a])
+                {
+                    uint32 p = prev_frame[a], q = frame[a];
+                    if(TransformColors)
+                    {
+                        TransformColor(p, frameno, a/256, a%256);
+                        TransformColor(q, frameno, a/256, a%256);
+                    }
+                    ++Histogram[p];
+                    ++Histogram[q];
+                }
             }
+            for(; a < frame.size(); ++a)
+            {
+                uint32 p = frame[a];
+                if(TransformColors)
+                {
+                    TransformColor(p, frameno,a/256, a%256);
+                }
+                ++Histogram[p];
+            }
+            prev_frame.swap(frame);
+          #else
+            for(ymaptype::const_iterator
+                yi = screens.begin();
+                yi != screens.end();
+                ++yi)
+            for(xmaptype::const_iterator
+                xi = yi->second.begin();
+                xi != yi->second.end();
+                ++xi)
+            {
+                const cubetype& cube      = xi->second;
+                uint32 result[256*256];
+                cube.pixels->GetLiveSectionInto(method, frameno, result,256, 0,0, 256,256);
+                for(unsigned a=0; a<256*256; ++a)
+                {
+                    uint32 p = result[a];
+                    if(TransformColors)
+                    {
+                        TransformColor(p, frameno, a/256, a%256);
+                    }
+                    ++Histogram[p];
+                }
+            }
+          #endif
         }
-        for(; a < frame.size(); ++a)
-        {
-            ++Histogram[frame[a]];
-        }
-        prev_frame.swap(frame);
-      #else
-        for(ymaptype::const_iterator
-            yi = screens.begin();
-            yi != screens.end();
-            ++yi)
-        for(xmaptype::const_iterator
-            xi = yi->second.begin();
-            xi != yi->second.end();
-            ++xi)
-        {
-            const cubetype& cube      = xi->second;
-            uint32 result[256*256];
-            cube.pixels->GetLiveSectionInto(method, frameno, result,256, 0,0, 256,256);
-            for(unsigned a=0; a<256*256; ++a)
-                ++Histogram[ result[a] ];
-        }
-      #endif
+        // Reduce the histogram into a usable palette
+        std::fprintf(stderr, "\n%u colors detected\n",(unsigned) Histogram.size());
     }
-    // Reduce the histogram into a usable palette
-    fprintf(stderr, "%u colors detected\n",(unsigned) Histogram.size());
+    return Histogram;
+}
+
+void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
+{
+    #if NESmode
+    // NES palette
+    CurrentPalette.SetHardcoded(16,
+        // selection 1: reds
+        0x000000, // black
+        0xF83800, // red
+        0x7D7D7D, // gray2
+        0xFCE0A8, // desaturated yellow
+        // selection 2: blues
+        0x000000, // black
+        0x0E78F6, // blue
+        0x503000, // brown
+        0x7D7D7D, // lightgray
+        // selection 3: greens
+        0x000000, // black
+        0x005800, // dark green
+        0x00A844, // green-turquoise
+        0xB8F8B8, // light green
+        // selection 4: grayscale
+        0x000000, // black
+        0x343434, // gray
+        0x7D7D7D, // gray2
+        0xD8D8D8); // gray4
+    return;
+    #endif
+    #if CGA16mode
+    // composite cga (to be rendered on 640x200 monochrome mode)
+    CurrentPalette.SetHardcoded(15,
+        0x000000, // 0000
+        0x007A00, // 0001
+        0x1B33DF, // 0010
+        0x01ADDE, // 0011
+        0x990580, // 0100
+        0x7F7F7F, // 0101, 1010
+        0xB538FF, // 0110
+        0x9AB2FF, // 0111
+        0x644C00, // 1000
+        0x49C600, // 1001
+        0x65F97E, // 1011
+        0xFD5120, // 1100
+        0xE3CB1F, // 1101
+        0xFF84FF, // 1110
+        0xFFFFFF); // 1111
+    return;
+    #endif
+
+    HistogramType Histogram = UsingTransformations
+        ? CountColors<true>(method, nframes)
+        : CountColors<false>(method, nframes);
     ReduceHistogram(Histogram);
-    PaletteSize = MakePalette(Palette, Histogram, 256);
+
+    const bool animated = (1ul << method) & AnimatedPixelMethodsMask;
+    unsigned limit = Histogram.size();
+    if(SaveGif == 1 || (SaveGif == -1 && animated)) limit = 256;
+    CurrentPalette = MakePalette(Histogram, limit);
 }
 
 void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_counter)
@@ -390,7 +681,10 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
         nametemplate = Templates[method];
     }
 
-    if(SaveGif == 1 || animated)
+    bool MakeGif  = SaveGif == 1 || (SaveGif == -1 && animated);
+    bool Dithered = !PaletteReductionMethod.empty();
+
+    if(MakeGif)
         std::sprintf(Filename, "%s-%04u.gif", nametemplate, img_counter);
     else
         std::sprintf(Filename, "%s-%04u.png", nametemplate, img_counter);
@@ -400,155 +694,566 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     bool was_identical = false;
 
-  #pragma omp ordered
-  {
-    if(animated)
+    if(TemporalDitherSize == 1 && animated && !UsingTransformations)
     {
         if(veq(screen, LastScreen) && !LastFilename.empty())
         {
             std::fprintf(stderr, "->link (%u,%u)\n",
                 (unsigned)screen.size(),
                 (unsigned)LastScreen.size());
-            std::string cmd = "ln "+LastFilename+" "+Filename;
+
+            std::string cmd = "ln -f "+LastFilename+" "+Filename;
             system(cmd.c_str());
+
             was_identical = true;
         }
         LastScreen   = screen;
         LastFilename = Filename;
     }
-  }
-
-    #pragma omp flush(was_identical)
     if(was_identical) return;
 
-    if(SaveGif == 1 || animated)
+    gdImagePtr im;
+    if(Dithered)
     {
-        bool palette_failed = false;
-
-        typedef std::map<uint32, PalettePair, std::less<uint32>, FSBAllocator<int> >
-            pixel_cache_t;
-        pixel_cache_t pixel_cache;
-
-        /* First try to create a paletted image */
-        gdImagePtr im = gdImageCreate(wid,hei);
-    reloop:;
-        gdImageAlphaBlending(im, false);
-        gdImageSaveAlpha(im, true);
-        if(!palette_failed)
+        if(Diffusion == Diffusion_None)
         {
-            if(!PaletteReductionMethod.empty())
-            {
-                for(unsigned a=0; a<PaletteSize; ++a)
-                {
-                    unsigned pix = Palette[a];
-                    gdImageColorAllocate(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF);
-                }
-                gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
-            }
+          #if NESmode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_NES<true,false>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_NES<false,false>(screen, frameno, wid, hei);
+          #elif CGA16mode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_CGA16<true,false>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_CGA16<false,false>(screen, frameno, wid, hei);
+          #else
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither<false,false>(screen, frameno, wid, hei);
+          #endif
         }
-
-        for(unsigned p=0, y=0; y<hei; ++y)
-            for(unsigned x=0; x<wid; ++x)
-            {
-                uint32 pix = screen[p++];
-                if(pix == DefaultPixel)
-                    pix = 0x7F000000u;
-                if(!palette_failed)
-                {
-                    if(false) // test color palette
-                    {
-                    /*r = 256*y/hei; // test color scale dithering
-                      g = 256*x/wid;
-                      b = 0;*/
-                        if(y < 32)
-                            pix = Palette[x * PaletteSize / wid];
-                    }
-
-                    int r = (pix >> 16)&0xFF;
-                    int g = (pix >>  8)&0xFF;
-                    int b = (pix      )&0xFF;
-                    int a = (pix >> 24); if(a&0x80) a>>=1;
-
-                    int color = gdImageColorExactAlpha(im, r,g,b,a);
-                    if(color == -1)
-                    {
-                        if(!PaletteReductionMethod.empty())
-                        {
-                            // Find two closest entries from palette and use o8x8 dithering
-                            PalettePair output;
-                            pixel_cache_t::iterator i = pixel_cache.lower_bound(pix);
-                            if(i == pixel_cache.end() || i->first != pix)
-                            {
-                                output = FindBestPalettePair(
-                                    r,g,b,
-                                    Palette,PaletteSize);
-                                pixel_cache.insert(i, std::make_pair(pix, output));
-                            }
-                            else
-                                output = i->second;
-
-                            #define d(x) x/64.0
-                            static const float pattern[8*8]
-    = { d(1 ), d(49), d(13), d(61), d( 4), d(52), d(16), d(64),
-        d(33), d(17), d(45), d(29), d(36), d(20), d(48), d(32),
-        d(9 ), d(57), d( 5), d(53), d(12), d(60), d( 8), d(56),
-        d(41), d(25), d(37), d(21), d(44), d(28), d(40), d(24),
-        d(3 ), d(51), d(15), d(63), d( 2), d(50), d(14), d(62),
-        d(35), d(19), d(47), d(31), d(34), d(18), d(46), d(30),
-        d(11), d(59), d( 7), d(55), d(10), d(58), d( 6), d(54),
-        d(43), d(27), d(39), d(23), d(42), d(26), d(38), d(22) };
-                            #undef d
-                            float position = output.result + pattern[(y&7)*8+(x&7)];
-                            color = (position > 1.0f) ? output.entry2 : output.entry1;
-                        }
-                        else
-                        {
-                            color = gdImageColorAllocateAlpha(im, r,g,b,a);
-                        }
-                    }
-                    if(color == -1)
-                    {
-                        /* If palette is exhausted, try without palette */
-                        palette_failed = true;
-                        gdImageDestroy(im);
-                        im = gdImageCreateTrueColor(wid, hei);
-                        goto reloop;
-                    }
-                    if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
-                    gdImageSetPixel(im, x,y, color);
-                }
-                else
-                    gdImageSetPixel(im, x,y, pix);
-            }
-        FILE* fp = std::fopen(Filename, "wb");
-        if(palette_failed)
+        else
         {
-            gdImageTrueColorToPalette(im, false, 256);
-            gdImageColorTransparent(im, gdImageColorExactAlpha(im, 0,0,0, 127));
+          #if NESmode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_NES<true,true>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_NES<false,true>(screen, frameno, wid, hei);
+          #elif CGA16mode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_CGA16<true,true>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_CGA16<false,true>(screen, frameno, wid, hei);
+          #else
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither<false,true>(screen, frameno, wid, hei);
+          #endif
         }
-        gdImageGif(im, fp);
-        std::fclose(fp);
-        gdImageDestroy(im);
     }
     else
     {
-        gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-        gdImageAlphaBlending(im, false);
-        gdImageSaveAlpha(im, true);
-
-        for(unsigned p=0, y=0; y<hei; ++y)
-            for(unsigned x=0; x<wid; ++x)
-            {
-                uint32 pix = screen[p++];
-                if(pix == DefaultPixel)
-                    pix = 0x7F000000u;
-                gdImageSetPixel(im, x,y, pix);
-            }
-        FILE* fp = std::fopen(Filename, "wb");
-        gdImagePngEx(im, fp, 1);
-        std::fclose(fp);
-        gdImageDestroy(im);
+        if(MakeGif)
+          if(UsingTransformations)
+            im = CreateFrame_Palette_Auto<true>(screen, frameno, wid, hei);
+          else
+            im = CreateFrame_Palette_Auto<false>(screen, frameno, wid, hei);
+        else
+          if(UsingTransformations)
+            im = CreateFrame_TrueColor<true>(screen, frameno, wid, hei);
+          else
+            im = CreateFrame_TrueColor<false>(screen, frameno, wid, hei);
     }
+
+    ImgResult imgdata;
+    if(MakeGif && gdImageTrueColor(im))
+        gdImageTrueColorToPalette(im, false, 256);
+
+    imgdata.first = MakeGif
+        ? gdImageGifPtr(im, &imgdata.second)
+        : gdImagePngPtrEx(im, &imgdata.second, 1);
+    gdImageDestroy(im);
+
+    if(imgdata.first)
+    {
+        FILE* fp = fopen(Filename, "wb");
+        if(!fp)
+            std::perror(Filename);
+        else
+        {
+            std::fwrite(imgdata.first, 1, imgdata.second, fp);
+            std::fclose(fp);
+        }
+        gdFree(imgdata.first);
+    }
+}
+
+typedef std::map<uint32,uint32, std::less<uint32>, FSBAllocator<int> >
+    transform_cache_t;
+typedef std::map<unsigned,transform_cache_t, std::less<unsigned>, FSBAllocator<int> >
+    transform_caches_t;
+static inline transform_caches_t& GetTransformCache()
+{
+  #ifdef _OPENMP
+    static std::vector<transform_caches_t> transform_caches( omp_get_num_procs()*2 );
+    transform_caches_t& transform_cache = transform_caches[omp_get_thread_num()];
+  #else
+    static transform_caches_t transform_cache;
+  #endif
+    return transform_cache;
+}
+
+
+typedef std::map<uint32, MixingPlan, std::less<uint32>, FSBAllocator<int> >
+    dither_cache_t;
+static inline dither_cache_t& GetDitherCache()
+{
+  #ifdef _OPENMP
+    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*2 );
+    dither_cache_t& dither_cache = dither_caches[omp_get_thread_num()];
+  #else
+    static dither_cache_t dither_cache;
+  #endif
+    return dither_cache;
+}
+
+static inline uint32 DoCachedPixelTransform(
+    transform_caches_t& transform_cache,
+    uint32 pix, unsigned wid,unsigned hei,
+    unsigned frameno,unsigned x,unsigned y)
+{
+    unsigned profile = 0, profilemax = 1;
+    if(TransformationDependsOnX)       {profile += x*profilemax; profilemax*=wid; }
+    if(TransformationDependsOnY)       {profile += y*profilemax; profilemax*=hei; }
+    if(TransformationDependsOnFrameNo) {profile += frameno*profilemax; }
+
+    transform_cache_t& cachepos = transform_cache[profile];
+    transform_cache_t::iterator i = cachepos.lower_bound(pix);
+    if(i == cachepos.end() || i->first != pix)
+    {
+        uint32 outpix = pix;
+        TransformColor(outpix, frameno,x,y);
+        cachepos.insert(i, std::make_pair(pix, outpix));
+        return outpix;
+    }
+    return i->second;
+}
+
+
+template<bool TransformColors>
+gdImagePtr TILE_Tracker::CreateFrame_TrueColor(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    gdImagePtr im = gdImageCreateTrueColor(wid,hei);
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
+
+    #pragma omp parallel for schedule(static)
+    for(unsigned y=0; y<hei; ++y)
+    {
+        transform_caches_t& transform_cache = GetTransformCache();
+
+        for(unsigned p=y*wid, x=0; x<wid; ++x)
+        {
+            uint32 pix = screen[p+x];
+            if(pix == DefaultPixel)
+                pix = 0x7F000000u;
+            if(TransformColors)
+                pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
+            gdImageSetPixel(im, x,y, pix);
+        }
+    }
+    return im;
+}
+
+template<bool TransformColors>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Auto(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    gdImagePtr im = gdImageCreateTrueColor(wid,hei);
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
+
+    #pragma omp parallel for schedule(static)
+    for(unsigned y=0; y<hei; ++y)
+    {
+        transform_caches_t& transform_cache = GetTransformCache();
+
+        for(unsigned p=y*wid, x=0; x<wid; ++x)
+        {
+            uint32 pix = screen[p+x];
+            if(pix == DefaultPixel)
+                pix = 0x7F000000u;
+            if(TransformColors)
+                pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
+            gdImageSetPixel(im, x,y, pix);
+        }
+    }
+    return im;
+}
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei,
+    const Palette& pal)
+{
+    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
+
+    /* First try to create a paletted image */
+    gdImagePtr im = gdImageCreate(wid,hei);
+
+    gdImageAlphaBlending(im, 0);
+    gdImageSaveAlpha(im,     1);
+    for(unsigned a=0; a<pal.Size(); ++a)
+    {
+        unsigned pix = pal.GetColor(a);
+        gdImageColorAllocateAlpha(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
+    }
+    gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
+
+    const unsigned ErrorDiffusionMaxHeight = 4;
+    std::vector<GammaColorVec> Errors(
+        UseErrorDiffusion ? ErrorDiffusionMaxHeight*(wid+8) : 0 );
+
+    #pragma omp parallel for schedule(static,2) if(!UseErrorDiffusion)
+    for(unsigned y=0; y<hei; ++y)
+    {
+        transform_caches_t& transform_cache = GetTransformCache();
+        dither_cache_t& dither_cache = GetDitherCache();
+
+        for(unsigned p=y*wid, x=0; x<wid; ++x)
+        {
+            uint32 pix = screen[p+x];
+            if(pix == DefaultPixel)
+                pix = 0x7F000000u;
+            if(TransformColors)
+                pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
+
+            //pix &= 0xFFFCFCFCu; // speed hack
+
+            int r = (pix >> 16)&0xFF;
+            int g = (pix >>  8)&0xFF;
+            int b = (pix      )&0xFF;
+            int a = (pix >> 24); if(a&0x80) a>>=1;
+
+            GammaColorVec orig_color = ColorInfo(r,g,b,a).gammac;
+
+            if(UseErrorDiffusion)
+            {
+                GammaColorVec* pos = &Errors[ ((y%ErrorDiffusionMaxHeight)*(wid+8) + (x+4)) + 0];
+                orig_color += *pos;
+                *pos       = GammaColorVec(0.0f);
+
+                /*GammaColorVec clamped = orig_color;
+                clamped.ClampTo0and1();
+                pix = clamped.GetGammaUncorrectedRGB();*/
+                orig_color.ClampTo0and1();
+                pix = orig_color.GetGammaUncorrectedRGB();
+            }
+
+            // Find two closest entries from palette and use o8x8 dithering
+            MixingPlan output;
+            dither_cache_t::iterator i = dither_cache.lower_bound(pix);
+            if(i == dither_cache.end() || i->first != pix)
+            {
+                ColorInfo input(pix, orig_color);
+                output = FindBestMixingPlan(input, pal);
+                dither_cache.insert(i, std::make_pair(pix, output));
+            }
+            else
+                output = i->second;
+
+            unsigned pattern_value =
+                DitheringMatrix
+                    [ ((y%DitherMatrixHeight)*DitherMatrixWidth
+                     + (x%DitherMatrixWidth)
+                       )// % (DitherMatrixHeight*DitherMatrixWidth)
+                    ];
+
+            unsigned skew = x-y+x/3-y/3;
+            unsigned temp_pos = TemporalMatrix[ (frameno+skew) % TemporalDitherSize ];
+
+            if(TemporalDitherSize > 1)
+            {
+                if(TemporalDitherMSB)
+                    pattern_value = pattern_value + (DitherMatrixWidth*DitherMatrixHeight)*temp_pos;
+                else
+                    pattern_value = pattern_value * TemporalDitherSize + temp_pos;
+            }
+            int color = output[ pattern_value * output.size() / max_pattern_value ];
+            if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
+            gdImageSetPixel(im, x,y, color);
+
+            if(UseErrorDiffusion)
+            {
+                GammaColorVec flterror = pal.Data[color].gammac - orig_color;
+                #define put(xo,yo, factor) \
+                    Errors[ (((y+yo)%ErrorDiffusionMaxHeight)*(wid+8) \
+                            + (x+xo+4)) ] -= flterror * (factor##f)
+                switch(Diffusion)
+                {
+                    case Diffusion_None: break;
+                    case Diffusion_FloydSteinberg:
+                        put( 1,0, 7/16.0);
+                        put(-1,1, 3/16.0);
+                        put( 0,1, 5/16.0);
+                        put( 1,1, 1/16.0);
+                        break;
+                    case Diffusion_JarvisJudiceNinke:
+                        put( 1,0, 7/48.0);
+                        put( 2,0, 5/48.0);
+                        put(-2,1, 3/48.0);
+                        put(-1,1, 5/48.0);
+                        put( 0,1, 7/48.0);
+                        put( 1,1, 5/48.0);
+                        put( 2,1, 3/48.0);
+                        put(-2,2, 1/48.0);
+                        put(-1,2, 3/48.0);
+                        put( 0,2, 5/48.0);
+                        put( 1,2, 3/48.0);
+                        put( 2,2, 1/48.0);
+                        break;
+                    case Diffusion_Stucki:
+                        put( 1,0, 8/42.0);
+                        put( 2,0, 4/42.0);
+                        put(-2,1, 2/42.0);
+                        put(-1,1, 4/42.0);
+                        put( 0,1, 8/42.0);
+                        put( 1,1, 4/42.0);
+                        put( 2,1, 2/42.0);
+                        put(-2,2, 1/42.0);
+                        put(-1,2, 2/42.0);
+                        put( 0,2, 4/42.0);
+                        put( 1,2, 2/42.0);
+                        put( 2,2, 1/42.0);
+                        break;
+                    case Diffusion_Burkes:
+                        put( 1,0, 8/32.0);
+                        put( 2,0, 4/32.0);
+                        put(-2,1, 2/32.0);
+                        put(-1,1, 4/32.0);
+                        put( 0,1, 8/32.0);
+                        put( 1,1, 4/32.0);
+                        put( 2,1, 2/32.0);
+                        break;
+                    case Diffusion_Sierra3:
+                        put( 1,0, 5/32.0);
+                        put( 2,0, 3/32.0);
+                        put(-2,1, 2/32.0);
+                        put(-1,1, 4/32.0);
+                        put( 0,1, 5/32.0);
+                        put( 1,1, 4/32.0);
+                        put( 2,1, 2/32.0);
+                        put(-1,2, 2/32.0);
+                        put( 0,2, 3/32.0);
+                        put( 1,2, 2/32.0);
+                        break;
+                    case Diffusion_Sierra2:
+                        put( 1,0, 4/16.0);
+                        put( 2,0, 3/16.0);
+                        put(-2,1, 1/16.0);
+                        put(-1,1, 2/16.0);
+                        put( 0,1, 3/16.0);
+                        put( 1,1, 2/16.0);
+                        put( 2,1, 1/16.0);
+                        break;
+                    case Diffusion_Sierra24A:
+                        put( 1,0, 2/4.0);
+                        put(-1,1, 1/4.0);
+                        put( 0,1, 1/4.0);
+                        break;
+                    case Diffusion_StevensonArce:
+                        put( 2,0, 32/200.0);
+                        put(-3,1, 12/200.0);
+                        put(-1,1, 26/200.0);
+                        put( 1,1, 30/200.0);
+                        put( 3,1, 16/200.0);
+                        put(-2,2, 12/200.0);
+                        put( 0,2, 26/200.0);
+                        put( 2,2, 12/200.0);
+                        put(-3,3,  5/200.0);
+                        put(-1,3, 12/200.0);
+                        put( 1,3, 12/200.0);
+                        put( 3,3,  5/200.0);
+                        break;
+                    case Diffusion_Atkinson:
+                        put( 1,0,  1/8.0);
+                        put( 2,0,  1/8.0);
+                        put(-1,1,  1/8.0);
+                        put( 0,1,  1/8.0);
+                        put( 1,1,  1/8.0);
+                        put( 0,2,  1/8.0);
+                        break;
+                }
+            }
+        }
+    }
+
+    return im;
+}
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    return
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+        (screen, frameno, wid, hei, CurrentPalette);
+}
+
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_CGA16(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    static const struct cga16_palette_initializer
+    {
+        unsigned colors[16*5];
+        cga16_palette_initializer()
+        {
+            double hue = (35.0 + 0.0)*0.017453239;
+            double sinhue = std::sin(hue), coshue = std::cos(hue);
+            for(unsigned i=0; i<16; ++i)
+                for(unsigned j=0; j<5; ++j)
+                {
+                    unsigned colorBit4 = (i&1)>>0;
+                    unsigned colorBit3 = (i&2)>>1;
+                    unsigned colorBit2 = (i&4)>>2;
+                    unsigned colorBit1 = (i&8)>>3;
+                    //calculate lookup table   
+                    double I = 0, Q = 0, Y;
+                    I += (double) colorBit1;
+                    Q += (double) colorBit2;
+                    I -= (double) colorBit3;
+                    Q -= (double) colorBit4;
+                    Y  = (double) j / 4.0; //calculated avarage is over 4 bits
+
+                    double pixelI = I * 1.0 / 3.0; //I* tvSaturation / 3.0
+                    double pixelQ = Q * 1.0 / 3.0; //Q* tvSaturation / 3.0
+                    I = pixelI*coshue + pixelQ*sinhue;
+                    Q = pixelQ*coshue - pixelI*sinhue;
+
+                    double R = Y + 0.956*I + 0.621*Q; if (R < 0.0) R = 0.0; if (R > 1.0) R = 1.0;
+                    double G = Y - 0.272*I - 0.647*Q; if (G < 0.0) G = 0.0; if (G > 1.0) G = 1.0;
+                    double B = Y - 1.105*I + 1.702*Q; if (B < 0.0) B = 0.0; if (B > 1.0) B = 1.0;
+                    unsigned char rr = R*0xFF, gg = G*0xFF, bb = B*0xFF;
+                    colors[(j<<4)|i] = (rr << 16) | (gg << 8) | bb;
+                }
+        }
+    } cga16_palette;
+
+    gdImagePtr im =
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+        (screen, frameno, wid, hei, CurrentPalette);
+
+    gdImagePtr im2 = gdImageCreateTrueColor(wid*4, hei);
+    std::vector<unsigned char> cga16temp(hei*(wid*4+3), 0);
+    #pragma omp parallel for schedule(static,2)
+    for(unsigned y=0; y<hei; ++y)
+    {
+        // Update colors 10..14 to 11..15 because pattern 1010 was skipped over
+        for(unsigned x=0; x<wid; ++x)
+        {
+            unsigned i = gdImageGetPixel(im, x,y);
+            if(i >= 10) gdImageSetPixel(im, x,y, i+1);
+        }
+        unsigned* temp = &cga16temp[y*(wid*4+3)];
+        for(unsigned x=0; x<wid*4; ++x)
+            temp[x+2] = (( gdImageGetPixel(im,x>>2,y) >> (3-(x&3)) ) & 1) << 4;
+        for(unsigned i=0, x=0; x<wid; ++x)
+        {
+            unsigned v = gdImageGetPixel(im,x,y);
+            for(unsigned c=0; c<4; ++c)
+            {
+                unsigned p = v | (temp[i] + temp[i+1] + temp[i+2] + temp[i+3]);
+                gdImageSetPixel(im2, i++, y,  cga16_palette.colors[p]);
+            }
+        }
+    }
+    gdImageDestroy(im);
+    return im2;
+}
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_NES(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize;
+
+    gdImagePtr imtab[4] =
+    {
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+            (screen, frameno, wid, hei, CurrentPalette.GetSlice( 0,4)),
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+            (screen, frameno, wid, hei, CurrentPalette.GetSlice( 4,4)),
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+            (screen, frameno, wid, hei, CurrentPalette.GetSlice( 8,4)),
+        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+            (screen, frameno, wid, hei, CurrentPalette.GetSlice(12,4))
+    };
+
+    gdImagePtr im2 = gdImageCreate(wid,hei);
+    gdImageAlphaBlending(im2, false);
+    gdImageSaveAlpha(im2, true);
+    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
+    {
+        unsigned pix = CurrentPalette.GetColor(a);
+        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
+    }
+    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
+
+    /* For each 16x16 pixel region in the target image,
+     * choose one of the corresponding regions in the four
+     * sample images that best represents the input data */
+    for(unsigned by=0; by<hei; by += 16)
+    {
+        unsigned ey = by+16; if(ey > hei) ey = hei;
+        for(unsigned bx=0; bx<wid; bx += 16)
+        {
+            unsigned ex = bx+16; if(ex > wid) ex = wid;
+
+            double bestdiff = -1;
+            unsigned bestmode = 0;
+            for(unsigned mode=0; mode<4; ++mode)
+            {
+                gdImagePtr im = imtab[mode];
+                double diff = 0;
+                const unsigned down = 4*4;
+                for(unsigned y=by; y+4<=ey; y+=1)
+                    for(unsigned x=bx; x+4<=ex; x+=1)
+                    {
+                        int r1=0,g1=0,b1=0, r2=0,g2=0,b2=0;
+                        for(unsigned cy=0; cy<4; ++cy)
+                        for(unsigned cx=0; cx<4; ++cx)
+                        {
+                            uint32 pix1 = screen[(y+cy)*wid+(x+cx)];
+                            unsigned i = gdImageGetPixel(im,x+cx,y+cy) + mode*4;
+                            uint32 pix2  = CurrentPalette.GetColor(i);
+                            r1 += (pix1 >> 16) & 0xFF; g1 += (pix1 >> 8) & 0xFF; b1 += (pix1) & 0xFF;
+                            r2 += (pix2 >> 16) & 0xFF; g2 += (pix2 >> 8) & 0xFF; b2 += (pix2) & 0xFF;
+                        }
+                        diff += ColorCompare(
+                            ColorInfo( r1/down,g1/down,b1/down, 0 ),
+                            ColorInfo( r2/down,g2/down,b2/down, 0 ) );
+                    }
+                if(diff < bestdiff || bestdiff < 0)
+                    { bestdiff = diff; bestmode = mode; }
+            }
+            gdImageCopy(im2, imtab[bestmode], bx,by, bx,by, ex-bx, ey-by);
+        }
+    }
+    for(unsigned a=0; a<4; ++a) gdImageDestroy(imtab[a]);
+
+    return im2;
 }
 
 AlignResult TILE_Tracker::TryAlignWithHotspots

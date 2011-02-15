@@ -2,23 +2,17 @@
 #include "canvas.hh"
 #include "settype.hh"
 #include "align.hh"
-#include "openmp.hh"
 #include "palette.hh"
+#include "dither.hh"
 
-#include "pixels/averagepixel.hh"
+#include "mask.hh"
 
 #include <cstdio>
 #include <algorithm>
-#include <cmath>
+#include <cctype>
 
 #include <string.h>
 #include <getopt.h>
-
-struct AlphaRange
-{
-    unsigned x1,y1, width,height;
-    SetType<unsigned> colors;
-};
 
 #define MakePixName(o,f,name) #name,
 static const char* const PixelMethodNames[NPixelMethods] =
@@ -26,14 +20,6 @@ static const char* const PixelMethodNames[NPixelMethods] =
      DefinePixelMethods(MakePixName)
 };
 #undef MakePixName
-
-enum MaskMethod
-{
-    MaskHole,
-    MaskCircularBlur,
-    MaskPattern,
-    MaskBlack
-};
 
 namespace
 {
@@ -93,539 +79,15 @@ namespace
         }
         return result;
     }
-
-    static inline bool is_masked_pixel(uint32 pixel)
-    {
-        return pixel & 0xFF000000u;
-    }
-
-    /* Find the smallest circle radius that finds
-     * a non-logo pixel from the given position.
-     * Multiply the result by 1.25 to avoid jitter that happens
-     * when the selected distance randomly only hits one pixel;
-     * at the cost of some blur.
-     */
-    int BlurHUD_FindDistance(
-        const uint32* gfx, unsigned sx,unsigned sy,
-        unsigned x, unsigned y,
-        unsigned max_xdistance,
-        unsigned max_ydistance)
-    {
-        const int rx = x, ry = y;
-        int circle_radius_horizontal = max_xdistance+1;
-        int circle_radius_vertical   = max_ydistance+1;
-        // ^ Estimated maximum radius that needs to be calculated to
-        //   find a pixel that does not belong to the HUD.
-    try_again:;
-        int minx = -circle_radius_horizontal, maxx = +circle_radius_horizontal;
-        int miny = -circle_radius_vertical,   maxy = +circle_radius_vertical;
-        if(minx+rx < 0) minx = -rx;
-        if(miny+ry < 0) miny = -ry;
-        if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
-        if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
-
-        int smallest_distance_squared = 0;
-        const uint32* src = &gfx[(miny+ry)*sx + rx];
-        for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
-        {
-            int ciry_squared = ciry*ciry;
-            for(int cirx=minx; cirx<=maxx; ++cirx)
-            {
-                if(!is_masked_pixel( src[cirx] ))
-                {
-                    int distance_squared = cirx*cirx + ciry_squared;
-                    if(smallest_distance_squared == 0
-                    || distance_squared < smallest_distance_squared)
-                    {
-                        smallest_distance_squared = distance_squared;
-                        if(smallest_distance_squared == 1)
-                            goto found_smallest_possible;
-                    }
-                }
-            }
-        }
-        if(smallest_distance_squared == 0)
-        {
-            // For some reason, we found nothing.
-            // Just in case, double the circle_radius and try again!
-            // This may happen when the max_?distance variables are
-            // based on the edges of a HUD that happens to be positioned
-            // on the screen edges.
-            circle_radius_horizontal *= 2;
-            circle_radius_vertical   *= 2;
-            goto try_again;
-        }
-    found_smallest_possible:
-        int result = (int) ( 0.5 + std::sqrt( (double) smallest_distance_squared ) * 1.25 );
-        return result;
-    }
-
-    uint32 DecideBlurHUD(
-        const uint32* gfx, unsigned sx,unsigned sy,
-        const AlphaRange& bounds,
-        unsigned x, unsigned y)
-    {
-        /* At each position that is inside the logo, non-logo
-         * pixels are averaged together from a circular area
-         * whose radius corresponds to the shortest distance
-         * to a non-logo pixel, increased by a factor of 1.25.
-         *
-         * This is basically the same as what MPlayer's delogo
-         * filter does, but written in 95% fewer lines.
-         * Also, delogo uses manhattan distances rather than
-         * euclidean distances.
-         */
-        const int circle_radius = BlurHUD_FindDistance
-            ( gfx,sx,sy, x+bounds.x1,y+bounds.y1,
-              std::min(bounds.width-x, x),
-              std::min(bounds.height-y, y)
-            );
-
-        int rx = x + bounds.x1;
-        int ry = y + bounds.y1;
-        int minx = -circle_radius, maxx = +circle_radius;
-        int miny = -circle_radius, maxy = +circle_radius;
-        if(minx+rx < 0) minx = -rx;
-        if(miny+ry < 0) miny = -ry;
-        if(maxx+rx >= (int)sx) maxx = int(sx)-rx-1;
-        if(maxy+ry >= (int)sy) maxy = int(sy)-ry-1;
-
-        const uint32* src = &gfx[(miny+ry)*sx + rx];
-
-        const int circle_radius_squared = circle_radius*circle_radius;
-
-        AveragePixel output;
-        for(int ciry=miny; ciry<=maxy; ++ciry, src += sx)
-        {
-            const int circle_threshold = circle_radius_squared - ciry*ciry;
-            for(int cirx=minx; cirx<=maxx; ++cirx)
-                if(!is_masked_pixel(src[cirx])
-                && cirx*cirx <= circle_threshold)
-                {
-                    output.set(src[cirx]);
-                }
-        }
-        return output.get();
-    }
-
-    void BlurHUD(
-        uint32* gfx, unsigned sx,unsigned sy,
-        const AlphaRange& bounds)
-    {
-        const std::vector<uint32> backup( gfx, gfx + sx*sy );
-
-        /* Remove the HUD */
-        #pragma omp parallel for schedule(static)
-        for(unsigned /*q=bounds.y1*sx+bounds.x1,*/ y=0; y < bounds.height; ++y/*, q+=sx*/)
-        {
-            unsigned q = (bounds.y1 + y) * sx + bounds.x1;
-            for(unsigned x=0; x < bounds.width; ++x)
-            {
-                if(is_masked_pixel( backup[q+x] ))
-                    gfx[q+x] = DecideBlurHUD(&backup[0], sx,sy,bounds, x,y);
-            } // for x
-        } // for y
-    } // BlurHUD
-
-    unsigned CompareTiles(
-        const uint32* gfx, unsigned sx,unsigned sy,
-        int a_x, int a_y, // target
-        int b_x, int b_y, // source
-        unsigned tilesizex, unsigned tilesizey)
-    {
-        /* Compare two tiles of size tilesize
-         * centered at a and b respectively.
-         */
-        a_x -= tilesizex/2; if(a_x < 0) a_x = 0;
-        a_y -= tilesizey/2; if(a_y < 0) a_y = 0;
-        b_x -= tilesizex/2; if(b_x < 0) b_x = 0;
-        b_y -= tilesizey/2; if(b_y < 0) b_y = 0;
-        if(a_x + tilesizex > sx) a_x = sx-tilesizex;
-        if(a_y + tilesizey > sy) a_y = sy-tilesizey;
-        if(b_x + tilesizex > sx) b_x = sx-tilesizex;
-        if(b_y + tilesizey > sy) b_y = sy-tilesizey;
-        const uint32* a_ptr = gfx + a_y * sx + a_x;
-        const uint32* b_ptr = gfx + b_y * sx + b_x;
-        const uint32* a_ptr_end = a_ptr + tilesizey*sx;
-
-        unsigned n_match = 0;
-        for(; a_ptr < a_ptr_end; a_ptr += sx, b_ptr += sx)
-            for(unsigned x=0; x<tilesizex; ++x)
-            {
-                uint32 a_pix = a_ptr[x];
-                uint32 b_pix = b_ptr[x];
-                /* Truth table for comparison:
-                 *                  transparent(B)
-                 *   transparent(A)     no  yes
-                 *               no    a==b true
-                 *              yes    true false
-                 */
-                bool a_hud = is_masked_pixel(a_pix);
-                bool b_hud = is_masked_pixel(b_pix);
-                if(b_hud) return 0;
-                if(a_hud || a_pix == b_pix) ++n_match;
-                /*
-                if(!(a_hud && b_hud)
-                && (a_hud || b_hud || a_pix == b_pix))
-                    ++n_match;*/
-            }
-        return n_match;
-    }
-
-    /*unsigned EvaluateDistinctiveness(
-        const uint32* gfx, unsigned sx,unsigned sy,
-        int a_x, int a_y,
-        int b_x, int b_y,
-        unsigned tilesizex, unsigned tilesizey)
-    {
-        a_x -= tilesizex/2; if(a_x < 0) a_x = 0;
-        a_y -= tilesizey/2; if(a_y < 0) a_y = 0;
-        b_x -= tilesizex/2; if(b_x < 0) b_x = 0;
-        b_y -= tilesizey/2; if(b_y < 0) b_y = 0;
-        if(a_x + tilesizex > sx) a_x = sx-tilesizex;
-        if(a_y + tilesizey > sy) a_y = sy-tilesizey;
-        if(b_x + tilesizex > sx) b_x = sx-tilesizex;
-        if(b_y + tilesizey > sy) b_y = sy-tilesizey;
-        const uint32* a_ptr = gfx + a_y * sx + a_x;
-        const uint32* b_ptr = gfx + b_y * sx + b_x;
-        const uint32* a_ptr_end = a_ptr + tilesizey*sx;
-
-        SetType<uint32> distinct_pixels;
-        distinct_pixels.reserve(16);
-        //std::set<uint32, std::less<uint32>, FSBAllocator<uint32> > distinct_pixels;
-        for(; a_ptr < a_ptr_end; a_ptr += sx, b_ptr += sx)
-            for(unsigned x=0; x<tilesizex; ++x)
-            {
-                uint32 a_pix = a_ptr[x];
-                uint32 b_pix = b_ptr[x];
-                if(!is_masked_pixel(a_pix)) distinct_pixels.insert(a_pix);
-                if(!is_masked_pixel(b_pix)) distinct_pixels.insert(b_pix);
-            }
-        return distinct_pixels.size();
-    }*/
-
-    double EvaluatePatternedness(const uint32* gfx, unsigned stride, unsigned npixels)
-    {
-        /* Evaluate how patterned the pixels along the given line are. */
-        const uint32* const gfx_end = gfx + stride*npixels;
-
-        double result = 0.0;
-        for(unsigned pattern_width = 3;
-                     pattern_width <= 32;
-                     pattern_width <<= 1)
-        {
-            int match = 0, combo = 0;
-            for(unsigned startpos = 0; startpos < pattern_width; ++startpos)
-            {
-                const uint32* p = gfx + stride*startpos;
-                for(;;)
-                {
-                    const uint32* q = p + stride*pattern_width;
-                    if(q >= gfx_end) break;
-                    if(*p == *q)
-                    {
-                        // Count a combo unless all pixels between *q and *p are identical.
-                        for(; &p[stride] != q; p+=stride)
-                            if(p[stride] != *p)
-                                goto combo_ok;
-                        goto failed_combo;
-                    combo_ok:;
-                        ++combo;
-                    }
-                    else failed_combo:
-                        { match += combo*combo; combo=0; }
-                    p = q;
-                }
-            }
-            match += combo*combo;
-            double this_score = match * pattern_width;
-            result += this_score;
-        }
-        return result / (double)npixels;
-    }
-
-    uint32 DecideExtrapolateHUD(
-        const uint32* gfx, unsigned sx,unsigned sy,
-        const AlphaRange& bounds,
-        unsigned x, unsigned y)
-    {
-        const int absx = bounds.x1 + x;
-        const int absy = bounds.y1 + y;
-
-        const unsigned min_tilesize_power = 4;
-        unsigned max_tilesize_power = 4;
-    try_again:;
-        int best_source_x=0, best_source_y=0;
-        unsigned best_score=0;
-      #ifdef _OPENMP
-        MutexType score_lock;
-      #endif
-
-        const unsigned n_tilesize_powers =
-            (max_tilesize_power-min_tilesize_power)+1;
-        const unsigned n_tilesize_powers_squared =
-            n_tilesize_powers * n_tilesize_powers;
-
-        /* TODO: It is not very smart to do this decision individually
-         *       for each and every pixel. Devise some way to use the
-         *       same stamping-source for larger areas successively.
-         */
-        #pragma omp parallel for schedule(static)
-        for(unsigned tilesize_counter=0;
-            tilesize_counter < n_tilesize_powers_squared;
-            ++tilesize_counter)
-        {
-            int tilesize_x = 1 << (min_tilesize_power + tilesize_counter/n_tilesize_powers);
-            int tilesize_y = 1 << (min_tilesize_power + tilesize_counter%n_tilesize_powers);
-
-            int peek_depth = 2;
-
-            int min_x = absx, max_x = absx, min_y = absy, max_y = absy;
-            while(min_x > int(bounds.x1)-tilesize_x*peek_depth) min_x -= tilesize_x;
-            while(min_y > int(bounds.y1)-tilesize_y*peek_depth) min_y -= tilesize_y;
-            while(max_x < int(bounds.x1+bounds.width)+tilesize_x*peek_depth) max_x += tilesize_x;
-            while(max_y < int(bounds.y1+bounds.width)+tilesize_y*peek_depth) max_y += tilesize_y;
-
-            int loop_mode = 0;
-            int source_x = min_x;
-            int source_y = absy;
-            for(;; loop_mode ? (source_y+=tilesize_y) : (source_x+=tilesize_x) )
-            {
-                switch(loop_mode)
-                {
-                    case 0:
-                        if(source_x <= max_x) break;
-                        source_x = absx;
-                        source_y = min_y;
-                        loop_mode = 1; // passthru
-                    default: case 1:
-                        if(source_y <= max_y) break;
-                        goto done_loop;
-                }
-                //std::fprintf(stderr, "try %d,%d (mode=%d, %d..%d,%d..%d)\n", source_x,source_y, loop_mode, min_x,max_x, min_y,max_y);
-                if(source_x < 0 || source_x >= int(sx)
-                || source_y < 0 || source_y >= int(sy)
-                || is_masked_pixel( gfx[source_y*sx + source_x] ))
-                {
-                    continue;
-                }
-                unsigned score = CompareTiles(gfx,sx,sy, absx,absy, source_x,source_y, 8,8);
-              #ifdef _OPENMP
-                ScopedLock lck(score_lock);
-              #endif
-                #pragma omp flush(best_score,best_source_x,best_source_y)
-                if(score > best_score
-                || (score == best_score &&
-                        (best_source_y < source_y
-                      || (best_source_y == source_y && best_source_x < source_x))
-                  ))
-                {
-                    // The coordinate comparison above is simply a tie-breaker
-                    // in order to produce consistent results despite multithreading.
-                    best_source_x = source_x;
-                    best_source_y = source_y;
-                    best_score = score;
-                    #pragma omp flush(best_score,best_source_x,best_source_y)
-                }
-            }
-         done_loop:;
-        }
-        if(best_score == 0)
-        {
-            /* If no sample could be found,
-             * retry with a larger tile size limit.
-             */
-            max_tilesize_power += 1;
-            //std::fprintf(stderr, "Extend tilesize to %u\n", 1u << max_tilesize_power);
-            goto try_again;
-        }
-        /*fprintf(stderr, "Copy from %d,%d\n",
-            (best_source_x-absx),
-            (best_source_y-absy));*/
-        return gfx[best_source_y*sx + best_source_x];
-    }
-
-    void ExtrapolateHUD(
-        uint32* gfx, unsigned sx,unsigned sy,
-        AlphaRange& bounds)
-    {
-        /* Reduce one edge at time, choosing that edge
-         * which neighbors the most patterned-looking data.
-         */
-      #if 0
-        while(bounds.width >= 2
-           && bounds.height >= 2)
-        {
-            uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
-            unsigned y2 = bounds.height-1;
-            unsigned x2 = bounds.width-1;
-
-            int selected_edge = 0;
-            double best_score = 0;
-
-            if(bounds.y1 > 0)
-            {   double score = EvaluatePatternedness(q0-sx,1, bounds.width);
-                if(score > best_score) { selected_edge = 0; best_score = score; } }
-            if(bounds.x1 > 0)
-            {   double score = EvaluatePatternedness(q0-1,sx, bounds.height);
-                if(score > best_score) { selected_edge = 2; best_score = score; } }
-            if(bounds.y1 + bounds.height < sy)
-            {   double score = EvaluatePatternedness(q0+bounds.height*sx,1, bounds.width);
-                if(score > best_score) { selected_edge = 1; best_score = score; } }
-            if(bounds.x1 + bounds.width < sx)
-            {   double score = EvaluatePatternedness(q0+bounds.width,sx, bounds.height);
-                if(score > best_score) { selected_edge = 3; best_score = score; } }
-
-            switch(selected_edge)
-            {
-                case 0: /* Top edge */
-                    for(unsigned x=0; x<bounds.width; ++x)
-                        if(is_masked_pixel(q0[x]))
-                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
-                    bounds.y1 += 1;
-                    bounds.height -= 1;
-                    break;
-                case 1: /* Bottom edge */
-                    q0 += y2*sx;
-                    for(unsigned x=0; x<bounds.width; ++x)
-                        if(is_masked_pixel(q0[x]))
-                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
-                    bounds.height -= 1;
-                    break;
-                case 2: /* Left edge */
-                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
-                        if(is_masked_pixel(*q0))
-                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
-                    bounds.x1 += 1;
-                    bounds.width -= 1;
-                    break;
-                case 3: /* Right edge */
-                    q0 += x2;
-                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
-                        if(is_masked_pixel(*q0))
-                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
-                    bounds.width -= 1;
-                    break;
-            }
-        }
-      #endif
-      #if 1
-        /* Now reducing all edges roughly at a constant rate. */
-        //int carry = (int)bounds.height - (int)bounds.width;
-        while(bounds.width >= 2
-           && bounds.height >= 2)
-        {
-            uint32* q0 = gfx + bounds.y1 * sx + bounds.x1;
-            unsigned y2 = bounds.height-1;
-            unsigned x2 = bounds.width-1;
-            //fprintf(stderr, "%ux%u+%u+%u\n",
-            //    bounds.width,bounds.height, bounds.x1,bounds.y1);
-            double score_topbottom = 0;
-            double score_leftright = 0;
-            if(bounds.y1 > 0)
-                score_topbottom += EvaluatePatternedness(q0-sx,1, bounds.width);
-            if(bounds.x1 > 0)
-                score_leftright += EvaluatePatternedness(q0-1,sx, bounds.height);
-            if(bounds.y1 + bounds.height < sy)
-                score_topbottom += EvaluatePatternedness(q0+bounds.height*sx,1, bounds.width);
-            if(bounds.x1 + bounds.width < sx)
-                score_leftright += EvaluatePatternedness(q0+bounds.width,sx, bounds.height);
-            //if(carry >= 0)
-            if(score_topbottom > score_leftright)
-            {
-                //carry -= bounds.width;
-                if(bounds.y1 == 0 && bounds.height != sy)
-                {
-                    uint32* q1 = q0 + y2 * sx;
-                    // Do bottom edge only
-                    for(unsigned x=0; x<bounds.width; ++x)
-                        if(is_masked_pixel(q1[x]))
-                            q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
-                    bounds.height -= 1;
-                }
-                else if(bounds.y1 != 0 && bounds.y1+bounds.height == sy)
-                {
-                    // Do top edge only
-                    for(unsigned x=0; x<bounds.width; ++x)
-                        if(is_masked_pixel(q0[x]))
-                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
-                    bounds.y1 += 1;
-                    bounds.height -= 1;
-                }
-                else
-                {
-                    uint32* q1 = q0 + y2 * sx;
-                    // Do top & bottom horizontal edges
-                    for(unsigned x=0; x<bounds.width; ++x)
-                    {
-                        if(is_masked_pixel(q0[x]))
-                            q0[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,0);
-                        if(is_masked_pixel(q1[x]))
-                            q1[x] = DecideExtrapolateHUD(gfx,sx,sy,bounds, x,y2);
-                    }
-                    bounds.y1 += 1;
-                    bounds.height -= 2;
-                }
-            }
-            else
-            {
-                //carry += bounds.height;
-                if(bounds.x1 == 0 && bounds.width != sx)
-                {
-                    uint32* q1 = q0 + x2;
-                    // Do right edge only
-                    for(unsigned y=0; y<bounds.height; ++y, q1+=sx)
-                        if(is_masked_pixel(*q1))
-                            *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
-                    bounds.width -= 1;
-                }
-                else if(bounds.x1 != 0 && bounds.x1+bounds.width == sx)
-                {
-                    // Do left edge only
-                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx)
-                        if(is_masked_pixel(*q0))
-                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
-                    bounds.x1 += 1;
-                    bounds.width -= 1;
-                }
-                else
-                {
-                    uint32* q1 = q0 + x2;
-                    // Do left & right vertical edges
-                    for(unsigned y=0; y<bounds.height; ++y, q0+=sx, q1+=sx)
-                    {
-                        if(is_masked_pixel(*q0))
-                            *q0 = DecideExtrapolateHUD(gfx,sx,sy,bounds, 0,y);
-                        if(is_masked_pixel(*q1))
-                            *q1 = DecideExtrapolateHUD(gfx,sx,sy,bounds, x2,y);
-                    }
-                    bounds.x1 += 1;
-                    bounds.width -= 2;
-                }
-            }
-        }
-      #endif
-        /* bounds.width or bounds.height may still be 1. */
-        for(unsigned y=0; y<bounds.height; ++y)
-        {
-            uint32* q = gfx + (bounds.y1 + y) * sx + bounds.x1;
-            for(unsigned x=0; x<bounds.width; ++x)
-            {
-                if(is_masked_pixel( q[x] ))
-                    q[x] = DecideExtrapolateHUD(&gfx[0], sx,sy,bounds, x,y);
-            }
-        }
-    }
 } // namespace
 
 int main(int argc, char** argv)
 {
-    VecType<AlphaRange> alpha_ranges;
-
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
     bool autoalign = true;
-    MaskMethod maskmethod = MaskHole;
+    bool dithering_configured = false;
+    std::string color_compare_formula;
 
     for(;;)
     {
@@ -635,7 +97,6 @@ int main(int argc, char** argv)
             {"help",       0,0,'h'},
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
-            {"quantize",   1,0,'Q'},
             {"method",     1,0,'p'},
             {"bgmethod",   1,0,'b'},
             {"bgmethod0",  1,0,4000},
@@ -646,13 +107,22 @@ int main(int argc, char** argv)
             {"firstlast",  1,0,'f'},
             {"refscale",   1,0,'r'},
             {"mvrange",    1,0,'a'},
-            {"gif",        0,0,'g'},
+            {"gif",        2,0,'g'},
             {"verbose",    0,0,'v'},
             {"yuv",        0,0,'y'},
             {"noalign",    0,0,4002},
+            {"quantize",   1,0,'Q'},
+            {"dithmethod", 1,0,'D'},
+            {"ditherror",  1,0,5001},  {"de",1,0,5001},
+            {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
+            {"dithcount",  1,0,5003},  {"dc",1,0,5003},
+            {"dithcombine",1,0,5004}, {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
+            {"deltae",     2,0,5005},  {"cie",2,0,5005},
+            {"gamma",      1,0,'G'},
+            {"transform",  1,0,6001},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:gvyu:Q:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
@@ -668,13 +138,15 @@ Usage: animmerger [<options>] <imagefile> [<...>]\n\
 \n\
 Merges animation frames together with motion shifting.\n\
 \n\
-Options:\n\
+General options:\n\
  --help, -h\n\
      This help\n\
  --version, -V\n\
      Displays version information\n\
  --verbose, -v\n\
      Increase verbosity\n\
+\n\
+Canvas affecting options:\n\
  --mask, -m <defs>\n\
      Define a mask, see instructions below\n\
  --maskmethod, -u <value>\n\
@@ -696,6 +168,10 @@ Options:\n\
  --yuv, -y\n\
      Specifies that average-colors are to be calculated in the YUV\n\
      colorspace rather than the default RGB colorspace.\n\
+\n\
+Image aligning options:\n\
+ --bgmethod, -b <mode>\n\
+     Select pixel type for alignment tests\n\
  --refscale, -r <x>,<y>\n\
      Change the grid size that controls\n\
      how many samples are taken from the background image\n\
@@ -708,17 +184,55 @@ Options:\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
      only scroll horizontally and by 4 pixels at most per frame.\n\
- --quantize <method>,<num_colors>\n\
-     Reduce palette, see instructions below\n\
  --noalign\n\
      Disable automatic image aligner\n\
- --gif, -g\n\
-     Save GIF frames instead of PNG frames,\n\
-     even in non-animated modes.\n\
 \n\
-animmerger will always output PNG files into the current\n\
+Output options:\n\
+ --gif, -g [=always|=never|=auto]\n\
+     Control how GIF files are saved. Always/never/auto.\n\
+     In automatic mode (default), GIF is selected for animations\n\
+     if quantization was configured, PNG otherwise.\n\
+     Default: auto. --gif without parameter defaults to always.\n\
+     See below on details on when and how GIF files are written\n\
+     depending on this option.\n\
+ --quantize <method>,<num_colors>\n\
+     Reduce palette, see instructions below\n\
+ --quantize <file>\n\
+     Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --dithmethod, -D <method>[,<method>]\n\
+     Select dithering method (see below)\n\
+ --ditherror, --de <float>\n\
+     Set error multiplication value for the dithering algorithm.\n\
+     0.0 = disable dithering. 1.0 = full dithering.\n\
+     Usable values lie somewhere in between. Default: 1.0\n\
+ --dithmatrix, --dm <x>,<y>[<,time>]\n\
+     Set the Bayer matrix size to be used in dithering.\n\
+     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n\
+ --dithcount, --dc <int>\n\
+     Set maximum number of palette colors to use in dithering\n\
+     of an uniform color area of the source picture.\n\
+     Value 1 disables dithering.\n\
+     This number should not be made larger than x*y*time.\n\
+     Default: 32 or x*y*time, whichever is smaller.\n\
+ --dithcombine, --dr <float>[,<combinationlimit>[,<changeslimit>]]]\n\
+     Set the maximum contrast between two or more color items\n\
+     that are pre-selected for combined candidates for dithering.\n\
+     The value must be in range 0..3. Default value: 1.\n\
+     See details below.\n\
+ --deltae, --cie [=<type>|=<formula>]\n\
+     Select color comparison method, see details below.\n\
+ --gamma [=<value>]\n\
+     Select gamma to use in dithering. Default: 1.0\n\
+ --transform { r= | g= | b= }<function>\n\
+     Transform red, green and blue color channel values according\n\
+     to the given mathematical function. See details below.\n\
+\n\
+animmerger will always output files into the current\n\
 working directory, with the filename pattern tile-####.png\n\
 where #### is a sequential number beginning from 0000.\n\
+The file name can be also .gif (see details below).\n\
+If multiple output methods are specified, then the filename is\n\
+method-####.png, such as Average-0000.png or ChangeLog-0155.gif.\n\
 \n\
 AVAILABLE PIXEL TYPES\n\
 \n\
@@ -809,8 +323,9 @@ DEFINING MASKS\n\
 \n\
 REDUCING PALETTE\n\
 \n\
-  When making GIF images, the means on how the palette is reduced\n\
-  can be controlled with the --quantize option.\n\
+  GIF files are restricted to 256 colors, but regardless of whether\n\
+  you use GIF or PNG for the output format, you can use the --quantize\n\
+  option to reduce your images to a particular number of colors.\n\
   The following quantization methods are defined:\n\
 \n\
     Median cut ( example: --quantize=mediancut,32  or -Qm,32 )\n\
@@ -839,17 +354,223 @@ REDUCING PALETTE\n\
       an optimal palette for the imageset. Fast and very high quality.\n\
       Especially good with color gradients. Not useful for smallest palettes.\n\
 \n\
+    Load from file ( example: --quantize=test.gif )\n\
+      Animmerger will attempt to open the named file, read the\n\
+      palette from it and append its colors to the current palette\n\
+      (or replace with loaded palette if was the first -Q option).\n\
+\n\
   Multiple quantization phases can be performed in a sequence.\n\
   For example, -Qb,32 -Qd,16 first reduces with \"blend-diversity\"\n\
   to 32 colors, then reduces the remaining set with \"diversity\" to 16 colors.\n\
   It is not an error to reduce to a larger set than 256 colors.\n\
-  If the last explicitly chosen quantization method yields more than 256\n\
-  than 256 colors, the colormap will be implicitly reduced\n\
+  If you are creating a GIF file and the last explicitly chosen quantization\n\
+  method yields more than 256 colors, the colormap will be implicitly reduced\n\
   with a method that picks the 256 most-used colors.\n\
   If necessary, the image will be dithered using a positional dithering method.\n\
-  If no quantization methods are explicitly selected, animmerger\n\
-  will use whatever method GD graphics library happens to use.\n\
+  If you are making a GIF file and you do not specify any quantization options\n\
+  at all, animmerger will use whatever method GD graphics library happens to use.\n\
   Note that the blending quantization methods are subject to the YUV selection.\n\
+\n\
+DITHERING\n\
+\n\
+  Dithering methods\n\
+     The following dithering methods are defined:\n\
+      FULL NAME            SHORT NAME    Suitable for animation\n\
+       Yliluoma1            y1            Yes (positional)\n\
+       Yliluoma2            y2            Yes (positional)\n\
+       Yliluoma3            y3            Yes (positional)\n\
+       Yliluoma1Iterative   ky            Yes (positional)\n\
+       Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
+       Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
+       Stucki               s             No (diffuses +12 pixels)\n\
+       Burkes               b             No (diffuses +7 pixels)\n\
+       Sierra-3             s3            No (diffuses +10 pixels)\n\
+       Sierra-2             s2            No (diffuses +7 pixels)\n\
+       Sierra-2-4A          s24a          No (diffuses +3 pixels)\n\
+       Stevenson-Arce       sa            No (diffuses +12 pixels)\n\
+       Atkinson             a             No (diffuses +6 pixels, though only 75%)\n\
+     To set the dithering method, use the --dithmethod or -D option.\n\
+     Examples:\n\
+       -Dky or --dithmethod=ky (default)\n\
+       -Dfloyd-steinberg\n\
+       -Ds24a,y2\n\
+\n\
+  Dithering matrix size\n\
+     You can use an uneven ratio such as 8x2 to produce images\n\
+     that are displayed on a device where pixels are not square.\n\
+     The values should be powers of two, but it is not required.\n\
+     A non-poweroftwo dimension will produce uneven dithering.\n\
+     The third dimension, time, can be specified in order to\n\
+     use temporal dithering, which will appear as flickering.\n\
+     For example, 2x2x2 will use a 2x2 matrix plus 2 frames of\n\
+     flickering to produce the average color. By default, temporal\n\
+     dithering is done from the LSB of the color error, so as to minimize\n\
+     the flicker with cost to spatial accuracy. By specifying a negative time\n\
+     value, such as 2x2x-2, it will be done from the MSB, causing much more\n\
+     prominent flickering, while improving the spatial accuracy.\n\
+\n\
+  Dithering combine control (--dithcombine)\n\
+     The contrast is specified as a sliding scale where\n\
+       0 means that no combinations are loaded.\n\
+       1 represents the average luma difference between\n\
+         two successive colors in luma-sorted palette,\n\
+       2 represents the maximum luma difference between two\n\
+         two successive colors in luma-sorted palette,\n\
+       3 represents the maximum luma coverage of the\n\
+         palette, in practice allowing all combinations.\n\
+     In general, a higher number will produce more ugly dithering\n\
+     and will slow down the dithering algorithm a great deal too,\n\
+     so animmerger tries to choose a reasonable (low) default value.\n\
+     If you have lots of time and you're rendering a high-resolution\n\
+     picture, you can try 3. Otherwise, less than 1.3 is a safe bet.\n\
+     Note that a low value of dithcount can make this option useless.\n\
+     \n\
+     --dithcombine takes up to three parameters:\n\
+         <float>\n\
+            Contrast, as described above.\n\
+         <combinationlimit>\n\
+            Maximum number of colors to combine.\n\
+            This value defaults to DithCount, but it may be lower.\n\
+            Lower values are faster. It must be at least 1.\n\
+         <changeslimit>\n\
+            Maximum number of _different_ colors to combine.\n\
+            For example, depth 16 & changes 2 means that up to 16 colors\n\
+            are mixed, but the list can contain only 2 distinct colors.\n\
+            If you specify a negative value, it means that identical colors\n\
+            are not mixed together at all; all candidate components are distinct.\n\
+            It is the fastest option, though not best quality.\n\
+     Examples:\n\
+       --dithcombine 2,4,2\n\
+          Select all combinations of up to 4 palette colors where:\n\
+            - The difference between dimmest and brightest colors in the mix\n\
+              is equal or less than 100% of the maximum difference between\n\
+              consecutive elements in the luma-sorted palette\n\
+            - Only 2 distinct palette indices may occur in the mix\n\
+       --dithcombine 3,16,-1\n\
+          Select all combinations of up to 16 palette colors where:\n\
+            - All palette indices are distinct (same index does not appear twice)\n\
+            - No restrictions on how bright&dim colors are mixed together\n\
+       --dithcombine 0\n\
+          No precalculated mixes. For Yliluoma1 and Yliluoma3 dithers,\n\
+          this means that no dithering is done at all. For Yliluoma1Improved\n\
+          and Yliluoma2, this is the fastest possible option.\n\
+\n\
+Ordered dithering method differences:\n\
+\n\
+  Yliluoma1\n\
+     Completely reliant on --dithcombine to provide\n\
+     the selection of mix candidates.\n\
+     Ignores the --ditherror parameter.\n\
+     Ignores the --dithcount parameter (which still controls the defaults\n\
+                                        to --dithcombine though)\n\
+     Fastest. Depending on --dithcombine, quality may be good or bad.\n\
+  Yliluoma1Iterative\n\
+     Can be improved with --dithcombine, but does not depend on it at all.\n\
+     The only dither that uses --ditherror parameter.\n\
+     Fast. Quality adequate in most cases.\n\
+  Yliluoma2\n\
+     Can be improved with --dithcombine.\n\
+     Ignores the --ditherror parameter.\n\
+     Slow.\n\
+  Yliluoma3\n\
+     Only uses color combinations of 1 or 2 items.\n\
+     Ignores the --ditherror parameter.\n\
+     Slow.\n\
+\n\
+COLOR TRANSFORMATION FUNCTION\n\
+\n\
+  The option --transform can be used to transform the image's color.\n\
+\n\
+  The following identifiers are defined for the function:\n\
+    r,g,b   Input color (0..255)\n\
+    frameno Frame number (0..n)\n\
+    x,y     Screen coordinates (x,y)\n\
+\n\
+  Note that when animmerger counts color, it\n\
+  will pass bogus coordinates to the x,y values.\n\
+  The output value is expected to be in range 0..255, though not required.\n\
+  For a description of the accepted function syntax, see:\n\
+         http://iki.fi/warp/FunctionParser/\n\
+\n\
+  Examples:\n\
+    --transform 'r=g=b=(r*0.299+g*0.587+b*0.114)'\n\
+        Renders grayscale rather than color.\n\
+    --transform 'r=0x80+(r/2)'\n\
+        Makes image considerably redder.\n\
+    --transform 'r=128+127*sin(frameno*.1+x/40+y/90)' \\\n\
+    --transform 'g=128+127*cos(frameno*.1+x/40+y/90)' \\\n\
+    --transform 'b=128+127*sin(frameno*.1+x/40+y/90+20)'\n\
+        Will make the screen cycle in colors.\n\
+\n\
+  Note that rendering with a transformation function is much\n\
+  slower than rendering without it.\n\
+\n\
+COLOR COMPARE METHODS\n\
+\n\
+  For dithering purposes, animmerger has to compare colors\n\
+  and decide out of many options which combination represents\n\
+  the desired color best.\n\
+\n\
+  The comparison algorithm can be selected from the following choices:\n\
+  \n\
+    default   = 0    = RGB                 e.g. --deltae=0 or --deltae=rgb\n\
+    CIE76     = 76   = CIE76 Delta E       e.g. --deltae or --deltae=76\n\
+    CIE94     = 94   = CIE94 Delta E       e.g. --deltae=94 or --deltae=cie94\n\
+    CIEDE2000 = 2000 = CIEDE2000 Delta E   e.g. --deltae=2000\n\
+    CMC              = CMC l:c Delta E     e.g. --deltae=cmc\n\
+    BFD              = BFD l:c Delta E     e.g. --deltae=bfd\n\
+    user-defined  (see below)\n\
+  \n\
+  When a CIE method is selected, colors are compared in the CIE L*a*b* colorspace.\n\
+  Animmerger converts RGB values into CIE using an Adobe D65 illuminant profile or\n\
+  a close equivalent.\n\
+\n\
+  Performance:\n\
+     RGB and CIE76 are simple euclidean differences.\n\
+       Because animmerger will calculate the CIE L*a*b* value\n\
+       for each color regardless of whether you use RGB or not,\n\
+       there is no speed difference between these two.\n\
+     CIE94 includes more mathematics than RGB or CIE74.\n\
+     CMC   is complex, and not always very good.\n\
+     CIEDE2000 includes very complicated mathematics,\n\
+               and can be expected to be very slow.\n\
+     BFD   is very complex.\n\
+  \n\
+  It is also possible to use a homebrew color comparison formula.\n\
+  Examples:\n\
+    --deltae='(R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2'\n\
+      This is equivalent to --deltae=RGB, though --deltae=RGB is faster.\n\
+      Note that it is not necessary to take the square root of the result,\n\
+      because animmerger only cares about whether a deltae value is larger\n\
+      or smaller than another, not about its exact value.\n\
+    --deltae='(L1-L2)^2 + (a1-a2)^2 + (b1-b2)^2'\n\
+      This is equivalent to --deltae=CIE76, though --deltae=CIE76 is faster.\n\
+    --deltae='abs(luma1-luma2)'\n\
+      This simply compares luminosity and disregards any color information.\n\
+    --deltae='hypot(a1-a2, b1-b2)'\n\
+      This simply compares chroma and disregards luminance.\n\
+  Variables supported in the color comparison formula:\n\
+    R1,G1,B1,A1     -- RGB+alpha value (0..1 range)\n\
+    L1,a1,b1,C1,h1  -- L*a*b* and L*C*h[ab] values (unspecified range)\n\
+                       Note that h is indicated in radians, not degrees\n\
+    luma1           -- Equivalent to R1*.299 + G1*.587 + B1*.114\n\
+    And the same for color 2 (replace 1 with 2)\n\
+    gamma           -- Configured gamma correction rate\n\
+  Functions supported in the color comparison formula:\n\
+    Standard fparser functions such as cos,atan2,asinh,log10\n\
+    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n\
+\n\
+GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
+  GIF is capable of paletted images of 256 colors or less.\n\
+  PNG is capable of paletted images, as well as truecolor images.\n\
+  \n\
+  GIF selection  Quantization  Saves in format            Dithering used\n\
+  --auto         -Q was used   Animations=GIF, other=PNG  For GIF, unless disabled\n\
+  --auto         -Q NOT used   Always PNG                 Never\n\
+  --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
+  --never        -Q NOT used   Always trueclor PNG        Never\n\
+  --always       -Q was used   Always GIF                 Yes, unless disabled\n\
+  --always       -Q not used   Always GIF                 Never\n\
 \n\
 TIPS\n\
 \n\
@@ -976,6 +697,14 @@ rate.\n\
             case 'Q':
             {
                 char *arg = optarg;
+                if(access(arg, R_OK) == 0)
+                {
+                    PaletteMethodItem method;
+                    method.size     = 0;
+                    method.filename = arg;
+                    PaletteReductionMethod.push_back(method);
+                    break;
+                }
                 char *comma = std::strchr(arg, ',');
                 if(!comma)
                     std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
@@ -1072,6 +801,189 @@ rate.\n\
                 autoalign = false;
                 break;
             }
+
+            case 'D': // dithmethod, D
+            {
+                Diffusion = Diffusion_None;
+                Dithering = Dither_Yliluoma1Iterative;
+                bool positional_defined = false;
+                std::string optarg_save(optarg);
+                bool errors = false;
+                for(char* arg = optarg; ; arg = 0)
+                {
+                    char* cm[128] = { 0 }; // List of character that exist in the input
+                    char* section = std::strtok(arg, ",");
+                    if(!section) break;
+                    for(; *section; ++section)
+                    {
+                        unsigned char c = std::tolower(*section);
+                        if(c < 128 && !cm[c]) cm[c] = section;
+                    }
+                    /**/ if(cm['k'] && cm['y']) { Dithering = Dither_Yliluoma1Iterative; positional_defined = true; }
+                    else if(cm['y'] && cm['1']
+                         && cm['i'] && cm['1'][1]=='i') 
+                                                { Dithering = Dither_Yliluoma1Iterative; positional_defined = true; }
+                    else if(cm['y'] && cm['1']) { Dithering = Dither_Yliluoma1; positional_defined = true; }
+                    else if(cm['y'] && cm['2']) { Dithering = Dither_Yliluoma2; positional_defined = true; }
+                    else if(cm['y'] && cm['3']) { Dithering = Dither_Yliluoma3; positional_defined = true; }
+                    else if(cm['f'] && (cm['s']||cm['y']>cm['f']))
+                                                Diffusion = Diffusion_FloydSteinberg;
+                    else if(cm['j'] && cm['n']) Diffusion = Diffusion_JarvisJudiceNinke;
+                    else if(cm['b'])            Diffusion = Diffusion_Burkes;
+                    else if(cm['s'] && cm['4']) Diffusion = Diffusion_Sierra24A;
+                    else if(cm['s'] && cm['3']) Diffusion = Diffusion_Sierra3;
+                    else if(cm['s'] && cm['2']) Diffusion = Diffusion_Sierra2;
+                    else if(cm['s'] && cm['a']
+                         && cm['s'] <  cm['a']) Diffusion = Diffusion_StevensonArce;
+                    else if(cm['a'])            Diffusion = Diffusion_Atkinson;
+                    else if(cm['s'])            Diffusion = Diffusion_Stucki;
+                    else errors = true;
+                }
+                if(!positional_defined && Diffusion != Diffusion_None)
+                    { DitherMatrixWidth = DitherMatrixHeight = 1;
+                      DitherColorListSize = 1; }
+                if(errors)
+                    std::fprintf(stderr, "animmerger: Bad dither method selection: %s.\n", optarg_save.c_str());
+                break;
+            }
+
+            case 5001: // ditherror, de
+            {
+                char* arg = optarg;
+                double tmp = strtod(arg, 0);
+                DitherErrorFactor = tmp;
+                if(tmp < 0 || tmp >= 256.0)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither error multiplication value: %g. Valid range: 0..1, though 0..255 is permitted.\n", tmp);
+                    DitherErrorFactor = 1.0;
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5002: // dithmatrix, dm
+            {
+                char* arg = optarg;
+                for(char*s = arg; *s; ++s) if(*s == 'x') *s = ',';
+                int dx,dy,dt;
+                int result = sscanf(arg, "%d,%d,%d", &dx,&dy,&dt);
+                if(result < 2)
+                    std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                else if(dx < 1 || dy < 1 || dx*dy > 65536)
+                    std::fprintf(stderr, "animmerger: Bad dither matrix size: %dx%d.\n", dx,dy);
+                else
+                {
+                    DitherMatrixWidth  = dx;
+                    DitherMatrixHeight = dy;
+                }
+                if(result >= 3)
+                {
+                    if(dt < -64 || dt > 64 || dt == -1 || dt == 0)
+                        std::fprintf(stderr, "animmerger: Bad temporal dither length: %d. Valid range is -64..-2 and +1..+64, where +1 disables temporal dithering.\n", dt);
+                    else if(dt < 0)
+                    {
+                        TemporalDitherSize = -dt;
+                        TemporalDitherMSB  = true;
+                    }
+                    else
+                    {
+                        TemporalDitherSize = dt;
+                        TemporalDitherMSB  = false;
+                    }
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5003: // dithcount, dc
+            {
+                char* arg = optarg;
+                long tmp = strtol(arg, 0, 10);
+                DitherColorListSize = tmp;
+                if(tmp != DitherColorListSize || tmp < 1 || tmp > 65536)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither color list size: %ld. Valid range: 1..65536\n", tmp);
+                    DitherColorListSize = 0;
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5004: // dithcombine, dr
+            {
+                char* arg = optarg;
+                double   contrast       = -1;
+                long     recursionlimit = 0;
+                long     changeslimit   = 0;
+                int result = sscanf(arg, "%lf,%ld,%ld", &contrast,&recursionlimit,&changeslimit);
+                DitherCombinationContrast = -1.0; // re-enable heuristic.
+                if(result < 1)
+                    std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                else if(contrast < 0.0 || contrast > 3.0)
+                    std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", contrast);
+                else
+                    DitherCombinationContrast = contrast;
+                if(result >= 2)
+                {
+                    if(recursionlimit < 1)
+                        std::fprintf(stderr, "animmerger: Bad dither combination limit: %ld\n", recursionlimit);
+                    else
+                        DitherCombinationRecursionLimit = recursionlimit;
+                    if(result >= 3)
+                    {
+                        if(changeslimit < 0)
+                            { DitherCombinationChangesLimit = ~0u;
+                              DitherCombinationAllowSame    = false; }
+                        else if(changeslimit < 1)
+                            std::fprintf(stderr, "animmerger: Bad dither combination changes limit: %ld\n", changeslimit);
+                        else
+                        {
+                            DitherCombinationChangesLimit = changeslimit;
+                            DitherCombinationAllowSame    = true;
+                        }
+                    }
+                }
+                dithering_configured = true;
+                break;
+            }
+            case 5005: // deltae
+                if(optarg)
+                {
+                    if(std::strcmp(optarg, "default") == 0
+                    || std::strcmp(optarg, "0") == 0
+                    || std::strcmp(optarg, "rgb") == 0
+                    || std::strcmp(optarg, "RGB") == 0)
+                        ColorComparing = Compare_RGB;
+                    else if(std::strcmp(optarg, "implied") == 0
+                         || std::strcmp(optarg, "simple") == 0
+                         || std::strcmp(optarg, "1") == 0
+                         || std::strcmp(optarg, "76") == 0
+                         || std::strcmp(optarg, "cie76") == 0
+                         || std::strcmp(optarg, "CIE76") == 0)
+                        ColorComparing = Compare_CIE76_DeltaE;
+                    else if(std::strcmp(optarg, "94") == 0
+                         || std::strcmp(optarg, "cie94") == 0
+                         || std::strcmp(optarg, "CIE94") == 0)
+                        ColorComparing = Compare_CIE94_DeltaE;
+                    else if(std::strcmp(optarg, "cmc") == 0
+                         || std::strcmp(optarg, "CMC") == 0)
+                        ColorComparing = Compare_CMC_lc;
+                    else if(std::strcmp(optarg, "bfd") == 0
+                         || std::strcmp(optarg, "BFD") == 0)
+                        ColorComparing = Compare_BFD_lc;
+                    else if(std::strcmp(optarg, "2000") == 0
+                         || std::strcmp(optarg, "ciede2000") == 0
+                         || std::strcmp(optarg, "CIEDE2000") == 0
+                         || std::strcmp(optarg, "cie2000") == 0
+                         || std::strcmp(optarg, "CIE2000") == 0)
+                        ColorComparing = Compare_CIEDE2000_DeltaE;
+                    else
+                    {
+                        ColorComparing = Compare_fparser;
+                        color_compare_formula += optarg;
+                    }
+                }
+                else
+                    ColorComparing = Compare_CIE76_DeltaE;
+                break;
+
             case 'v':
                 ++verbose;
                 break;
@@ -1079,10 +991,67 @@ rate.\n\
                 AveragesInYUV = true;
                 break;
             case 'g':
-                SaveGif = 1;
+                if(optarg)
+                {
+                    if(std::strcmp(optarg, "auto") == 0)
+                        SaveGif = -1;
+                    else if(std::strcmp(optarg, "always") == 0
+                         || std::strcmp(optarg, "yes") == 0
+                         || std::strcmp(optarg, "1") == 0)
+                        SaveGif = 1;
+                    else if(std::strcmp(optarg, "never") == 0
+                         || std::strcmp(optarg, "none") == 0
+                         || std::strcmp(optarg, "no") == 0
+                         || std::strcmp(optarg, "0") == 0)
+                        SaveGif = 0;
+                    else
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --gif: %s. Allowed values: auto, always, never\n",
+                            optarg);
+                }
+                else
+                    SaveGif = 1;
                 break;
+            case 6001: // transform
+            {
+                char* arg = optarg;
+                bool touch_r = false;
+                bool touch_g = false;
+                bool touch_b = false;
+                for(;;)
+                {
+                    if(strncmp(arg, "r=", 2) == 0) { touch_r=true; arg+=2; continue; }
+                    if(strncmp(arg, "g=", 2) == 0) { touch_g=true; arg+=2; continue; }
+                    if(strncmp(arg, "b=", 2) == 0) { touch_b=true; arg+=2; continue; }
+                    break;
+                }
+                if(!touch_r && !touch_g && !touch_b)
+                {
+                    transform_common += arg;
+                }
+                if(touch_r) transform_r = arg;
+                if(touch_g) transform_g = arg;
+                if(touch_b) transform_b = arg;
+                break;
+            }
+            case 'G': // gamma
+            {
+                char* arg = optarg;
+                double tmp = strtod(arg, 0);
+                DitherGamma = tmp;
+                if(tmp <= 0.0 || tmp > 50.0)
+                {
+                    std::fprintf(stderr, "animmerger: Bad dither gamma parameter: %g. Valid range: > 0\n", tmp);
+                    DitherGamma = 1.0;
+                }
+                break;
+            }
         }
     }
+
+    SetColorTransformations();
+
+    if(!color_compare_formula.empty())
+        SetColorCompareFormula(color_compare_formula);
 
     if(!bgmethod0_chosen) bgmethod0 = bgmethod;
     if(!bgmethod1_chosen) bgmethod1 = bgmethod;
@@ -1099,6 +1068,94 @@ rate.\n\
             std::fprintf(stderr,
                 "animmerger: Warning: bgmethod0 and bgmethod1 are ignored when motion blur is used.\n");
         }
+    }
+
+    if(dithering_configured && PaletteReductionMethod.empty())
+    {
+        std::fprintf(stderr,
+            "animmerger: Warning: Dithering will not be done when the palette is not reduced by animmerger. Even if you specify GIF output format but no quantization methods (--quantize), dithering will not be used.\n");
+    }
+
+    if((DitherMatrixWidth & (DitherMatrixWidth-1))
+    || (DitherMatrixHeight & (DitherMatrixHeight-1)))
+    {
+        std::fprintf(stderr, "animmerger: Warning: Dither matrix dimensions should be given as powers of two. %dx%d will work, but it might not look pretty, because animmerger generates the matrix with an algorithm designed for power-of-two dimensions.\n",
+            DitherMatrixWidth,DitherMatrixHeight);
+    }
+
+    if(DitherColorListSize > DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize)
+    {
+        std::fprintf(stderr, "animmerger: Warning: It is probably pointless to generate %u candidate colors for dithering when the dithering matrix will only utilize at most %u at any time (%ux%ux%u). Recommend option: --dc%u\n",
+            DitherColorListSize,
+            DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize,
+            DitherMatrixWidth, DitherMatrixHeight, TemporalDitherSize,
+            DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize);
+    }
+    if(DitherErrorFactor > 1.0)
+    {
+        std::fprintf(stderr, "animmerger: Warning: Dither error multiplication factor should not be greater than 1.0. You chose %g. Hope you know what you are doing.\n",
+            DitherErrorFactor);
+    }
+    if(DitherColorListSize == 0)
+        DitherColorListSize = std::min(32u,
+           DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize);
+
+    if(DitherMatrixWidth == 4
+    && DitherMatrixHeight == 4
+    && TemporalDitherSize == 1
+    && DitherColorListSize == 16
+    && DitherCombinationContrast == 0.0
+    && Diffusion == Diffusion_None
+    && Dithering == Dither_Yliluoma1Iterative)
+    {
+        std::fprintf(stderr,
+            "animmerger: Sorry, I cannot obey this combination of options.\n"
+            "            The specific configuration you requested happens to be\n"
+            "            patented by Adobe Systems Incorporated (US patent 6606166).\n"
+            "            And due to that patent, this method cannot be implemented\n"
+            "            in free software. Method patents are annoying, we all know.\n");
+        return -1;
+    }
+
+    switch(Dithering)
+    {
+        case Dither_Yliluoma1:
+            // Finding the single best-matching candidate
+            if(DitherCombinationRecursionLimit == 1
+            || DitherCombinationChangesLimit==1)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma1 dithering to work properly, more than 1 distinct elements should be allowed in a mix (--dithcombine).\n");
+            }
+            break;
+        case Dither_Yliluoma1Iterative:
+            // Finding the best-matching candidate, repeat with error diffusion
+            if(DitherCombinationAllowSame
+            && DitherCombinationChangesLimit > DitherCombinationRecursionLimit)
+            {
+            }
+            break;
+        case Dither_Yliluoma2:
+            // Find the best-matching candidate, repeat find best-improving candidate with count
+            break;
+        case Dither_Yliluoma3:
+            // Subdivision of DitherColorListSize, replacing with colorpairs or colors
+            if(DitherCombinationRecursionLimit == 0)
+                DitherCombinationRecursionLimit = 2;
+            else if(DitherCombinationRecursionLimit > 2)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma3 dithering, upper limit for combination limit is 2.\n");
+                DitherCombinationRecursionLimit = 2;
+            }
+            if(DitherCombinationChangesLimit == 0)
+                DitherCombinationChangesLimit = 2;
+            if(DitherCombinationChangesLimit != 2)
+            {
+                fprintf(stderr, "animmerger: Warning: For Yliluoma3 dithering to work properly, changes limit should be 2.\n");
+                if(DitherCombinationChangesLimit > 2)
+                    DitherCombinationRecursionLimit = 2;
+            }
+            DitherCombinationAllowSame = false;
+            break;
     }
 
     if(verbose)
@@ -1134,34 +1191,114 @@ rate.\n\
             std::printf("\tAverage color is calculated in: %s\n",
                 AveragesInYUV ? "YUV" : "RGB");
 
-        if(SaveGif == 1 || (AllUsedMethods & AnimatedPixelMethodsMask))
+        if(!PaletteReductionMethod.empty())
         {
-            if(PaletteReductionMethod.empty())
-                std::printf("\tPalette reduction done by libGD if necessary\n");
+            std::printf("\tPalette reduction if necessary: ");
+            for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
+            {
+                if(a) std::printf(", followed by ");
+                if(!PaletteReductionMethod[a].filename.empty())
+                {
+                    std::printf("load from file: %s",
+                        PaletteReductionMethod[a].filename.c_str());
+                    continue;
+                }
+                switch(PaletteReductionMethod[a].method)
+                {
+                    #define MakeCase(o,name) \
+                        case quant_##name: std::printf("%s", #name); break;
+                    DefinePaletteMethods(MakeCase)
+                    #undef MakeCase
+                }
+                std::printf(" to %u", PaletteReductionMethod[a].size);
+            }
+            std::printf("\n");
+
+            if(DitherColorListSize == 1
+            || DitherErrorFactor   == 0.0
+            || (DitherCombinationRecursionLimit==1 &&
+                           (Dithering == Dither_Yliluoma1
+                         || Dithering == Dither_Yliluoma3))
+              )
+            {
+                std::printf(
+                    "\tPositional dithering disabled\n");
+            }
             else
             {
-                std::printf("\tPalette reduction if necessary: ");
-                for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
+                const char* methodname = "?";
+                switch(Dithering)
                 {
-                    if(a) std::printf(", followed by ");
-                    switch(PaletteReductionMethod[a].method)
-                    {
-                        #define MakeCase(o,name) \
-                            case quant_##name: std::printf("%s", #name); break;
-                        DefinePaletteMethods(MakeCase)
-                        #undef MakeCase
-                    }
-                    std::printf(" to %u", PaletteReductionMethod[a].size);
+                    case Dither_Yliluoma1:
+                        methodname = "Yliluoma1 ordered dithering (single-shot)"; break;
+                    case Dither_Yliluoma2:
+                        methodname = "Yliluoma2 positional dithering"; break;
+                    case Dither_Yliluoma3:
+                        methodname = "Yliluoma3 positional dithering"; break;
+                    case Dither_Yliluoma1Iterative:
+                        methodname = "Yliluoma1 ordered dithering (iterative)"; break;
+                }
+                std::printf(
+                    "\tDithering method: %s\n"
+                    "\tDithering combination control: contrast=%g, recursionlimit=%u%s, maxchanges=%u%s, allowsame=%s\n"
+                    "\tDithering with %u color choices, Bayer matrix size: %ux%u",
+                    methodname,
+                    DitherCombinationContrast,
+                    DitherCombinationRecursionLimit,
+                        DitherCombinationRecursionLimit?"":" (auto)",
+                    DitherCombinationChangesLimit,
+                        DitherCombinationChangesLimit  ?"":" (auto)",
+                    DitherCombinationAllowSame ? "yes" : "no",
+                    DitherColorListSize,
+                    DitherMatrixWidth, DitherMatrixHeight);
+                if(DitherMatrixWidth * DitherMatrixHeight * TemporalDitherSize == 1)
+                    std::printf(" (DEFUNCT");
+                if(TemporalDitherSize > 1)
+                {
+                    std::printf(" + %u-frame temporal dithering (with %s)",
+                        TemporalDitherSize,
+                        TemporalDitherMSB ? "MSB" : "LSB");
                 }
                 std::printf("\n");
+                if(Dithering == Dither_Yliluoma1Iterative)
+                {
+                    std::printf("\tDither color error spectrum size: %g\n",
+                        DitherErrorFactor);
+                }
+            }
+            if(Diffusion != Diffusion_None)
+            {
+                const char* methodname = "?";
+                switch(Diffusion)
+                {
+                    case Diffusion_None: break;
+                    case Diffusion_FloydSteinberg:
+                        methodname = "Floyd-Steinberg"; break;
+                    case Diffusion_JarvisJudiceNinke:
+                        methodname = "Jarvis-Judice-Ninke"; break;
+                    case Diffusion_Stucki:
+                        methodname = "Stucki"; break;
+                    case Diffusion_Burkes:
+                        methodname = "Burkes"; break;
+                    case Diffusion_Sierra3:
+                        methodname = "Sierra-3"; break;
+                    case Diffusion_Sierra2:
+                        methodname = "Sierra-2"; break;
+                    case Diffusion_Sierra24A:
+                        methodname = "Sierra-2-4A"; break;
+                    case Diffusion_StevensonArce:
+                        methodname = "Stevenson-Arce"; break;
+                    case Diffusion_Atkinson:
+                        methodname = "Atkinson"; break;
+                }
+                std::printf(
+                    "\tError-diffusion method (dithering): %s\n", methodname);
             }
         }
-        else
+        else if(SaveGif == 1)
         {
-            if(PaletteReductionMethod.empty())
-                std::printf(
-                    "\tPalette reduction was specified, but it will be ignored,\n"
-                    "\tbecause only truecolor PNGs will be generated.\n");
+            std::printf(
+                "\tPalette reduction done by libGD if necessary (no dithering)\n");
         }
 
         unsigned size = GetPixelSizeInBytes();
@@ -1206,56 +1343,14 @@ rate.\n\
 
         unsigned sx = gdImageSX(im), sy = gdImageSY(im);
         pixels.resize(sx*sy);
-        for(unsigned p=0, y=0; y<sy; ++y)
-            for(unsigned x=0; x<sx; ++x,++p)
-                pixels[p] = gdImageGetTrueColorPixel(im, x,y);
+      #pragma omp parallel for schedule(static)
+        for(unsigned y=0; y<sy; ++y)
+            for(unsigned p=y*sx, x=0; x<sx; ++x)
+                pixels[p+x] = gdImageGetTrueColorPixel(im, x,y);
+
         gdImageDestroy(im);
 
-        for(size_t r=0; r<alpha_ranges.size(); ++r)
-        {
-            const AlphaRange& a = alpha_ranges[r];
-            AlphaRange tmp;
-            tmp.x1 = a.x1 < sx ? a.x1 : sx;
-            tmp.y1 = a.y1 < sy ? a.y1 : sy;
-            tmp.width  = (tmp.x1 + a.width ) < sx ? a.width  : sx-tmp.x1;
-            tmp.height = (tmp.y1 + a.height) < sy ? a.height : sy-tmp.y1;
-
-            /*std::fprintf(stderr, "%u,%u, %u,%u\n",
-                tmp.x1,tmp.y1, tmp.width,tmp.height);
-            for(size_t b=0; b<a.colors.size(); ++b)
-                std::fprintf(stderr, "- %06X\n", a.colors[b]);*/
-
-            unsigned BlankCount = 0;
-            unsigned p = tmp.y1 * sx + tmp.x1;
-            for(unsigned y=0; y<tmp.height; ++y, p += sx)
-                for(unsigned x=0; x<tmp.width; ++x)
-                {
-                    if(a.colors.empty()
-                    || a.colors.find(pixels[p+x]) != a.colors.end())
-                    {
-                        if(maskmethod == MaskBlack)
-                            pixels[p+x] = 0;
-                        else
-                        {
-                            pixels[p+x] |= 0xFF000000u;
-                            ++BlankCount;
-                        }
-                    }
-                }
-            if(BlankCount != 0)
-                switch(maskmethod)
-                {
-                    case MaskHole:
-                    case MaskBlack:
-                        break;
-                    case MaskCircularBlur:
-                        BlurHUD(&pixels[0], sx, sy, tmp);
-                        break;
-                    case MaskPattern:
-                        ExtrapolateHUD(&pixels[0], sx, sy, tmp);
-                        break;
-                }
-        }
+        MaskImage(pixels, sx,sy);
 
         if(autoalign)
         {

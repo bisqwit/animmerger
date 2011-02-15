@@ -1,7 +1,7 @@
 #ifndef bqtAnimMergerSetTypeHH
 #define bqtAnimMergerSetTypeHH
 
-#include "untreetype.hh"
+#include "binaryheap.hh"
 
 struct SetKeyMethod
 {
@@ -11,7 +11,7 @@ struct SetKeyMethod
 
 template<typename K, bool Multiple>
 class SetBaseType: public
-    UntreeType<K, Multiple, SetKeyMethod>
+    BinaryHeapType<K, Multiple, SetKeyMethod>
 {
 };
 

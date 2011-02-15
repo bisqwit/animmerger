@@ -1,11 +1,11 @@
-#ifndef bqtAnimMergerUntreeTypeHH
-#define bqtAnimMergerUntreeTypeHH
+#ifndef bqtAnimMergerBinaryHeapTypeHH
+#define bqtAnimMergerBinaryHeapTypeHH
 
 #include "vectype.hh"
 
 template<typename T, bool Multiple,
          typename key_method>
-class UntreeType: private VecType<T>
+class BinaryHeapType: private VecType<T>
 {
     typedef VecType<T> rep;
 public:
@@ -17,7 +17,7 @@ public:
     using typename rep::size_type;
 
 public:
-    UntreeType() { }
+    BinaryHeapType() { }
 
     using typename rep::iterator;
     using typename rep::const_iterator;

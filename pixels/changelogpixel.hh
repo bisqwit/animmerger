@@ -530,21 +530,5 @@ private:
 
 public:
 /////////
-    static const unsigned long Traits =
-      (1ul << pm_ChangeLogPixel)
-    | (1ul << pm_ActionAvgPixel)
-    | (1ul << pm_LoopingAvgPixel)
-    | (1ul << pm_LoopingLogPixel)
-    | (1ul << pm_MostUsedPixel)
-    | (1ul << pm_LeastUsedPixel)
-    | (1ul << pm_AveragePixel)
-    | (1ul << pm_TinyAveragePixel)
-    | (1ul << pm_SolidPixel)
-    | (1ul << pm_LastPixel)
-    | (1ul << pm_FirstPixel)
-    | (1ul << pm_FirstNMostPixel)
-    | (1ul << pm_LastNMostPixel);
     static const unsigned SizePenalty = 32;
-    static const unsigned Components =
-        (1ul << impl_ChangeLog);
 };
