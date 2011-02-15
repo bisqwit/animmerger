@@ -27,6 +27,14 @@ ARCHFILES=\
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \
 	alloc/style.css \
+	fparser/fparser.cc \
+	fparser/fparser.hh \
+	fparser/fpoptimizer.cc \
+	fparser/fp_identifier_parser.inc \
+	fparser/fp_opcode_add.inc \
+	fparser/fpconfig.hh \
+	fparser/fptypes.hh \
+	fparser/fpaux.hh \
 	main.cc \
 	\
 	doc/AddingPixelMethods.txt \
