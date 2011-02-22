@@ -534,15 +534,15 @@ private:
     MapType<unsigned, uint32>::const_iterator ubound(unsigned timer) const
     {
         if(history.empty()) return history.end();
-
+        /*
         unsigned first = history.front().first;
         unsigned  last = history.back().first;
         if(first == last) return history.begin();
         if(first > timer) return history.begin();
         if(last <= timer) return history.end();
-
+        */
         // Returns an iterator pointing to first element > timer, or end().
-        return history.upper_bound(timer);
+        return history.upper_bound_interp(timer);
       /*
         // Make an initial guess.
         MapType<unsigned, uint32>::const_iterator guess

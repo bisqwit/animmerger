@@ -517,7 +517,7 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
 {
     HistogramType Histogram;
 
-    // Create a historgram of the used colors, unless it's going
+    // Create a histogram of the used colors, unless it's going
     // to be replaced immediately thereafter.
     if(PaletteReductionMethod.empty()
     || PaletteReductionMethod.front().filename.empty())

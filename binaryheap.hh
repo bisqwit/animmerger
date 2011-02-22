@@ -44,6 +44,14 @@ public:
        template<typename Kt> \
        type name##_bound(Kt key, type b, type e) c \
            { return name##_bound_template(key, b, e); } \
+       \
+       template<typename Kt> \
+       type name##_bound_interp(Kt key) c\
+           { return name##_bound_template_interp(key, begin(), end()); } \
+       template<typename Kt> \
+       type name##_bound_interp(Kt key, type b, type e) c \
+           { return name##_bound_template_interp(key, b, e); } \
+       \
        template<typename Kt> \
        type name##_bound_guess(Kt key, type guess) c \
            { return name##_bound_template_guess(key, guess, begin(), end()); } \
@@ -53,18 +61,27 @@ public:
     #define make_versions(type, c) \
         make_boundfun(lower, type, c) \
         make_boundfun(upper, type, c) \
+        \
         template<typename Kt> \
         type find(Kt key) c \
             { return find_template(key, lower_bound(key), end()); } \
         template<typename Kt> \
         type find(Kt key, type b, type e) c \
             { return find_template(key, lower_bound(key,b,e), end()); } \
+        \
+        template<typename Kt> \
+        type find_interp(Kt key) c \
+            { return find_template(key, lower_bound_intep(key), end()); } \
+        template<typename Kt> \
+        type find_interp(Kt key, type b, type e) c \
+            { return find_template(key, lower_bound_intep(key,b,e), end()); } \
+        \
         template<typename Kt> \
         type find_guess(Kt key, type guess) c \
             { return find_template(key, lower_bound_guess(key, guess), end()); } \
         template<typename Kt> \
         type find_guess(Kt key, type guess, type b, type e) c \
-            { return find_template(key, lower_bound(key,guess,b,e), end()); }
+            { return find_template(key, lower_bound_guess(key,guess,b,e), end()); }
     make_versions(typename rep::iterator, )
     make_versions(typename rep::const_iterator, const)
     #undef make_versions
@@ -113,6 +130,58 @@ private:
       #endif
         {
             It middle = first + (limit>>1);
+            if(key < key_method()(*middle))
+                last = middle;
+            else
+                first = middle+1;
+        }
+        return first;
+    }
+
+    template<typename Kt, typename It>
+    static It lower_bound_template_interp(Kt key, It first, It last)
+    {
+        typename rep::size_type limit;
+      #ifdef __GNUC__
+        while(__builtin_expect((limit=last-first) > 0, 1))
+      #else
+        while(                 (limit=last-first) > 0    )
+      #endif
+        {
+            It tmp( last ); --tmp;
+            const Kt& first_value = key_method()(*first);
+            const Kt& last_value  = key_method()(*tmp);
+            It middle (
+                (key <= first_value) ? first
+              : (key >= last_value)  ? tmp
+              : (first + (key - first_value) * (last-first) / (last_value-first_value+1)) );
+
+            if(key_method()(*middle) < key)
+                first = middle+1;
+            else
+                last = middle;
+        }
+        return first;
+    }
+
+    template<typename Kt, typename It>
+    static It upper_bound_template_interp(Kt key, It first, It last)
+    {
+        typename rep::size_type limit;
+      #ifdef __GNUC__
+        while(__builtin_expect((limit=last-first) > 0, 1))
+      #else
+        while(                 (limit=last-first) > 0    )
+      #endif
+        {
+            It tmp( last ); --tmp;
+            const Kt& first_value = key_method()(*first);
+            const Kt& last_value  = key_method()(*tmp);
+            It middle (
+                (key <= first_value) ? first
+              : (key >= last_value)  ? tmp
+              : (first + (key - first_value) * (last-first) / (last_value-first_value+1)) );
+
             if(key < key_method()(*middle))
                 last = middle;
             else

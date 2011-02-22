@@ -85,7 +85,6 @@ int main(int argc, char** argv)
 {
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
-    bool autoalign = true;
     bool dithering_configured = false;
     std::string color_compare_formula;
 
@@ -379,8 +378,8 @@ DITHERING\n\
        Yliluoma1            y1            Yes (positional)\n\
        Yliluoma2            y2            Yes (positional)\n\
        Yliluoma3            y3            Yes (positional)\n\
-       Yliluoma1Iterative   ky            Yes (positional)\n\
-       Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
+       Yliluoma1Iterative   y1i / ky      Yes (positional)\n\
+       Floyd-Steinberg      fs / floyd    No (diffuses +4 pixels)\n\
        Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
        Stucki               s             No (diffuses +12 pixels)\n\
        Burkes               b             No (diffuses +7 pixels)\n\
@@ -391,9 +390,9 @@ DITHERING\n\
        Atkinson             a             No (diffuses +6 pixels, though only 75%)\n\
      To set the dithering method, use the --dithmethod or -D option.\n\
      Examples:\n\
-       -Dky or --dithmethod=ky (default)\n\
+       -Dy1i or --dithmethod=ky (default)\n\
        -Dfloyd-steinberg\n\
-       -Ds24a,y2\n\
+       -Ds24a,y2 --dr=2 --dc=4 --dm 8x8\n\
 \n\
   Dithering matrix size\n\
      You can use an uneven ratio such as 8x2 to produce images\n\
@@ -1319,6 +1318,8 @@ rate.\n\
     }
 
     VecType<uint32> pixels;
+
+    estimated_num_frames = argc-optind;
 
     for(int a=optind; a<argc; ++a)
     {
