@@ -21,11 +21,15 @@ public:
     }
     void set(uint32 p, unsigned timer) FastPixelMethod
     {
-        /*if(timer == 0)
+        if(history.empty() && !autoalign)
         {
-            // Ignore first frame. It's gray.
-            return;
-        }*/
+            // Preallocate frame buffers to prevent
+            // repeated reallocations later on.
+            // Since autoaligning is disabled, we can
+            // can assume that every image pixel
+            // addresses one changelog pixel.
+            history.reserve(estimated_num_frames);
+        }
 #if CHANGELOG_USE_LASTTIMESTAMP
         if(timer > last_time) last_time = timer;
 #endif
@@ -135,10 +139,10 @@ public:
     {
         if(AnimationBlurLength == 0) return Find(timer);
 
-        const uint32 most = GetChangeLogBackground();
-        uint32 pix = Find(timer, most);
+        uint32 pix = Find(timer, DefaultPixel);
+        if(pix != DefaultPixel) return pix;
 
-        if(pix != most) return pix;
+        const uint32 most = GetChangeLogBackground();
 
         AveragePixel result;
         unsigned remaining_blur = AnimationBlurLength;
@@ -460,8 +464,7 @@ private:
           What we want is an iterator pointing
             to the last element that is <= key.
          */
-        MapType<unsigned, uint32>::const_iterator
-            i = history.upper_bound(timer);
+        MapType<unsigned, uint32>::const_iterator i = ubound(timer);
 
         /* Pre-begin value: Use background */
         if(i == history.begin())
@@ -504,8 +507,7 @@ private:
           What we want is an iterator pointing
             to the last element that is <= key.
          */
-        MapType<unsigned, uint32>::const_iterator
-            i = history.upper_bound(timer);
+        MapType<unsigned, uint32>::const_iterator i = ubound(timer);
 
         /* Pre-begin value: Use background */
         if(i == history.begin())
@@ -526,6 +528,47 @@ private:
         }
         /* Anything else. Take the value. */
         return i->second;
+    }
+
+private:
+    MapType<unsigned, uint32>::const_iterator ubound(unsigned timer) const
+    {
+        if(history.empty()) return history.end();
+
+        unsigned first = history.front().first;
+        unsigned  last = history.back().first;
+        if(first == last) return history.begin();
+        if(first > timer) return history.begin();
+        if(last <= timer) return history.end();
+
+        // Returns an iterator pointing to first element > timer, or end().
+        return history.upper_bound(timer);
+      /*
+        // Make an initial guess.
+        MapType<unsigned, uint32>::const_iterator guess
+          ( history.begin() + (timer - first) * history.size() / (last-first) );
+        if(guess == history.end()) --guess;
+
+        MapType<unsigned, uint32>::const_iterator b ( history.begin() );
+        MapType<unsigned, uint32>::const_iterator e ( history.end()   );
+
+        if(history.size() >= 1024)
+        {
+           {MapType<unsigned, uint32>::const_iterator tmp(guess);
+            for(unsigned c=0; ; ++c, --tmp)
+              { if(tmp->first == timer) { ++tmp; return tmp; }
+                if(tmp->first <= timer) { b=tmp; break; }
+                if(c >= 1 || tmp==history.begin()) break; }}
+
+           {MapType<unsigned, uint32>::const_iterator tmp(guess);
+            for(unsigned c=0; ; ++c)
+              { if(c >= 1 || ++tmp==history.end()) break;
+                if(tmp->first > timer) { e=tmp; ++e; break; }
+                if(tmp->first == timer) { ++tmp; return tmp; }
+            }}
+        }
+        return history.upper_bound_guess(timer, guess, b,e);
+      */
     }
 
 public:
