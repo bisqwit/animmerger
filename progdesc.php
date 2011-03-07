@@ -599,9 +599,13 @@ The exact commandline to produce the images was:<br>
 <code># for m in m d b o q; do<br>
 # &nbsp;for q in 2 4 8 16 32 64 128; do<br>
 # &nbsp; rm tile-*.png tile-*.gif<br>
-# &nbsp; ./animmerger --gif --yuv -Q\"\$m\",\$q -B20 -l30 -pv pano3/*.png -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
+# &nbsp; dither=\"-Dy2 --dr 2 --dc 16\"<br>
+# &nbsp; if [ \$q -gt 16 ]; then dither=\"-Dy1i --dr 1.2 --dc 16\"; fi<br>
+# &nbsp; animmerger --gamma 2.2 \$dither \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; --gif -Q\"\$m\",\$q -B20 -l30 -pv snaps/*.png \\<br>
+# &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; -m0,8,256,16,020202,A64010,D09030,006E84,511800,FFFFFF<br>
 # &nbsp; gifsicle -O2 -k128 -o demo/method-vl30yB20Q\"\$m\"\$q.gif -l0 -d3 tile-*.gif<br>
-# &nbsp; convert tile-0010.gif -quality 100 demo/quant-\"\$c\"\$q.png<br>
+# &nbsp; convert tile-0010.gif -quality 100 demo/quant-\"\$m\"\$q.png<br>
 # &nbsp;done<br>
 # done</code>
  <p>

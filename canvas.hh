@@ -12,9 +12,8 @@
 #include <string>
 #include <cstdio>
 
-//extern unsigned CurrentTimer;       // For animated
-//extern unsigned SequenceBegin;      // For animated
 extern int SaveGif;
+extern bool UseDitherCache;
 
 struct AlignResult;
 

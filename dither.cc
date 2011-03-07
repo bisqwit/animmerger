@@ -4,6 +4,7 @@
 #include "maptype.hh"
 
 #include <algorithm>
+#include <cstdio>
 #include <map>
 
 double DitherErrorFactor    = 1.0;

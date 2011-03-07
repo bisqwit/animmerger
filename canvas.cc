@@ -1,6 +1,7 @@
 #include <gd.h>
 #include <cstdio>
 #include <cmath>
+#include <iostream>
 
 #include "openmp.hh"
 #include "canvas.hh"
@@ -22,6 +23,7 @@
 #endif
 
 int SaveGif = -1;
+bool UseDitherCache = true;
 
 class CanvasFunctionParser: public FunctionParser
 {
@@ -475,7 +477,9 @@ void TILE_Tracker::Save(unsigned method)
         TemporalMatrix = CreateTemporalDitheringMatrix();
     }
 
+#ifdef _OPENMP
     omp_set_nested(1);
+#endif
 
     if(animated)
     {
@@ -493,6 +497,7 @@ void TILE_Tracker::Save(unsigned method)
         }
 
         for(unsigned frame=0; frame<SavedTimer; frame+=1)
+        //for(unsigned frame=5200; frame<SavedTimer; frame+=1)
         {
             //std::fprintf(stderr, "Saving frame %u/%u @ %u\n",
             //    frame, SavedTimer, SequenceBegin);
@@ -530,6 +535,11 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
         VecType<uint32> prev_frame;
         for(unsigned frameno=0; frameno<nframes; frameno+=1)
         {
+            /*if(frameno == 20)
+                frameno = nframes*6/16;
+            else if(frameno == nframes*9/16)
+                frameno = nframes*999/1000;*/
+
             std::fprintf(stderr, "\rFrame %u/%u, %u so far...",
                 frameno+1, nframes, (unsigned) Histogram.size());
             std::fflush(stderr);
@@ -959,15 +969,23 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
 
             // Find two closest entries from palette and use o8x8 dithering
             MixingPlan output;
-            dither_cache_t::iterator i = dither_cache.lower_bound(pix);
-            if(i == dither_cache.end() || i->first != pix)
+            if(UseDitherCache)
+            {
+                dither_cache_t::iterator i = dither_cache.lower_bound(pix);
+                if(i == dither_cache.end() || i->first != pix)
+                {
+                    ColorInfo input(pix, orig_color);
+                    output = FindBestMixingPlan(input, pal);
+                    dither_cache.insert(i, std::make_pair(pix, output));
+                }
+                else
+                    output = i->second;
+            }
+            else
             {
                 ColorInfo input(pix, orig_color);
                 output = FindBestMixingPlan(input, pal);
-                dither_cache.insert(i, std::make_pair(pix, output));
             }
-            else
-                output = i->second;
 
             unsigned pattern_value =
                 DitheringMatrix
