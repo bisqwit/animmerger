@@ -215,9 +215,52 @@ public:
                 copy_construct(&data[ins_pos], first, count);
             else
             {
-                move_construct(&data[len], &data[len-count], count);
-                move_assign_backwards(&data[ins_pos+count], &data[ins_pos], len-ins_pos);
-                copy_assign(&data[ins_pos], first, count);
+                /*******
+                 *      012345678
+                 *           ^NM
+                 *      ins_pos = 5, count = 2
+                 *      len = 9, new_length = 11
+                 *      tail_length = 4 ("5678")
+                 *      tail_source_pos = 5
+                 *      tail_target_pos = 7
+                 *      num_tail_bytes_after_current_area = min(tail_length, count)
+                 */
+                //unsigned new_length = len + count;
+                unsigned tail_length = len - ins_pos;
+                unsigned tail_source_pos = ins_pos;
+                unsigned tail_target_pos = ins_pos + count;
+                unsigned num_tail_bytes_after_current_area =
+                    count < tail_length ? count : tail_length;
+                unsigned num_tail_bytes_to_movecopy =
+                    tail_length - num_tail_bytes_after_current_area;
+                move_construct(&data[tail_target_pos + num_tail_bytes_to_movecopy],
+                               &data[tail_source_pos+num_tail_bytes_to_movecopy],
+                               num_tail_bytes_after_current_area);
+                if(num_tail_bytes_to_movecopy > 0)
+                {
+                    move_assign_backwards(
+                        &data[ins_pos+count],
+                        &data[ins_pos],
+                        num_tail_bytes_to_movecopy);
+                }
+                unsigned num_piece_bytes_after_current_area =
+                    (ins_pos + count) > len ? (ins_pos+count)-len : 0;
+                unsigned num_piece_bytes_to_copy =
+                    count - num_piece_bytes_after_current_area;
+                if(num_piece_bytes_to_copy > 0)
+                {
+                    copy_assign(
+                        &data[ins_pos],
+                        first,
+                        num_piece_bytes_to_copy);
+                }
+                if(num_piece_bytes_after_current_area > 0)
+                {
+                    copy_construct(
+                        &data[len],
+                        first+num_piece_bytes_to_copy,
+                        num_piece_bytes_after_current_area);
+                }
             }
             len += count;
             return;
@@ -409,7 +452,7 @@ private:
     static inline It copy_assign_backwards(T* target, It source, size_type count)
     {
         for(size_type a=count; a-- > 0; )
-            target[a] = *source++;
+            target[a] = source[a];
         return source;
     }
     template<typename It>
