@@ -88,6 +88,8 @@ int main(int argc, char** argv)
     bool dithering_configured = false;
     std::string color_compare_formula;
 
+    bool opt_exit = false;
+    int exit_code = 0;
     for(;;)
     {
         int option_index = 0;
@@ -127,7 +129,8 @@ int main(int argc, char** argv)
         {
             case 'V':
                 std::printf("%s\n", VERSION);
-                return 0;
+                opt_exit = true;
+                break;
             case 'h':
             {
                 std::printf("%s", "\
@@ -599,7 +602,8 @@ while characters move. Parallax animation is bad; If possible,\n\
 please fix all background layers so that they scroll at even\n\
 rate.\n\
 \n");
-                return 0;
+                opt_exit = true;
+                break;
             }
             case 'm':
             {
@@ -639,6 +643,7 @@ rate.\n\
                 if(tmp != FirstLastLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     FirstLastLength = 1;
                 }
                 break;
@@ -651,6 +656,7 @@ rate.\n\
                 if(LoopingLogLength < 1 || tmp != LoopingLogLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     LoopingLogLength = 1;
                 }
                 break;
@@ -663,6 +669,7 @@ rate.\n\
                 if(tmp < 0 || tmp != AnimationBlurLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     AnimationBlurLength = 0;
                 }
                 break;
@@ -678,6 +685,7 @@ rate.\n\
                     std::fprintf(stderr, "animmerger: Invalid parameter to -r: %s\n", arg);
                     x_divide_reference=32;
                     y_divide_reference=32;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
@@ -690,49 +698,123 @@ rate.\n\
                 if(n != 4)
                 {
                     std::fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
             case 'Q':
             {
                 char *arg = optarg;
+                std::vector<uint32> colors;
                 if(access(arg, R_OK) == 0)
                 {
-                    PaletteMethodItem method;
-                    method.size     = 0;
-                    method.filename = arg;
-                    PaletteReductionMethod.push_back(method);
-                    break;
-                }
-                char *comma = std::strchr(arg, ',');
-                if(!comma)
-                    std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
-                else
-                {
-                    *comma = '\0';
-                    PaletteMethodItem method;
-                    method.size = 0;
-                    #define AddOption(optchar,name) \
-                        else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
-                            { method.size = 1; method.method = quant_##name; }
-                    if(false) {}
-                    DefinePaletteMethods(AddOption)
+                    FILE* fp = fopen(arg, "rb");
+                    if(!fp)
+                    {
+                        std::perror(arg);
+                        opt_exit = true; exit_code = errno;
+                        break;
+                    }
+                    gdImagePtr im = gdImageCreateFromPng(fp);
+                    if(!im) { std::rewind(fp); im = gdImageCreateFromGif(fp); }
+                    if(!im) { std::rewind(fp); im = gdImageCreateFromWBMP(fp); }
+                    if(!im)
+                    {
+                        std::fprintf(stderr,
+                            "%s: Not a PNG, GIF or WBMP file! Cannot read palette.\n",
+                                arg);
+                        opt_exit = true; exit_code = 1;
+                    }
                     else
                     {
-                        std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                        if(gdImageTrueColor(im))
+                        {
+                            std::fprintf(stderr,
+                                "%s: Not a paletted picture! Will hastily use libGD to make a 256-color palette out of it regardless.\n",
+                                arg);
+                            gdImageTrueColorToPalette(im, 0, 256);
+                        }
+                        unsigned n_colors = gdImageColorsTotal(im);
+                        colors.reserve(n_colors);
+                        for(unsigned c=0; c<n_colors; ++c)
+                        {
+                            int r = gdImageRed(im,c);
+                            int g = gdImageGreen(im,c);
+                            int b = gdImageBlue(im,c);
+                            int a = gdImageAlpha(im,c);
+                            colors.push_back( gdTrueColorAlpha(r,g,b, a) );
+                        }
+                        if(verbose >= 1)
+                            std::fprintf(stderr, "Loaded %u colors from %s\n", n_colors, arg);
+                        gdImageDestroy(im);
                     }
-                    if(method.size)
+                    std::fclose(fp);
+                }
+                else
+                {
+                    char *comma = std::strchr(arg, ',');
+                    if(!comma)
                     {
-                        long ncolors = strtol(comma+1, 0, 10);
-                        if(ncolors < 1 || ncolors > 65536)
-                            std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
+                        std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                        opt_exit = true; exit_code = 1;
+                    }
+                    else
+                    {
+                    opt_q_got_comma:;
+                        *comma = '\0';
+                        PaletteMethodItem method;
+                        method.size = 0;
+                        #define AddOption(optchar,name) \
+                            else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                                { method.size = 1; method.method = quant_##name; }
+                        if(false) {}
+                        DefinePaletteMethods(AddOption)
                         else
                         {
-                            method.size = ncolors;
-                            PaletteReductionMethod.push_back(method);
+                            /* Check if the name looks like a hex color */
+                            char* endpos = 0;
+                            long colorvalue = strtol(arg, &endpos, 16);
+                            if(comma == arg+6 && endpos == comma)
+                            {
+                                colors.push_back(colorvalue);
+                                arg = comma+1;
+                                comma = std::strchr(arg, ',');
+                                if(comma) goto opt_q_got_comma;
+                                colorvalue = strtol(arg, 0, 16);
+                                colors.push_back(colorvalue);
+                            }
+                            else
+                            {
+                                std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                                opt_exit = true; exit_code = 1;
+                            }
                         }
+                        if(method.size)
+                        {
+                            long ncolors = strtol(comma+1, 0, 10);
+                            if(ncolors < 1 || ncolors > (1u<<24))
+                            {
+                                std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
+                                opt_exit = true; exit_code = 1;
+                            }
+                            else
+                            {
+                                method.size = ncolors;
+                                PaletteReductionMethod.push_back(method);
+                            }
+                        }
+                        #undef AddOption
                     }
-                    #undef AddOption
+                }
+                if(!colors.empty())
+                {
+                    if(verbose >= 1)
+                        std::fprintf(stderr, "Adding fixed palette of %u colors\n",
+                            (unsigned) colors.size());
+                    PaletteMethodItem method;
+                    method.size     = 0;
+                    method.entries.swap(colors);
+                    PaletteReductionMethod.push_back(method);
                 }
                 break;
             }
@@ -775,7 +857,7 @@ rate.\n\
                 {
                     std::fprintf(stderr,
                         "animmerger: Unrecognized method: %s\n", optarg);
-                    return -1;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
@@ -842,7 +924,10 @@ rate.\n\
                     { DitherMatrixWidth = DitherMatrixHeight = 1;
                       DitherColorListSize = 1; }
                 if(errors)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither method selection: %s.\n", optarg_save.c_str());
+                    opt_exit = true; exit_code = 1;
+                }
                 break;
             }
 
@@ -854,6 +939,7 @@ rate.\n\
                 if(tmp < 0 || tmp >= 256.0)
                 {
                     std::fprintf(stderr, "animmerger: Bad dither error multiplication value: %g. Valid range: 0..1, though 0..255 is permitted.\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     DitherErrorFactor = 1.0;
                 }
                 dithering_configured = true;
@@ -866,9 +952,15 @@ rate.\n\
                 int dx,dy,dt;
                 int result = sscanf(arg, "%d,%d,%d", &dx,&dy,&dt);
                 if(result < 2)
+                {
                     std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
                 else if(dx < 1 || dy < 1 || dx*dy > 65536)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither matrix size: %dx%d.\n", dx,dy);
+                    opt_exit = true; exit_code = 1;
+                }
                 else
                 {
                     DitherMatrixWidth  = dx;
@@ -877,7 +969,10 @@ rate.\n\
                 if(result >= 3)
                 {
                     if(dt < -64 || dt > 64 || dt == -1 || dt == 0)
+                    {
                         std::fprintf(stderr, "animmerger: Bad temporal dither length: %d. Valid range is -64..-2 and +1..+64, where +1 disables temporal dithering.\n", dt);
+                        opt_exit = true; exit_code = 1;
+                    }
                     else if(dt < 0)
                     {
                         TemporalDitherSize = -dt;
@@ -901,6 +996,7 @@ rate.\n\
                 {
                     std::fprintf(stderr, "animmerger: Bad dither color list size: %ld. Valid range: 1..65536\n", tmp);
                     DitherColorListSize = 0;
+                    opt_exit = true; exit_code = 1;
                 }
                 dithering_configured = true;
                 break;
@@ -914,15 +1010,24 @@ rate.\n\
                 int result = sscanf(arg, "%lf,%ld,%ld", &contrast,&recursionlimit,&changeslimit);
                 DitherCombinationContrast = -1.0; // re-enable heuristic.
                 if(result < 1)
+                {
                     std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
                 else if(contrast < 0.0 || contrast > 3.0)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", contrast);
+                    opt_exit = true; exit_code = 1;
+                }
                 else
                     DitherCombinationContrast = contrast;
                 if(result >= 2)
                 {
                     if(recursionlimit < 1)
+                    {
                         std::fprintf(stderr, "animmerger: Bad dither combination limit: %ld\n", recursionlimit);
+                        opt_exit = true; exit_code = 1;
+                    }
                     else
                         DitherCombinationRecursionLimit = recursionlimit;
                     if(result >= 3)
@@ -931,7 +1036,10 @@ rate.\n\
                             { DitherCombinationChangesLimit = ~0u;
                               DitherCombinationAllowSame    = false; }
                         else if(changeslimit < 1)
+                        {
                             std::fprintf(stderr, "animmerger: Bad dither combination changes limit: %ld\n", changeslimit);
+                            opt_exit = true; exit_code = 1;
+                        }
                         else
                         {
                             DitherCombinationChangesLimit = changeslimit;
@@ -1004,8 +1112,11 @@ rate.\n\
                          || std::strcmp(optarg, "0") == 0)
                         SaveGif = 0;
                     else
+                    {
                         std::fprintf(stderr, "animmerger: Invalid parameter to --gif: %s. Allowed values: auto, always, never\n",
                             optarg);
+                        opt_exit = true; exit_code = 1;
+                    }
                 }
                 else
                     SaveGif = 1;
@@ -1041,12 +1152,12 @@ rate.\n\
                 {
                     std::fprintf(stderr, "animmerger: Bad dither gamma parameter: %g. Valid range: > 0\n", tmp);
                     DitherGamma = 1.0;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
         }
     }
-
     SetColorTransformations();
 
     if(!color_compare_formula.empty())
@@ -1113,8 +1224,13 @@ rate.\n\
             "            patented by Adobe Systems Incorporated (US patent 6606166).\n"
             "            And due to that patent, this method cannot be implemented\n"
             "            in free software. Method patents are annoying, we all know.\n");
-        return -1;
+        opt_exit = true;
+        exit_code = -1;
     }
+
+    if(opt_exit)
+        return exit_code;
+
 
     switch(Dithering)
     {
@@ -1196,10 +1312,17 @@ rate.\n\
             for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
             {
                 if(a) std::printf(", followed by ");
-                if(!PaletteReductionMethod[a].filename.empty())
+                if(!PaletteReductionMethod[a].entries.empty())
                 {
-                    std::printf("load from file: %s",
-                        PaletteReductionMethod[a].filename.c_str());
+                    unsigned n_colors = PaletteReductionMethod[a].entries.size();
+                    std::printf("fixed palette of %u colors", n_colors);
+                    if(verbose >= 2)
+                    {
+                        std::printf(":");
+                        for(unsigned c=0; c<n_colors; ++c)
+                            std::printf(" %06X",
+                                (unsigned) PaletteReductionMethod[a].entries[c]);
+                    }
                     continue;
                 }
                 switch(PaletteReductionMethod[a].method)

@@ -22,9 +22,10 @@ enum PaletteMethod { DefinePaletteMethods(MakeEnum) };
 
 struct PaletteMethodItem
 {
-    PaletteMethod method;
-    unsigned      size;
-    std::string   filename;
+    PaletteMethod       method;
+    unsigned            size;
+    // If this vector is nonempty, set palette to this selection
+    std::vector<uint32> entries;
 };
 extern std::vector<PaletteMethodItem> PaletteReductionMethod;
 

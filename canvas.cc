@@ -525,7 +525,7 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
     // Create a histogram of the used colors, unless it's going
     // to be replaced immediately thereafter.
     if(PaletteReductionMethod.empty()
-    || PaletteReductionMethod.front().filename.empty())
+    || PaletteReductionMethod.front().entries.empty())
     {
         const int ymi = ymin, yma = ymax;
         const int xmi = xmin, xma = xmax;

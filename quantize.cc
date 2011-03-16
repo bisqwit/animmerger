@@ -576,8 +576,8 @@ namespace
                 c0 = int(int(c0*63.0/255.0+0.5)*255/63+0.5);
                 c1 = int(int(c1*63.0/255.0+0.5)*255/63+0.5);
                 c2 = int(int(c2*63.0/255.0+0.5)*255/63+0.5);
-                func( (c0<<16) + (c1<<8) + c2 );
                 */
+                func( (c0<<16) + (c1<<8) + c2 );
             }
         }
 
@@ -757,52 +757,18 @@ void ReduceHistogram(HistogramType& Histogram)
 {
     for(size_t b=PaletteReductionMethod.size(), a=0; a<b; ++a)
     {
-        const std::string& fn = PaletteReductionMethod[a].filename;
-        if(!fn.empty())
+        if(!PaletteReductionMethod[a].entries.empty())
         {
-            FILE* fp = std::fopen(fn.c_str(), "rb");
-            if(!fp)
-                std::perror(fn.c_str());
-            else
+            if(a == 0) Histogram.clear();
+            unsigned n_colors = PaletteReductionMethod[a].entries.size();
+            for(unsigned c=0; c<n_colors; ++c)
             {
-                gdImagePtr im = gdImageCreateFromPng(fp);
-                if(!im) { std::rewind(fp); im = gdImageCreateFromGif(fp); }
-                if(!im) { std::rewind(fp); im = gdImageCreateFromWBMP(fp); }
-                if(!im)
-                {
-                    std::fprintf(stderr,
-                        "%s: Not a PNG, GIF or WBMP file! Cannot read palette.\n",
-                            fn.c_str());
-                }
-                else
-                {
-                    if(a == 0) Histogram.clear();
-
-                    if(gdImageTrueColor(im))
-                    {
-                        std::fprintf(stderr,
-                            "%s: Not a paletted picture! Will hastily use libGD to make a 256-color palette out of it regardless.\n",
-                            fn.c_str());
-                        gdImageTrueColorToPalette(im, 0, 256);
-                    }
-                    unsigned n_colors = gdImageColorsTotal(im);
-                    for(unsigned c=0; c<n_colors; ++c)
-                    {
-                        int r = gdImageRed(im,c);
-                        int g = gdImageGreen(im,c);
-                        int b = gdImageBlue(im,c);
-                        int a = gdImageAlpha(im,c);
-                        unsigned color = gdTrueColorAlpha(r,g,b, a);
-                        Histogram[color] += 1024*768;
-                    }
-                    std::fprintf(stderr,
-                        "Loaded %u colors from %s, now has %u colors\n",
-                            n_colors, fn.c_str(),
-                            (unsigned) Histogram.size() );
-                    gdImageDestroy(im);
-                }
-                std::fclose(fp);
+                unsigned color = PaletteReductionMethod[a].entries[c];
+                Histogram[color] += 1024*768;
             }
+            std::fprintf(stderr,
+                "Added a fixed palette of %u colors, now has %u colors\n",
+                    n_colors, (unsigned) Histogram.size() );
             continue;
         }
         unsigned size = PaletteReductionMethod[a].size;
