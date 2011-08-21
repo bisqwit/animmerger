@@ -2,7 +2,7 @@
   This library is released under the MIT license. See FSBAllocator.html
   for further information and documentation.
 
-Copyright (c) 2008 Juha Nieminen
+Copyright (c) 2008-2011 Juha Nieminen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -124,7 +124,7 @@ class FSBAllocator_ElemAllocator
         MemBlock():
             block(0),
             firstFreeUnitIndex(Data_t(-1)),
-            allocatedElementsAmount(0), endIndex()
+            allocatedElementsAmount(0)
         {}
 
         bool isFull() const
@@ -177,20 +177,15 @@ class FSBAllocator_ElemAllocator
 
     struct BlocksVector
     {
-        // Dynamically allocated and intentionally leaked in order
-        // to avoid BlocksVector being released before any global
-        // object that may refer to it
-        std::vector<MemBlock>* data;
+        std::vector<MemBlock> data;
 
-        BlocksVector() : data(new std::vector<MemBlock>)
-            { data->reserve(1024); }
-    /*
+        BlocksVector() { data.reserve(1024); }
+
         ~BlocksVector()
         {
-            for(size_t i = 0; i < data.size(); ++i)
+            for(std::size_t i = 0; i < data.size(); ++i)
                 data[i].clear();
         }
-    */
     };
 
     static BlocksVector blocksVector;
@@ -222,12 +217,12 @@ class FSBAllocator_ElemAllocator
 
         if(blocksWithFree.empty())
         {
-            blocksWithFree.push_back(blocksVector.data->size());
-            blocksVector.data->push_back(MemBlock());
+            blocksWithFree.push_back(blocksVector.data.size());
+            blocksVector.data.push_back(MemBlock());
         }
 
         const Data_t index = blocksWithFree.back();
-        MemBlock& block = blocksVector.data->operator[](index);
+        MemBlock& block = blocksVector.data[index];
         void* retval = block.allocate(index);
 
         if(block.isFull())
@@ -246,7 +241,7 @@ class FSBAllocator_ElemAllocator
 
         Data_t* unitPtr = (Data_t*)ptr;
         const Data_t blockIndex = unitPtr[ElemSizeInDSize];
-        MemBlock& block = blocksVector.data->operator[](blockIndex);
+        MemBlock& block = blocksVector.data[blockIndex];
 
         if(block.isFull())
             blocksWithFree.push_back(blockIndex);
