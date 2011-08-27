@@ -87,6 +87,11 @@ public:
         unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_TMS9918(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_With(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei,

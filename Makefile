@@ -15,6 +15,7 @@ ARCHFILES=\
 	maptype.hh \
 	vectype.hh \
 	binaryheap.hh \
+	averages.hh \
 	openmp.hh \
 	kdtree.hh \
 	pixel.cc pixel.hh \
@@ -77,8 +78,9 @@ CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 #CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
 # ^ Apparently, cannot be helped
 
-#CXX=g++-4.5
-#CXXFLAGS += -flto
+CXX=g++-4.6
+OPTIM+=-Ofast
+CXXFLAGS +=
 
 LDLIBS += -lm
 

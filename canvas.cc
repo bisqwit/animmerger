@@ -10,6 +10,7 @@
 #include "dither.hh"
 #include "quantize.hh"
 #include "fparser.hh"
+#include "averages.hh"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -17,6 +18,9 @@
 
 #ifndef CGA16mode
 # define CGA16mode 0
+#endif
+#ifndef TMS9918mode
+# define TMS9918mode 1
 #endif
 
 int pad_top=0, pad_bottom=0, pad_left=0, pad_right=0;
@@ -639,6 +643,41 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     CurrentPalette.Analyze();
     return;
     #endif
+    #if TMS9918mode
+    // TMS 9918 palette (to be rendered on 256x192)
+    #define YRBcolor(Y, Pr_R_Y, Pb_B_Y) \
+        ({ \
+            double R = (Y) * 1 + (Pr_R_Y) * 0         + (Pb_B_Y) * 1.402000; \
+            double G = (Y) * 1 + (Pr_R_Y) * -0.344136 + (Pb_B_Y) * 0.714136; \
+            double B = (Y) * 1 + (Pr_R_Y) * 1.772000  + (Pb_B_Y) * 0; \
+            if(R < 0) R = 0; else if(R > 1) R = 1; \
+            if(G < 0) G = 0; else if(G > 1) G = 1; \
+            if(B < 0) B = 0; else if(B > 1) B = 1; \
+            ((unsigned(R*255+0.5)) << 16) | \
+            ((unsigned(G*255+0.5)) <<  8) | \
+            ((unsigned(B*255+0.5)) <<  0); \
+        })
+    // This palette taken from JSMSX by Marcus Granado,
+    // multiplied by FF/E0 to saturate the entire RGB range
+    CurrentPalette.SetHardcoded(15,
+        0x000000, //YRBcolor(0.00, 0.47, 0.47), // black
+        0x24DB24, //YRBcolor(0.53, 0.07, 0.20), // medium green
+        0x6DFF6D, //YRBcolor(0.67, 0.17, 0.27), // light green
+        0x2424FF, //YRBcolor(0.40, 0.40, 1.00), // dark blue
+        0x496DFF, //YRBcolor(0.53, 0.43, 0.93), // light blue
+        0xB62424, //YRBcolor(0.47, 0.83, 0.30), // dark red
+        0x49DBFF, //YRBcolor(0.73, 0.00, 0.70), // cyan
+        0xFF2424, //YRBcolor(0.53, 0.93, 0.27), // medium red
+        0xFF6D6D, //YRBcolor(0.67, 0.93, 0.27), // light red
+        0xDBDB24, //YRBcolor(0.73, 0.57, 0.07), // dark yellow
+        0xDBDB92, //YRBcolor(0.80, 0.57, 0.17), // light yellow
+        0x249224, //YRBcolor(0.47, 0.13, 0.23), // dark green
+        0xDB49B6, //YRBcolor(0.53, 0.73, 0.67), // magenta
+        0xB6B6B6, //YRBcolor(0.80, 0.47, 0.47), // gray
+        0xFFFFFF);//YRBcolor(1.00, 0.47, 0.47));// white
+    return;
+    #undef YRBcolor
+    #endif
 
     HistogramType Histogram = UsingTransformations
         ? CountColors<true>(method, nframes)
@@ -722,6 +761,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_CGA16<true,false>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_CGA16<false,false>(screen, frameno, wid, hei);
+          #elif TMS9918mode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_TMS9918<true,false>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_TMS9918<false,false>(screen, frameno, wid, hei);
           #else
             if(UsingTransformations)
               im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
@@ -736,6 +780,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_CGA16<true,true>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_CGA16<false,true>(screen, frameno, wid, hei);
+          #elif TMS9918mode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_TMS9918<true,true>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_TMS9918<false,true>(screen, frameno, wid, hei);
           #else
             if(UsingTransformations)
               im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
@@ -1277,6 +1326,100 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_CGA16(
         }
     }
     gdImageDestroy(im);
+    return im2;
+}
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_TMS9918(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    gdImagePtr imtab[15*15];
+    static Palette palettes[15*15];
+    static bool    inited = false;
+    if(!inited)
+    {
+        for(unsigned c1=0; c1<15; ++c1)
+        for(unsigned c2=c1+1; c2<15; ++c2)
+        {
+            palettes[c1*15+c2] = CurrentPalette.GetTwoColors(c1,c2);
+            palettes[c1*15+c2].Analyze();
+        }
+        inited = true;
+    }
+
+    for(unsigned c1=0; c1<15; ++c1)
+    for(unsigned c2=c1+1; c2<15; ++c2)
+        imtab[c1*15+c2] =
+            CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+                (screen, frameno, wid, hei, palettes[c1*15+c2]);
+
+    gdImagePtr im2 = gdImageCreate(wid,hei);
+    gdImageAlphaBlending(im2, false);
+    gdImageSaveAlpha(im2, true);
+    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
+    {
+        unsigned pix = CurrentPalette.GetColor(a);
+        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
+    }
+    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
+
+    for(unsigned y=0; y<hei; ++y)
+    {
+        for(unsigned bx=0; bx<wid; bx += 8)
+        {
+            unsigned ex = bx+8; if(ex > wid) ex = wid;
+
+            double bestdiff = -1;
+            unsigned bestmode = 0*15+1;
+            for(unsigned c1=0; c1<15; ++c1)
+            for(unsigned c2=c1+1; c2<15; ++c2)
+            {
+                gdImagePtr im = imtab[c1*15+c2];
+                PessimisticAveraging av;
+                av.Reset();
+
+                const unsigned down = 4;
+                const double undown = 1 / double(down);
+                for(unsigned x=bx; x<ex; x+=down)
+                {
+                    double r1=0,g1=0,b1=0, r2=0,g2=0,b2=0;
+                    for(unsigned cy=0; cy<1; ++cy)
+                    for(unsigned cx=0; cx<down; ++cx)
+                    {
+                        uint32 pix1 = screen[(y+cy)*wid+(x+cx)];
+                        unsigned i = gdImageGetPixel(im,x+cx,y+cy) ? c2 : c1;
+                        uint32 pix2  = CurrentPalette.GetColor(i);
+                        int rr1 = (pix1 >> 16) & 0xFF, gg1 = (pix1 >> 8) & 0xFF, bb1 = (pix1) & 0xFF;
+                        int rr2 = (pix2 >> 16) & 0xFF, gg2 = (pix2 >> 8) & 0xFF, bb2 = (pix2) & 0xFF;
+                        r1 += GammaCorrect(rr1/255.0);
+                        g1 += GammaCorrect(gg1/255.0);
+                        b1 += GammaCorrect(bb1/255.0);
+                        r2 += GammaCorrect(rr2/255.0);
+                        g2 += GammaCorrect(gg2/255.0);
+                        b2 += GammaCorrect(bb2/255.0);
+                    }
+                    int rr1 = GammaUncorrect(r1*undown)*255;
+                    int gg1 = GammaUncorrect(g1*undown)*255;
+                    int bb1 = GammaUncorrect(b1*undown)*255;
+                    int rr2 = GammaUncorrect(r2*undown)*255;
+                    int gg2 = GammaUncorrect(g2*undown)*255;
+                    int bb2 = GammaUncorrect(b2*undown)*255;
+                    av.Cumulate( ColorCompare(
+                        ColorInfo( rr1,gg1,bb1, 0 ),
+                        ColorInfo( rr2,gg2,bb2, 0 ) ) );
+                }
+                double diff = av.GetValue();
+                if(diff < bestdiff || bestdiff < 0)
+                    { bestdiff = diff; bestmode = c1*15+c2; }
+            }
+            gdImageCopy(im2, imtab[bestmode], bx,y, bx,y, ex-bx, 1);
+        }
+    }
+    for(unsigned c1=0; c1<15; ++c1)
+    for(unsigned c2=c1+1; c2<15; ++c2)
+        gdImageDestroy(imtab[c1*15+c2]);
+
     return im2;
 }
 
