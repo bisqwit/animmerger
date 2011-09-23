@@ -23,7 +23,10 @@
 # define TMS9918mode 0
 #endif
 #ifndef VICIImode
-# define VICIImode 1
+# define VICIImode 0
+#endif
+#ifndef BBCMicromode
+# define BBCMicromode 1
 #endif
 
 int pad_top=0, pad_bottom=0, pad_left=0, pad_right=0;
@@ -648,18 +651,6 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     #endif
     #if TMS9918mode
     // TMS 9918 palette (to be rendered on 256x192)
-    #define YRBcolor(Y, Pr_R_Y, Pb_B_Y) \
-        ({ \
-            double R = (Y) * 1 + (Pr_R_Y) * 0         + (Pb_B_Y) * 1.402000; \
-            double G = (Y) * 1 + (Pr_R_Y) * -0.344136 + (Pb_B_Y) * 0.714136; \
-            double B = (Y) * 1 + (Pr_R_Y) * 1.772000  + (Pb_B_Y) * 0; \
-            if(R < 0) R = 0; else if(R > 1) R = 1; \
-            if(G < 0) G = 0; else if(G > 1) G = 1; \
-            if(B < 0) B = 0; else if(B > 1) B = 1; \
-            ((unsigned(R*255+0.5)) << 16) | \
-            ((unsigned(G*255+0.5)) <<  8) | \
-            ((unsigned(B*255+0.5)) <<  0); \
-        })
     // This palette taken from JSMSX by Marcus Granado,
     // multiplied by FF/E0 to saturate the entire RGB range
     CurrentPalette.SetHardcoded(15,
@@ -680,7 +671,6 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         0xFFFFFF);//YRBcolor(1.00, 0.47, 0.47));// white
     CurrentPalette.Analyze();
     return;
-    #undef YRBcolor
     #endif
     #if VICIImode
     // Commodore 64 palette
@@ -701,6 +691,20 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         0xACEA88,
         0x7C70DA,
         0xABABAB);
+    CurrentPalette.Analyze();
+    return;
+    #endif
+    #if BBCMicromode
+    // BBC Micro palette (RGB primaries, but slight desaturation for TV displays)
+    CurrentPalette.SetHardcoded(8,
+        0x000000,
+        0x1010FA,
+        0x10FA10,
+        0x10FAFA,
+        0xFA1010,
+        0xFA10FA,
+        0xFAFA40,
+        0xFAFAFA);
     CurrentPalette.Analyze();
     return;
     #endif
@@ -797,6 +801,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_VICII<true,false>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_VICII<false,false>(screen, frameno, wid, hei);
+          #elif BBCMicromode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_BBCMicro<true,false>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_BBCMicro<false,false>(screen, frameno, wid, hei);
           #else
             if(UsingTransformations)
               im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
@@ -821,6 +830,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_VICII<true,true>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_VICII<false,true>(screen, frameno, wid, hei);
+          #elif BBCMicromode
+            if(UsingTransformations)
+              im = CreateFrame_Palette_Dither_BBCMicro<true,true>(screen, frameno, wid, hei);
+            else
+              im = CreateFrame_Palette_Dither_BBCMicro<false,true>(screen, frameno, wid, hei);
           #else
             if(UsingTransformations)
               im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
@@ -1447,40 +1461,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_TMS9918(
                 bestmode + 15*15*omp_get_thread_num() ];
             for(unsigned x=bx; x<ex; ++x)
             {
-                // This code is duplicate from CreateFrame_Palette_Dither_With()....
-                uint32 pix = screen[y*wid + x];
-                if(pix == DefaultPixel)
-                    pix = 0x7F000000u;
-                if(TransformColors)
-                    pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
-                ColorInfo input(pix);
-
-                // Find two closest entries from palette and use o8x8 dithering
-                MixingPlan output;
-                if(UseDitherCache)
-                {
-                    dither_cache_t::iterator i = dither_cache2.lower_bound(pix);
-                    if(i == dither_cache2.end() || i->first != pix)
-                    {
-                        output = FindBestMixingPlan(input, pal);
-                        dither_cache2.insert(i, std::make_pair(pix, output));
-                    }
-                    else
-                        output = i->second;
-                }
-                else
-                {
-                    output = FindBestMixingPlan(input, pal);
-                }
-
-                unsigned pattern_value =
-                    DitheringMatrix
-                        [ ((y%DitherMatrixHeight)*DitherMatrixWidth
-                         + (x%DitherMatrixWidth)
-                           )// % (DitherMatrixHeight*DitherMatrixWidth)
-                        ];
-                int color = output[ pattern_value * output.size() / max_pattern_value ];
-                gdImageSetPixel(im2, x, y, tally[color]);
+                int color = GetMixColor<TransformColors,UseDitherCache>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
+                gdImageSetPixel(im2, x,y, tally[color]);
             }
         }
     }
@@ -1602,39 +1584,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_VICII(
             for(unsigned y=by; y<ey; ++y)
                 for(unsigned x=bx; x<ex; ++x)
                 {
-                    // This code is duplicate from CreateFrame_Palette_Dither_With()....
-                    uint32 pix = screen[y*wid + x];
-                    if(pix == DefaultPixel)
-                        pix = 0x7F000000u;
-                    if(TransformColors)
-                        pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
-                    ColorInfo input(pix);
-
-                    // Find two closest entries from palette and use o8x8 dithering
-                    MixingPlan output;
-                    if(UseDitherCache)
-                    {
-                        dither_cache_t::iterator i = dither_cache2.lower_bound(pix);
-                        if(i == dither_cache2.end() || i->first != pix)
-                        {
-                            output = FindBestMixingPlan(input, pal);
-                            dither_cache2.insert(i, std::make_pair(pix, output));
-                        }
-                        else
-                            output = i->second;
-                    }
-                    else
-                    {
-                        output = FindBestMixingPlan(input, pal);
-                    }
-
-                    unsigned pattern_value =
-                        DitheringMatrix
-                            [ ((y%DitherMatrixHeight)*DitherMatrixWidth
-                             + (x%DitherMatrixWidth)
-                               )// % (DitherMatrixHeight*DitherMatrixWidth)
-                            ];
-                    int color = output[ pattern_value * output.size() / max_pattern_value ];
+                    int color = GetMixColor<TransformColors,UseDitherCache>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
                     gdImageSetPixel(im2,
                         x + BorderLeft,
                         y + BorderTop, color==0 ? c1 : tally[color-1]);
@@ -1644,6 +1594,159 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_VICII(
 
     gdImageDestroy(baseim);
 
+    return im2;
+}
+
+template<bool TransformColors, bool UseErrorDiffusion>
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_BBCMicro(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei)
+{
+    static Palette palettes[8*8*8*8];
+    static bool    inited = false;
+    if(!inited)
+    {
+        for(unsigned c1=0; c1<8; ++c1)
+        for(unsigned c2=0; c2<8; ++c2)
+        for(unsigned c3=0; c3<8; ++c3)
+        for(unsigned c4=0; c4<8; ++c4)
+        {
+            palettes[c1+8*(c2+8*(c3+8*c4))] = CurrentPalette.GetFourColors(c1,c2,c3,c4);
+            palettes[c1+8*(c2+8*(c3+8*c4))].Analyze();
+        }
+        inited = true;
+    }
+    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*8*8*8*8 );
+
+    gdImagePtr im2 = gdImageCreate(wid,hei);
+    gdImageAlphaBlending(im2, false);
+    gdImageSaveAlpha(im2, true);
+    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
+    {
+        unsigned pix = CurrentPalette.GetColor(a);
+        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
+    }
+    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
+
+    // BBC micro modes are determined by width:
+    //     160 = 8 colors (we use width 0..239)
+    //     320 = 4 colors (we use width 240..479)
+    //     640 = 2 colors (we use 480...)
+
+    if(wid < 240)
+    {
+        gdImageDestroy(im2);
+        gdImagePtr baseim =
+            CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
+            (screen, frameno, wid, hei, CurrentPalette);
+        return baseim; // 8-color mode. No palette trickery needed.
+    }
+
+    const unsigned choose_colors = wid < 480 ? 4 : 2;
+
+    #pragma omp parallel for schedule(static,4)
+    for(unsigned y=0; y<hei; ++y)
+    {
+        transform_caches_t& transform_cache = GetTransformCache();
+        //dither_cache_t& dither_cache = GetDitherCache();
+        for(unsigned bx=0; bx<wid; bx += wid)
+        {
+            unsigned ex = bx+wid; if(ex > wid) ex = wid;
+
+            // Find best companion color to black, and then to that, and so on
+            unsigned bestmode = 0;
+            double bestdiff  = -1;
+            bool refined=true, tested[8*8*8*8] = { false };
+            for(unsigned tries=0; refined; ++tries)
+            {
+                refined=false;
+                for(unsigned round=0; round<choose_colors; ++round)
+                {
+                    unsigned bestc   = (bestmode >> (round*3)) % 8;
+                    unsigned bestmode_without = bestmode & ~(7 << (round*3));
+                    for(unsigned c=0; c<8; ++c)
+                    {
+                        bool match=false;
+                        for(unsigned r=0; r<choose_colors; ++r)
+                            if(c == (bestmode >> (r*3)) % 8)
+                                { match=true; break; }
+                        if(match) continue;
+
+                        unsigned mode = bestmode_without + (c << (round*3));
+                        if(choose_colors == 2) mode = (mode % (8*8)) * (1+8*8);
+
+                        if(tested[mode]) continue;
+                        tested[mode] = true;
+
+                        const Palette& pal = palettes[mode];
+
+                        dither_cache_t& dither_cache2 = dither_caches[
+                            mode + 8*8*8*8*omp_get_thread_num() ];
+                        /*Pessimistic*/Averaging av; // Pessimistic average has bugs: It produces negative values.
+                        av.Reset();
+                        for(unsigned x=bx + ((~y % 5)^2); x<ex; x += 5)
+                        {
+                            uint32 pix1 = screen[y*wid+x];
+                            if(pix1 == DefaultPixel) pix1 = 0x7F000000u;
+                            if(TransformColors) pix1 = DoCachedPixelTransform(transform_cache, pix1,wid,hei, frameno,x,y);
+                            ColorInfo input(pix1);
+
+                            // Create a mixing plan
+                            MixingPlan output;
+                            if(UseDitherCache)
+                            {
+                                dither_cache_t::iterator i = dither_cache2.lower_bound(pix1);
+                                if(i == dither_cache2.end() || i->first != pix1)
+                                {
+                                    output = FindBestMixingPlan(input, pal);
+                                    dither_cache2.insert(i, std::make_pair(pix1, output));
+                                }
+                                else
+                                    output = i->second;
+                            }
+                            else
+                            {
+                                output = FindBestMixingPlan(input, pal);
+                            }
+                            // Mix the colors together
+                            GammaColorVec our_sum(0.0);
+                            for(auto a: output) our_sum += pal.GetMeta(a).gammac;
+                            GammaColorVec combined = our_sum * (1/double(output.size()));
+                            av.Cumulate( ColorCompare( input, ColorInfo(combined) ) );
+                        }
+                        double diff = av.GetValue();
+                        if(diff < 0)
+                            fprintf(stderr, "ERROR: diff = %g\n", diff);
+                        if(diff < bestdiff || bestdiff < 0)
+                            { bestdiff = diff; bestc = c;
+                              refined = true; }
+                    }
+                    bestmode = bestmode_without + (bestc << (round*3));
+                    if(choose_colors == 2) bestmode = (bestmode % (8*8)) * (1+8*8);
+                }
+                fprintf(stderr, "scanline %u: chosen for try %u : bestmode=0%o, bestdiff=%g\n",
+                    y,tries, bestmode, bestdiff);
+            }
+
+            if(choose_colors == 2) bestmode = (bestmode % (8*8)) * (1+8*8);
+            MixingPlan tally;
+            for(unsigned r=0; r<4; ++r)
+                tally.push_back( (bestmode >> (r*3)) % 8 );
+
+            /* Now we have four colors. Render these pixels
+             * using a palette formed from these four colors.
+             */
+            const Palette& pal = palettes[bestmode];
+
+            dither_cache_t& dither_cache2 = dither_caches[
+                bestmode + 8*8*8*8*omp_get_thread_num() ];
+            for(unsigned x=bx; x<ex; ++x)
+            {
+                int color = GetMixColor<TransformColors>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
+                gdImageSetPixel(im2, x, y, tally[color]);
+            }
+        }
+    }
     return im2;
 }
 
