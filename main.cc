@@ -126,7 +126,7 @@ int main(int argc, char** argv)
             {"transform",  1,0,6001},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:o:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
