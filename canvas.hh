@@ -14,6 +14,7 @@
 
 extern int SaveGif;
 extern bool UseDitherCache;
+extern std::string OutputNameTemplate;
 
 struct AlignResult;
 

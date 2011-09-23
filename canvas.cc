@@ -24,6 +24,7 @@
 
 int SaveGif = -1;
 bool UseDitherCache = true;
+std::string OutputNameTemplate = "%2$s-%1$04u.%3$s";
 
 class CanvasFunctionParser: public FunctionParser
 {
@@ -677,8 +678,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     VecType<uint32> screen ( LoadScreen(xmi,ymi, wid,hei, frameno, method) );
 
-    char Filename[512] = {0}; // explicit init keeps valgrind happy
-    const char* nametemplate = "tile";
+    const char* methodnamepiece = "tile";
     if(pixelmethods_result != (1ul << method))
     {
         // Multi-method output
@@ -688,16 +688,19 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
              DefinePixelMethods(MakePixName)
         };
         #undef MakePixName
-        nametemplate = Templates[method];
+        methodnamepiece = Templates[method];
     }
 
     bool MakeGif  = SaveGif == 1 || (SaveGif == -1 && animated);
     bool Dithered = !PaletteReductionMethod.empty();
 
-    if(MakeGif)
-        std::sprintf(Filename, "%s-%04u.gif", nametemplate, img_counter);
-    else
-        std::sprintf(Filename, "%s-%04u.png", nametemplate, img_counter);
+    char Filename[512] = {0}; // explicit init keeps valgrind happy
+    std::snprintf(Filename, sizeof(Filename),
+        OutputNameTemplate.c_str(),
+        img_counter,
+        methodnamepiece,
+        MakeGif ? "gif" : "png");
+    Filename[sizeof(Filename)-1] = '\0';
 
     std::fprintf(stderr, "%s: (%d,%d)-(%d,%d)\n", Filename, 0,0, xma-xmi, yma-ymi);
     std::fflush(stderr);

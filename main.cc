@@ -96,6 +96,8 @@ int main(int argc, char** argv)
         static struct option long_options[] =
         {
             {"help",       0,0,'h'},
+            {"longhelp",   0,0,3001},
+            {"fullhelp",   0,0,3002},
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
             {"method",     1,0,'p'},
@@ -120,6 +122,7 @@ int main(int argc, char** argv)
             {"dithcombine",1,0,5004}, {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
             {"deltae",     2,0,5005},  {"cie",2,0,5005},
             {"gamma",      1,0,'G'},
+            {"output",     1,0,'o'},
             {"transform",  1,0,6001},
             {0,0,0,0}
         };
@@ -132,48 +135,80 @@ int main(int argc, char** argv)
                 opt_exit = true;
                 break;
             case 'h':
+            case 3001:
+            case 3002:
             {
-                std::printf("%s", "\
-animmerger v"VERSION" - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+                struct
+                {
+                    inline void operator<< (const char *s)
+                    {
+                        std::fwrite(s, 1, std::strlen(s), stdout);
+                        //std::printf("%s", s);
+                    }
+                } O;
+
+                int v = c=='h' ? 0 : c-3000;
+
+        if(v>=0)O << "\
+animmerger v"VERSION" - Copyright (C) 2011 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
 Usage: animmerger [<options>] <imagefile> [<...>]\n\
 \n\
-Merges animation frames together with motion shifting.\n\
-\n\
-General options:\n\
+Merges animation frames together with motion shifting.\n";
+        if(v>=0)O << "\n\
+General options:\n";
+        if(v==0)O << "\
  --help, -h\n\
-     This help\n\
+     Short help on usage. Use --longhelp or --fullhelp for more/all options.\n";
+        if(v>=1)O << "\
+ --help, -h\n\
+     Short help on usage\n\
+ --longhelp\n\
+     List most commandline options\n\
+ --fullhelp\n\
+     List all commandline options and detailed help on usage\n";
+        if(v>=1)O << "\
  --version, -V\n\
      Displays version information\n\
  --verbose, -v\n\
-     Increase verbosity\n\
-\n\
-Canvas affecting options:\n\
+     Increase verbosity\n";
+                O << "\n\
+Canvas affecting options:\n";
+        if(v>=2)O << "\
  --mask, -m <defs>\n\
      Define a mask, see instructions below\n\
  --maskmethod, -u <value>\n\
-     Specify how the masked content will be hidden, see instructions below\n\
+     Specify how the masked content will be hidden, see instructions below\n";
+        if(v>=2)O << "\
  --method, -p <mode>\n\
-     Select pixel type, see below\n\
- --bgmethod, -b <mode>\n\
-     Select pixel type for alignment tests\n\
- --bgmethod0 <mode>\n\
-     Explicit pixel mode for ChangeLog background before camera comes\n\
- --bgmethod1 <mode>\n\
-     Explicit pixel mode for ChangeLog background after camera leaves\n\
+     Select pixel type, see below\n";
+        if(v<2)O << "\
+ --method, -p <mode>\n\
+     Select pixel type (average/actionavg/mostused/changelog/loopingavg)\n\
+     See full help for details.\n";
+        if(v>=0)O << "\
  --looplength, -l <int>\n\
-     Set loop length for the LOOPINGxx modes\n\
+     Set loop length for the LOOPINGxx modes\n";
+        if(v>=1)O << "\
  --motionblur, -B <int>\n\
-     Set motion blur length for animated modes\n\
+     Set motion blur length for animated modes\n";
+        if(v>=2)O << "\
  --firstlast, -f <int>\n\
      Set threshold for xxNMOST modes\n\
  --yuv, -y\n\
      Specifies that average-colors are to be calculated in the YUV\n\
-     colorspace rather than the default RGB colorspace.\n\
-\n\
-Image aligning options:\n\
+     colorspace rather than the default RGB colorspace.\n";
+        if(v>=0)O << "\n\
+Image aligning options:\n";
+        if(v>=1)O << "\
  --bgmethod, -b <mode>\n\
-     Select pixel type for alignment tests\n\
+     Select pixel type for alignment tests\n";
+        if(v>=2)O << "\
+ --bgmethod0 <mode>\n\
+     Explicit pixel mode for ChangeLog background before camera comes\n\
+ --bgmethod1 <mode>\n\
+     Explicit pixel mode for ChangeLog background after camera leaves\n";
+        if(v>=1)O << "\
  --refscale, -r <x>,<y>\n\
      Change the grid size that controls\n\
      how many samples are taken from the background image\n\
@@ -185,31 +220,53 @@ Image aligning options:\n\
      Change the limits of motion vectors.\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
-     only scroll horizontally and by 4 pixels at most per frame.\n\
+     only scroll horizontally and by 4 pixels at most per frame.\n";
+        if(v>=0)O << "\
  --noalign\n\
-     Disable automatic image aligner\n\
-\n\
+     Disable automatic image aligner. Useful if you only want to\n\
+     utilize the dithering and quantization features of animmerger,\n\
+     or your images simply don't happen to form a nice 2D map.\n";
+        if(v>=0)O << "\n\
 Output options:\n\
+ --output, -o <filename/pattern>\n\
+     Output to given filename. The filename may also be a pattern.\n\
+     The default value is \"%%2$s-%1$04u.%3$s\".\n\
+        %%2$s gets replaced with pixel method name (such as \"Average\") or \"tile\".\n\
+        %%3$s gets replaced with \"gif\" or \"png\" depending on output format.\n\
+        %%1$04u gets replaced with a sequential frame number, padded to 4 zero digits.\n";
+        if(v>=1)O << "\
  --gif, -g [=always|=never|=auto]\n\
-     Control how GIF files are saved. Always/never/auto.\n\
+     Control how GIF files are saved. Always/never/auto.\n";
+        if(v>=1)O << "\
      In automatic mode (default), GIF is selected for animations\n\
      if quantization was configured, PNG otherwise.\n\
      Default: auto. --gif without parameter defaults to always.\n\
      See below on details on when and how GIF files are written\n\
-     depending on this option.\n\
- --quantize <method>,<num_colors>\n\
-     Reduce palette, see instructions below\n\
- --quantize <file>\n\
+     depending on this option.\n";
+        if(v<2)O << "\
+ --quantize, -Q <method>,<num_colors>\n\
+     Reduce palette using method (diversity/neuquant). See full help for details.\n\
+ --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
  --dithmethod, -D <method>[,<method>]\n\
-     Select dithering method (see below)\n\
+     Select dithering method (ky/y2/floyd). See full help for details.\n";
+        if(v>=2)O << "\
+ --quantize, -Q <method>,<num_colors>\n\
+     Reduce palette, see instructions below\n\
+ --quantize, -Q <file>\n\
+     Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --dithmethod, -D <method>[,<method>]\n\
+     Select dithering method (see full help)\n";
+        if(v>=2)O << "\
  --ditherror, --de <float>\n\
      Set error multiplication value for the dithering algorithm.\n\
      0.0 = disable dithering. 1.0 = full dithering.\n\
-     Usable values lie somewhere in between. Default: 1.0\n\
+     Usable values lie somewhere in between. Default: 1.0\n";
+        if(v>=1)O << "\
  --dithmatrix, --dm <x>,<y>[<,time>]\n\
      Set the Bayer matrix size to be used in dithering.\n\
-     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n\
+     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n";
+        if(v>=2)O << "\
  --dithcount, --dc <int>\n\
      Set maximum number of palette colors to use in dithering\n\
      of an uniform color area of the source picture.\n\
@@ -220,22 +277,22 @@ Output options:\n\
      Set the maximum contrast between two or more color items\n\
      that are pre-selected for combined candidates for dithering.\n\
      The value must be in range 0..3. Default value: 1.\n\
-     See details below.\n\
+     See details below.\n";
+        if(v==1)O << "\
  --deltae, --cie [=<type>|=<formula>]\n\
-     Select color comparison method, see details below.\n\
+     Select color comparison method (rgb/76/94/2000/cmc/bfd).\n\
+     See full help for details.\n";
+        if(v>=2)O << "\
+ --deltae, --cie [=<type>|=<formula>]\n\
+     Select color comparison method, see below for details.\n";
+        if(v>=0)O << "\
  --gamma [=<value>]\n\
-     Select gamma to use in dithering. Default: 1.0\n\
+     Select gamma to use in dithering. Default: 1.0\n";
+        if(v>=2)O << "\
  --transform { r= | g= | b= }<function>\n\
      Transform red, green and blue color channel values according\n\
-     to the given mathematical function. See details below.\n\
-\n\
-animmerger will always output files into the current\n\
-working directory, with the filename pattern tile-####.png\n\
-where #### is a sequential number beginning from 0000.\n\
-The file name can be also .gif (see details below).\n\
-If multiple output methods are specified, then the filename is\n\
-method-####.png, such as Average-0000.png or ChangeLog-0155.gif.\n\
-\n\
+     to the given mathematical function. See details below.\n";
+        if(v>=2)O << "\n\
 AVAILABLE PIXEL TYPES\n\
 \n\
   AVERAGE, long option: --method=average , short option: -pa\n\
@@ -279,8 +336,8 @@ AVAILABLE PIXEL TYPES\n\
      Also called, \"lemmings mode\".\n\
      Use the -l option to set loop length in frames. Supports motion blur.\n\
   LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n\
-     A combination of loopinglog and actionavg, also supports motion blur.\n\
-\n\
+     A combination of loopinglog and actionavg, also supports motion blur.\n";
+        if(v>=2)O << "\n\
 DEFINING MASKS\n\
 \n\
   You can use masks to block out HUD / splitscreens\n\
@@ -321,8 +378,8 @@ DEFINING MASKS\n\
 \n\
      --maskmethod=blank or -ublack\n\
          Replace the masked areas with black pixels, \"censoring\" them.\n\
-         Alias: blank, black, censor\n\
-\n\
+         Alias: blank, black, censor\n";
+        if(v>=2)O << "\n\
 REDUCING PALETTE\n\
 \n\
   GIF files are restricted to 256 colors, but regardless of whether\n\
@@ -371,8 +428,8 @@ REDUCING PALETTE\n\
   If necessary, the image will be dithered using a positional dithering method.\n\
   If you are making a GIF file and you do not specify any quantization options\n\
   at all, animmerger will use whatever method GD graphics library happens to use.\n\
-  Note that the blending quantization methods are subject to the YUV selection.\n\
-\n\
+  Note that the blending quantization methods are subject to the YUV selection.\n";
+        if(v>=2)O << "\n\
 DITHERING\n\
 \n\
   Dithering methods\n\
@@ -477,8 +534,8 @@ Ordered dithering method differences:\n\
   Yliluoma3\n\
      Only uses color combinations of 1 or 2 items.\n\
      Ignores the --ditherror parameter.\n\
-     Slow.\n\
-\n\
+     Slow.\n";
+        if(v>=2)O << "\n\
 COLOR TRANSFORMATION FUNCTION\n\
 \n\
   The option --transform can be used to transform the image's color.\n\
@@ -505,8 +562,8 @@ COLOR TRANSFORMATION FUNCTION\n\
         Will make the screen cycle in colors.\n\
 \n\
   Note that rendering with a transformation function is much\n\
-  slower than rendering without it.\n\
-\n\
+  slower than rendering without it.\n";
+        if(v>=2)O << "\n\
 COLOR COMPARE METHODS\n\
 \n\
   For dithering purposes, animmerger has to compare colors\n\
@@ -560,8 +617,8 @@ COLOR COMPARE METHODS\n\
     gamma           -- Configured gamma correction rate\n\
   Functions supported in the color comparison formula:\n\
     Standard fparser functions such as cos,atan2,asinh,log10\n\
-    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n\
-\n\
+    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n";
+        if(v>=2)O << "\n\
 GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
   GIF is capable of paletted images of 256 colors or less.\n\
   PNG is capable of paletted images, as well as truecolor images.\n\
@@ -572,8 +629,8 @@ GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
   --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
   --never        -Q NOT used   Always trueclor PNG        Never\n\
   --always       -Q was used   Always GIF                 Yes, unless disabled\n\
-  --always       -Q not used   Always GIF                 Never\n\
-\n\
+  --always       -Q not used   Always GIF                 Never\n";
+        if(v>=2)O << "\n\
 TIPS\n\
 \n\
 Converting a GIF animation into individual frame files:\n\
@@ -594,14 +651,14 @@ Different combinations of pixel methods require different\n\
 amounts of memory. Use the -v option to see how much memory\n\
 is required per pixel when using different options.\n\
 animmerger always strives to choose the smallest pixel\n\
-implementation that provides all of the requested features.\n\
-\n\
+implementation that provides all of the requested features.\n";
+        if(v>=1)O << "\n\
 When creating animations of video game content, please take\n\
 all necessary steps to ensure that background stays fixed\n\
 while characters move. Parallax animation is bad; If possible,\n\
 please fix all background layers so that they scroll at even\n\
 rate.\n\
-\n");
+\n";
                 opt_exit = true;
                 break;
             }
@@ -700,6 +757,11 @@ rate.\n\
                     std::fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
                     opt_exit = true; exit_code = 1;
                 }
+                break;
+            }
+            case 'o':
+            {
+                OutputNameTemplate = optarg;
                 break;
             }
             case 'Q':
