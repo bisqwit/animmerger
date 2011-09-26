@@ -82,22 +82,18 @@ public:
         unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors, bool UseErrorDiffusion>
+    gdImagePtr CreateFrame_Palette_Dither_Sections(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei);
+
+    template<bool TransformColors, bool UseErrorDiffusion, typename A,typename B>
+    void CreateFrame_Palette_Dither_Sections_Rounds(
+        const VecType<uint32>& screen,
+        unsigned frameno, unsigned wid, unsigned hei,
+        A im, B& NumSlots, size_t round, unsigned x0,unsigned y0,unsigned x1,unsigned y1);
+
+    template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_CGA16(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei);
-
-    template<bool TransformColors, bool UseErrorDiffusion>
-    gdImagePtr CreateFrame_Palette_Dither_TMS9918(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei);
-
-    template<bool TransformColors, bool UseErrorDiffusion>
-    gdImagePtr CreateFrame_Palette_Dither_VICII(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei);
-
-    template<bool TransformColors, bool UseErrorDiffusion>
-    gdImagePtr CreateFrame_Palette_Dither_BBCMicro(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 

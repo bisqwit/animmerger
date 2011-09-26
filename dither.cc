@@ -20,6 +20,8 @@ bool     DitherCombinationAllowSame      = false;
 DitheringMethod Dithering = Dither_Yliluoma1Iterative;
 DiffusionMethod Diffusion = Diffusion_None;
 
+std::vector<SectionDithering> DitheringSections;
+
 std::vector<unsigned> CreatePowerofTwoDitheringMatrix(unsigned Width, unsigned Height)
 {
     // Find M=ceil(log2(x)) and L=ceil(log2(y))

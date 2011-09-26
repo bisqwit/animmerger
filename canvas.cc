@@ -19,15 +19,6 @@
 #ifndef CGA16mode
 # define CGA16mode 0
 #endif
-#ifndef TMS9918mode
-# define TMS9918mode 0
-#endif
-#ifndef VICIImode
-# define VICIImode 0
-#endif
-#ifndef BBCMicromode
-# define BBCMicromode 1
-#endif
 
 int pad_top=0, pad_bottom=0, pad_left=0, pad_right=0;
 
@@ -649,65 +640,6 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     CurrentPalette.Analyze();
     return;
     #endif
-    #if TMS9918mode
-    // TMS 9918 palette (to be rendered on 256x192)
-    // This palette taken from JSMSX by Marcus Granado,
-    // multiplied by FF/E0 to saturate the entire RGB range
-    CurrentPalette.SetHardcoded(15,
-        0x000000, //YRBcolor(0.00, 0.47, 0.47), // black
-        0x24DB24, //YRBcolor(0.53, 0.07, 0.20), // medium green
-        0x6DFF6D, //YRBcolor(0.67, 0.17, 0.27), // light green
-        0x2424FF, //YRBcolor(0.40, 0.40, 1.00), // dark blue
-        0x496DFF, //YRBcolor(0.53, 0.43, 0.93), // light blue
-        0xB62424, //YRBcolor(0.47, 0.83, 0.30), // dark red
-        0x49DBFF, //YRBcolor(0.73, 0.00, 0.70), // cyan
-        0xFF2424, //YRBcolor(0.53, 0.93, 0.27), // medium red
-        0xFF6D6D, //YRBcolor(0.67, 0.93, 0.27), // light red
-        0xDBDB24, //YRBcolor(0.73, 0.57, 0.07), // dark yellow
-        0xDBDB92, //YRBcolor(0.80, 0.57, 0.17), // light yellow
-        0x249224, //YRBcolor(0.47, 0.13, 0.23), // dark green
-        0xDB49B6, //YRBcolor(0.53, 0.73, 0.67), // magenta
-        0xB6B6B6, //YRBcolor(0.80, 0.47, 0.47), // gray
-        0xFFFFFF);//YRBcolor(1.00, 0.47, 0.47));// white
-    CurrentPalette.Analyze();
-    return;
-    #endif
-    #if VICIImode
-    // Commodore 64 palette
-    CurrentPalette.SetHardcoded(16,
-        0x000000,
-        0xFFFFFF,
-        0x894036,
-        0x7ABFC7,
-        0x8A46AE,
-        0x68A941,
-        0x3E31A2,
-        0xD0DC71,
-        0x905F25,
-        0x5C4700,
-        0xBB776D,
-        0x555555,
-        0x808080,
-        0xACEA88,
-        0x7C70DA,
-        0xABABAB);
-    CurrentPalette.Analyze();
-    return;
-    #endif
-    #if BBCMicromode
-    // BBC Micro palette (RGB primaries, but slight desaturation for TV displays)
-    CurrentPalette.SetHardcoded(8,
-        0x000000,
-        0x1010FA,
-        0x10FA10,
-        0x10FAFA,
-        0xFA1010,
-        0xFA10FA,
-        0xFAFA40,
-        0xFAFAFA);
-    CurrentPalette.Analyze();
-    return;
-    #endif
 
     HistogramType Histogram = UsingTransformations
         ? CountColors<true>(method, nframes)
@@ -791,26 +723,17 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_CGA16<true,false>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_CGA16<false,false>(screen, frameno, wid, hei);
-          #elif TMS9918mode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_TMS9918<true,false>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_TMS9918<false,false>(screen, frameno, wid, hei);
-          #elif VICIImode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_VICII<true,false>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_VICII<false,false>(screen, frameno, wid, hei);
-          #elif BBCMicromode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_BBCMicro<true,false>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_BBCMicro<false,false>(screen, frameno, wid, hei);
           #else
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
+            if(!DitheringSections.empty())
+              if(UsingTransformations)
+                im = CreateFrame_Palette_Dither_Sections<true,false>(screen, frameno, wid, hei);
+              else
+                im = CreateFrame_Palette_Dither_Sections<false,false>(screen, frameno, wid, hei);
             else
-              im = CreateFrame_Palette_Dither<false,false>(screen, frameno, wid, hei);
+              if(UsingTransformations)
+                im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
+              else
+                im = CreateFrame_Palette_Dither<false,false>(screen, frameno, wid, hei);
           #endif
         }
         else
@@ -820,26 +743,17 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
               im = CreateFrame_Palette_Dither_CGA16<true,true>(screen, frameno, wid, hei);
             else
               im = CreateFrame_Palette_Dither_CGA16<false,true>(screen, frameno, wid, hei);
-          #elif TMS9918mode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_TMS9918<true,true>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_TMS9918<false,true>(screen, frameno, wid, hei);
-          #elif VICIImode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_VICII<true,true>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_VICII<false,true>(screen, frameno, wid, hei);
-          #elif BBCMicromode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_BBCMicro<true,true>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_BBCMicro<false,true>(screen, frameno, wid, hei);
           #else
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
+            if(!DitheringSections.empty())
+              if(UsingTransformations)
+                im = CreateFrame_Palette_Dither_Sections<true,true>(screen, frameno, wid, hei);
+              else
+                im = CreateFrame_Palette_Dither_Sections<false,true>(screen, frameno, wid, hei);
             else
-              im = CreateFrame_Palette_Dither<false,true>(screen, frameno, wid, hei);
+              if(UsingTransformations)
+                im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
+              else
+                im = CreateFrame_Palette_Dither<false,true>(screen, frameno, wid, hei);
           #endif
         }
     }
@@ -1379,6 +1293,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_CGA16(
     return im2;
 }
 
+#if 0
 template<bool TransformColors, bool UseErrorDiffusion>
 gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_TMS9918(
     const VecType<uint32>& screen,
@@ -1471,137 +1386,84 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_TMS9918(
 
     return im2;
 }
+#endif
+
+struct SectionConfiguration
+{
+    unsigned n_horiz;
+    unsigned n_vert;
+    struct Chosen
+    {
+        std::vector<unsigned> colors;
+    };
+    std::vector<Chosen> chosen; // For each section, the chosen colors
+};
+
 
 template<bool TransformColors, bool UseErrorDiffusion>
-gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_VICII(
+gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_Sections(
     const VecType<uint32>& screen,
     unsigned frameno, unsigned wid, unsigned hei)
 {
-    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
-
-    static Palette palettes[16*16*16*16];
-    static bool    inited = false;
-    if(!inited)
+    // Verify that the dithering sections line up
+   {unsigned prev = 0;
+    bool error = false;
+    for(auto d: DitheringSections)
     {
-        for(unsigned c1=0; c1<16; ++c1)
-        for(unsigned c2=0; c2<16; ++c2)
-        for(unsigned c3=0; c3<16; ++c3)
-        for(unsigned c4=0; c4<16; ++c4)
+        if(!d.width && prev) { error=true; break; }
+        if(d.width && prev && (prev % d.width)) { error=true; break; }
+        if(d.combination_limit)
         {
-            palettes[c1+16*c2+256*c3+4096*c4] = CurrentPalette.GetFourColors(c1,c2,c3,c4);
-            palettes[c1+16*c2+256*c3+4096*c4].Analyze();
+            // TODO: support this
+            std::fprintf(stderr, "Sorry, unsupported: Limited number of subpalettes per screen\n");
         }
-        inited = true;
+        prev = d.width;
     }
-    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*16*16*16*16 );
+    prev=0;
+    for(auto d: DitheringSections)
+    {
+        if(!d.height && prev) { error=true; break; }
+        if(d.height && prev && (prev % d.height)) { error=true; break; }
+        prev = d.height;
+    }
+    if(error)
+    {
+        std::fprintf(stderr, "ERROR: Dithering sections do not line up. Each section should be a subsection of the previous one!\n");
+        return CreateFrame_Palette_Dither<TransformColors,UseErrorDiffusion> (screen,frameno,wid,hei);
+    }}
 
-    const unsigned BorderHeight = 72, BorderTop = 36;
-    const unsigned BorderWidth  = 32, BorderLeft = 18;
+    // For each DitheringSection, determine how many slots it is comprised of.
+    std::vector<SectionConfiguration> NumSlots;
+    NumSlots.reserve ( DitheringSections.size() );
+    for(auto d: DitheringSections)
+    {
+        unsigned w = d.width  ? d.width  : wid;
+        unsigned h = d.height ? d.height : hei;
+        unsigned n_horiz = (wid + w-1) / w;
+        unsigned n_vert  = (hei + h-1) / h;
+        SectionConfiguration c = { n_horiz, n_vert, {} };
+        NumSlots.push_back(c);
+    }
 
-    gdImagePtr im2 = gdImageCreate(wid + BorderWidth, hei + BorderHeight);
-    gdImageAlphaBlending(im2, false);
-    gdImageSaveAlpha(im2, true);
+    // Create the target image.
+    gdImagePtr im = gdImageCreate(wid,hei);
+    gdImageAlphaBlending(im, false);
+    gdImageSaveAlpha(im, true);
     for(unsigned a=0; a<CurrentPalette.Size(); ++a)
     {
         unsigned pix = CurrentPalette.GetColor(a);
-        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
+        gdImageColorAllocateAlpha(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
     }
-    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
+    gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
 
-    gdImagePtr baseim =
-        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
-        (screen, frameno, wid, hei, CurrentPalette);
+    // For each DitheringSection, start accumulating colors for the slots.
+    CreateFrame_Palette_Dither_Sections_Rounds(
+        screen, frameno, wid, hei,
+        im,
+        NumSlots,
+        0, 0,0, wid,hei);
 
-    /* For each 4x8 pixel region in the target image:
-     *
-     * Find the four colors that when combined, best
-     * represent the colors in this section.
-     * (Dither 32 pixels with full palette selection,
-     *  and from the result, choose the most common
-     *  4 colors.)
-     */
-
-    #pragma omp parallel for schedule(static,4)
-    for(unsigned by=0; by<hei; by += 8)
-    {
-        transform_caches_t& transform_cache = GetTransformCache();
-        dither_cache_t& dither_cache = GetDitherCache();
-
-        unsigned ey = by+8; if(ey > hei) ey = hei;
-
-        /* Find out what is the most common color for this strip
-         * of pixels, and set it as the background color */
-        unsigned c1 = 0;
-        MixingPlan tally;
-        for(unsigned y=by; y<ey; ++y)
-            for(unsigned x=0; x<wid; ++x)
-                tally.push_back(gdImageGetPixel(baseim, x,y));
-       {std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int> > Solution;
-        for(auto a: tally) Solution[a] += 1;
-        tally.clear();
-        for(auto a: Solution) tally.push_back(a.first);
-        std::sort(tally.begin(), tally.end(), [&](unsigned a,unsigned b)
-            { return Solution.find(a)->second > Solution.find(b)->second; });
-        c1 = tally.front();
-       }
-        gdImageFilledRectangle(im2, 0,by+BorderTop, gdImageSX(im2),ey+BorderTop-1, c1);
-        if(by == 0)
-            gdImageFilledRectangle(im2, 0,0, gdImageSX(im2), BorderTop-1, c1);
-        if(ey == hei)
-            gdImageFilledRectangle(im2, 0,hei+BorderTop, gdImageSX(im2),gdImageSY(im2), c1);
-
-        for(unsigned bx=0; bx<wid; bx += 4)
-        {
-            unsigned ex = bx+4; if(ex > wid) ex = wid;
-
-            tally.clear();
-            for(unsigned y=by; y<ey; ++y)
-                for(unsigned x=bx; x<ex; ++x)
-                    tally.push_back(gdImageGetPixel(baseim, x,y));
-
-            // Now "tally" records the top colors for this 4x8 slot.
-            // Count how many times each color was used.
-           {std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int> > Solution;
-            for(auto a: tally) if(a != c1) Solution[a] += 1; // Ignore background color, it's always used
-            // Get unique colors, and sort them according to commonness.
-            tally.clear();
-            for(auto a: Solution) tally.push_back(a.first);
-
-            std::sort(tally.begin(), tally.end(), [&](unsigned a,unsigned b)
-                { return Solution.find(a)->second > Solution.find(b)->second; });}
-
-            while(tally.size() < 3) tally.push_back( 1 + tally.back() % 15 );
-
-            /* Now we have three colors. Render these eight pixels
-             * using a palette formed from these three colors + black.
-             */
-
-            unsigned bestmode = c1 + 16*tally[0] + 256*tally[1] + 4096*tally[2];
-            const Palette& pal = palettes[bestmode];
-
-            dither_cache_t& dither_cache2 = dither_caches[
-                bestmode + 16*16*16*16*omp_get_thread_num() ];
-            for(unsigned y=by; y<ey; ++y)
-                for(unsigned x=bx; x<ex; ++x)
-                {
-                    int color = GetMixColor<TransformColors,UseDitherCache>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
-                    gdImageSetPixel(im2,
-                        x + BorderLeft,
-                        y + BorderTop, color==0 ? c1 : tally[color-1]);
-                }
-        }
-    }
-
-    gdImageDestroy(baseim);
-
-    return im2;
-}
-
-template<bool TransformColors, bool UseErrorDiffusion>
-gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_BBCMicro(
-    const VecType<uint32>& screen,
-    unsigned frameno, unsigned wid, unsigned hei)
-{
+#if 0
     static Palette palettes[8*8*8*8];
     static bool    inited = false;
     if(!inited)
@@ -1763,6 +1625,53 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_BBCMicro(
         }
     }
     return im2;
+#endif
+}
+
+template<bool TransformColors, bool UseErrorDiffusion, typename A,typename B>
+void CreateFrame_Palette_Dither_Sections_Rounds(
+    const VecType<uint32>& screen,
+    unsigned frameno, unsigned wid, unsigned hei,
+    A im,
+    B& NumSlots,
+    size_t round, unsigned x0,unsigned y0,unsigned x1,unsigned y1)
+{
+    auto& got_slot  = NumSlots[round];
+    unsigned width  = DitheringSections[round].width;  // Section width
+    unsigned height = DitheringSections[round].height; //    and height
+    unsigned colors = DitheringSections[round].n_colors; // Number of colors to allocate
+
+    for(unsigned h=0; h<slot.n_vert; ++h)
+    {
+        unsigned y = h*height; if(y < y0) continue; if(y >= y1) break;
+        unsigned slotno = h * slot.n_horiz;
+        for(unsigned w=0; w<slot.n_horiz; ++w, ++slotno)
+        {
+            unsigned x = x*width; if(x < x0) continue; if(x >= x1) break;
+            //
+            std::vector<unsigned> so_far;
+            if(round > 0) so_far = NumSlots[round-1].chosen;
+
+            // FIXME kesken tässä. Testaa värejä kerrallaan kunnes <colors> väriä on saatu
+
+
+            //
+            if(round+1 < NumSlots.size())
+            {
+                // Need accumulate more colors
+                CreateFrame_Palette_Dither_Sections_Rounds
+                    <TransformColors,UseErrorDiffusion>
+                ( screen,frameno,wid,hei, im,NumSlots, round+1,
+                  w*width, h*height,
+                  std::min( (w+1)*width, wid ),
+                  std::min( (h+1)*height, hei ) );
+            }
+            else
+            {
+                // Got all colors we want
+            }
+        }
+    }
 }
 
 AlignResult TILE_Tracker::TryAlignWithHotspots

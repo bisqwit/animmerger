@@ -110,6 +110,7 @@ static const struct option long_options[] =
     {"dithcount",  1,0,5003},  {"dc",1,0,5003},
     {"dithcombine",1,0,5004},  {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
     {"deltae",     2,0,5005},  {"cie",2,0,5005},
+    {"sections",   1,0,5006},  {"section",1,0,5006},
     {"gamma",      1,0,'G'},
     {"output",     1,0,'o'},
     {"transform",  1,0,6001},
@@ -1322,6 +1323,47 @@ rate.\n\
                     else
                         ColorComparing = Compare_CIE76_DeltaE;
                     break;
+
+                case 5006: // --section, --sections
+                {
+                    char* arg = optarg;
+                    bool error = false;
+                    for(;;)
+                    {
+                        char* comma = std::strchr(arg, ',');
+                        if(comma) *comma = '\0';
+                        SectionDithering section = {0,0, 0, 0,0, 0};
+                        if(std::strncmp(arg, "W", 1) == 0)     { section.width = 0; ++arg; }
+                        else while(*arg >= '0' && *arg <= '9') { section.width = section.width*10 + (*arg++-'0'); }
+                        if(*arg != 'x') { error=true; break; } ++arg;
+                        if(std::strncmp(arg, "H", 1) == 0)     { section.height = 0; ++arg; }
+                        else while(*arg >= '0' && *arg <= '9') { section.height = section.height*10 + (*arg++-'0'); }
+                        if(*arg != '=') { error=true; break; } ++arg;
+                        while(*arg >= '0' && *arg <= '9') { section.n_colors = section.n_colors*10 + (*arg++-'0'); }
+                        if(*arg == '@')
+                        {
+                            ++arg;
+                            if(std::strncmp(arg, "W", 1) == 0)     { section.width2 = 0; ++arg; }
+                            else while(*arg >= '0' && *arg <= '9') { section.width2 = section.width2*10 + (*arg++-'0'); }
+                            if(*arg != 'x') { error=true; break; } ++arg;
+                            if(std::strncmp(arg, "H", 1) == 0)     { section.height2 = 0; ++arg; }
+                            else while(*arg >= '0' && *arg <= '9') { section.height2 = section.height2*10 + (*arg++-'0'); }
+                            if(*arg != '=') { error=true; break; } ++arg;
+                            while(*arg >= '0' && *arg <= '9') { section.combination_limit = section.combination_limit*10 + (*arg++-'0'); }
+                        }
+                        if(arg != comma) { error=true; break; }
+                        DitheringSections.push_back(section);
+                        if(!comma) break;
+                        optarg = arg = comma+1;
+                    }
+                    if(error)
+                    {
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --sections: %s.\n", optarg);
+                        opt_exit = true; exit_code = 1;
+                    }
+                    break;
+                }
+
                 case 6002: // --padding, --border, --margin
                 {
                     char* arg = optarg;

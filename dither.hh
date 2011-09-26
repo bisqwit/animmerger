@@ -39,4 +39,18 @@ extern enum DiffusionMethod
 std::vector<unsigned> CreateDispersedDitheringMatrix();
 std::vector<unsigned> CreateTemporalDitheringMatrix();
 
+struct SectionDithering
+{
+    // For every section of this size (0=maximum),
+    unsigned width, height;
+    // This many distinct colors can be used from the current palette.
+    unsigned n_colors;
+
+    // However, for every section of this size (0=maximum),
+    unsigned width2, height2;
+    // only this many distinct sub-palettes can be used. 0 if infinite.
+    unsigned combination_limit;
+};
+extern std::vector<SectionDithering> DitheringSections;
+
 #endif
