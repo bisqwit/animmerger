@@ -22,9 +22,10 @@ enum PaletteMethod { DefinePaletteMethods(MakeEnum) };
 
 struct PaletteMethodItem
 {
-    PaletteMethod method;
-    unsigned      size;
-    std::string   filename;
+    PaletteMethod       method;
+    unsigned            size;
+    // If this vector is nonempty, set palette to this selection
+    std::vector<uint32> entries;
 };
 extern std::vector<PaletteMethodItem> PaletteReductionMethod;
 
@@ -271,6 +272,9 @@ struct Palette
     const ColorInfo& GetCombinationMeta(unsigned index) const { return Combinations[index].combination; }
 
     Palette GetSlice(unsigned offset, unsigned count) const;
+    Palette GetTwoColors(unsigned color1, unsigned color2) const;
+    Palette GetFourColors(unsigned,unsigned,unsigned,unsigned) const;
+
     void AddPaletteRGB(uint32 p);
 public:
     struct PaletteItem: public ColorInfo

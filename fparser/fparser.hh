@@ -1,5 +1,5 @@
 /***************************************************************************\
-|* Function Parser for C++ v4.3                                            *|
+|* Function Parser for C++ v4.4.1                                          *|
 |*-------------------------------------------------------------------------*|
 |* Copyright: Juha Nieminen, Joel Yliluoma                                 *|
 |*                                                                         *|
@@ -29,7 +29,7 @@ namespace FPoptimizer_CodeTree { template<typename Value_t> class CodeTree; }
 template<typename Value_t>
 class FunctionParserBase
 {
-public:
+ public:
     enum ParseErrorType
     {
         SYNTAX_ERROR=0, MISM_PARENTH, MISSING_PARENTH, EMPTY_PARENTH,
@@ -51,15 +51,19 @@ public:
     void setDelimiterChar(char);
 
     const char* ErrorMsg() const;
-    inline ParseErrorType GetParseErrorType() const { return mParseErrorType; }
+    ParseErrorType GetParseErrorType() const;
 
     Value_t Eval(const Value_t* Vars);
-    inline int EvalError() const { return mEvalErrorType; }
+    int EvalError() const;
 
     bool AddConstant(const std::string& name, Value_t value);
     bool AddUnit(const std::string& name, Value_t value);
 
+#ifndef FP_USER_DEFINED_FUNCTION_TYPE
     typedef Value_t (*FunctionPtr)(const Value_t*);
+#else
+    typedef FP_USER_DEFINED_FUNCTION_TYPE;
+#endif
 
     bool AddFunction(const std::string& name,
                      FunctionPtr, unsigned paramsAmount);
@@ -109,25 +113,24 @@ public:
 
 
 //========================================================================
-private:
+ protected:
+//========================================================================
+    // A derived class can implement its own evaluation logic by using
+    // the parser data (found in fptypes.hh).
+    struct Data;
+    Data* getParserData();
+
+
+//========================================================================
+ private:
 //========================================================================
 
     friend class FPoptimizer_CodeTree::CodeTree<Value_t>;
 
 // Private data:
 // ------------
-    char mDelimiterChar;
-    ParseErrorType mParseErrorType;
-    int mEvalErrorType;
-
-    struct Data;
     Data* mData;
-
-    bool mUseDegreeConversion;
-    bool mHasByteCodeFlags;
-    unsigned mEvalRecursionLevel;
     unsigned mStackPtr;
-    const char* mErrorLocation;
 
 
 // Private methods:
@@ -175,5 +178,10 @@ class FunctionParser: public FunctionParserBase<double> {};
 class FunctionParser_f: public FunctionParserBase<float> {};
 class FunctionParser_ld: public FunctionParserBase<long double> {};
 class FunctionParser_li: public FunctionParserBase<long> {};
+
+#include <complex>
+class FunctionParser_cd: public FunctionParserBase<std::complex<double> > {};
+class FunctionParser_cf: public FunctionParserBase<std::complex<float> > {};
+class FunctionParser_cld: public FunctionParserBase<std::complex<long double> > {};
 
 #endif

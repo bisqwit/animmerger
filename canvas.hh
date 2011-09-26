@@ -12,11 +12,15 @@
 #include <string>
 #include <cstdio>
 
-//extern unsigned CurrentTimer;       // For animated
-//extern unsigned SequenceBegin;      // For animated
 extern int SaveGif;
+extern bool UseDitherCache;
+extern std::string OutputNameTemplate;
 
 struct AlignResult;
+
+class dither_cache_t;
+class transform_cache_t;
+class transform_caches_t;
 
 class TILE_Tracker
 {
@@ -83,11 +87,6 @@ public:
         unsigned frameno, unsigned wid, unsigned hei);
 
     template<bool TransformColors, bool UseErrorDiffusion>
-    gdImagePtr CreateFrame_Palette_Dither_NES(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei);
-
-    template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_With(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei,
@@ -127,6 +126,13 @@ public:
     void NextFrame();
 
     bool IsHeavyDithering(bool animated) const;
+
+    template<bool TransformColors>
+    inline unsigned GetMixColor(dither_cache_t& cache,
+                                transform_caches_t& transform_cache,
+                                unsigned wid,unsigned hei, unsigned frameno,
+                                unsigned x,unsigned y, uint32 pix,
+                                const Palette& pal);
 };
 
 extern std::string transform_common;

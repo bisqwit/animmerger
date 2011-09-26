@@ -43,6 +43,8 @@ extern unsigned LoopingLogLength;
 extern int FirstLastLength;
 extern bool AveragesInYUV;
 extern int verbose;
+extern bool autoalign;
+extern unsigned estimated_num_frames;
 
 extern unsigned long pixelmethods_result;
 extern PixelMethod bgmethod, bgmethod0, bgmethod1;

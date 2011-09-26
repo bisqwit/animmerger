@@ -4,6 +4,7 @@
 #include "maptype.hh"
 
 #include <algorithm>
+#include <cstdio>
 #include <map>
 
 double DitherErrorFactor    = 1.0;
@@ -113,6 +114,45 @@ struct ComparePaletteLuma
 
 namespace
 {
+    MixingPlan ResequenceMixingPlan(
+        std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int>
+                >& Solution,
+        const Palette& pal)
+    {
+    #if 0 /* HACK for Mario Paint: Find largest common divisor and divide the sections as such. */
+        for(unsigned divisor = DitherColorListSize; divisor > 0; --divisor)
+        {
+            bool even_divisor = true;
+            for(std::map<unsigned,unsigned>::iterator
+                i = Solution.begin(); i != Solution.end(); ++i)
+            {
+                if(i->second % divisor != 0) { even_divisor = false; break; }
+            }
+            if(even_divisor)
+            {
+                for(std::map<unsigned,unsigned>::iterator
+                    i = Solution.begin(); i != Solution.end(); ++i)
+                {
+                    i->second /= divisor;
+                }
+                break;
+            }
+        }
+    #endif
+
+        // Sequence the solution.
+        MixingPlan result;
+        for(std::map<unsigned,unsigned>::iterator
+            i = Solution.begin(); i != Solution.end(); ++i)
+        {
+            result.resize(result.size() + i->second, i->first);
+        }
+        // Sort the colors according to luminance
+        std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
+        std::reverse(result.begin(), result.end());
+        return result;
+    }
+
     ////////////
     /* Algorithm 1: Find best-matching combination.
      *              Single-shot, extremely fast, especially if KD-tree is used.
@@ -148,7 +188,11 @@ namespace
                     pal.Combinations[chosen].indexlist.begin(),
                     pal.Combinations[chosen].indexlist.end() );
             }
-            std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
+            //std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
+            std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int> > Solution;
+            for(size_t a=0; a<result.size(); ++a)
+                Solution[ result[a] ] += 1;
+            return ResequenceMixingPlan(Solution, pal);
         }
         return result;
     }
@@ -187,7 +231,6 @@ namespace
 
         MixingPlan result;
         GammaColorVec so_far(0.0);
-        unsigned proportion_total = 0;
 
         while(result.size() < GenerationLimit)
         {
@@ -196,14 +239,18 @@ namespace
 
             double least_penalty = -1;
 
+            unsigned proportion_total = result.size();
             for(unsigned i=0; i<NumCombinations; ++i)
             {
                 unsigned count = pal.Combinations[i].indexlist.size();
-                const unsigned max_test_count_comb =
+                unsigned max_test_count_comb =
                     count==1
                         ? (proportion_total ? proportion_total : 1)
                         : std::min(proportion_total,
                                    (unsigned)GenerationLimit-proportion_total-count);
+
+                if(proportion_total + max_test_count_comb*count > GenerationLimit)
+                    max_test_count_comb = (GenerationLimit - proportion_total) / count;
 
                 GammaColorVec add = pal.Combinations[i].combination.gammac * double(count);
                 for(unsigned p=1; p<=max_test_count_comb; p+=p, add+=add)
@@ -222,13 +269,16 @@ namespace
                 result.resize(result.size() + chosen_amount,
                               pal.Combinations[chosen].indexlist[i]);
 
-            proportion_total += chosen_amount*count;
-
             so_far += pal.Combinations[chosen].combination.gammac * double(chosen_amount*count);
         }
 
-        std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
-        return result;
+        std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int> > Solution;
+        for(size_t a=0; a<result.size(); ++a)
+            Solution[ result[a] ] += 1;
+
+        return ResequenceMixingPlan(Solution, pal);
+        /*std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
+        return result;*/
     }
 
     ////////////
@@ -378,16 +428,7 @@ namespace
             current_penalty = best_penalty;
         }
 
-        // Sequence the solution.
-        MixingPlan result;
-        for(std::map<unsigned,unsigned>::iterator
-            i = Solution.begin(); i != Solution.end(); ++i)
-        {
-            result.resize(result.size() + i->second, i->first);
-        }
-        // Sort the colors according to luminance
-        std::sort(result.begin(), result.end(), ComparePaletteLuma(pal));
-        return result;
+        return ResequenceMixingPlan(Solution, pal);
     }
 
     ////////////
@@ -506,6 +547,7 @@ MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
         case Dither_Yliluoma1:
             return FindBestMixingPlan_Yliluoma1<false>(input, pal);
         case Dither_Yliluoma1Iterative:
+        default:
             return FindBestMixingPlan_Yliluoma1<true>(input, pal);
         case Dither_Yliluoma2:
             return FindBestMixingPlan_Yliluoma2(input, pal);

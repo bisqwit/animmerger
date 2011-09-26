@@ -85,16 +85,19 @@ int main(int argc, char** argv)
 {
     bool bgmethod0_chosen = false;
     bool bgmethod1_chosen = false;
-    bool autoalign = true;
     bool dithering_configured = false;
     std::string color_compare_formula;
 
+    bool opt_exit = false;
+    int exit_code = 0;
     for(;;)
     {
         int option_index = 0;
         static struct option long_options[] =
         {
             {"help",       0,0,'h'},
+            {"longhelp",   0,0,3001},
+            {"fullhelp",   0,0,3002},
             {"version",    0,0,'V'},
             {"mask",       1,0,'m'},
             {"method",     1,0,'p'},
@@ -119,59 +122,93 @@ int main(int argc, char** argv)
             {"dithcombine",1,0,5004}, {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
             {"deltae",     2,0,5005},  {"cie",2,0,5005},
             {"gamma",      1,0,'G'},
+            {"output",     1,0,'o'},
             {"transform",  1,0,6001},
             {0,0,0,0}
         };
-        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:", long_options, &option_index);
+        int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:o:", long_options, &option_index);
         if(c == -1) break;
         switch(c)
         {
             case 'V':
                 std::printf("%s\n", VERSION);
-                return 0;
+                opt_exit = true;
+                break;
             case 'h':
+            case 3001:
+            case 3002:
             {
-                std::printf("%s", "\
-animmerger v"VERSION" - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+                struct
+                {
+                    inline void operator<< (const char *s)
+                    {
+                        std::fwrite(s, 1, std::strlen(s), stdout);
+                        //std::printf("%s", s);
+                    }
+                } O;
+
+                int v = c=='h' ? 0 : c-3000;
+
+        if(v>=0)O << "\
+animmerger v"VERSION" - Copyright (C) 2011 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
 Usage: animmerger [<options>] <imagefile> [<...>]\n\
 \n\
-Merges animation frames together with motion shifting.\n\
-\n\
-General options:\n\
+Merges animation frames together with motion shifting.\n";
+        if(v>=0)O << "\n\
+General options:\n";
+        if(v==0)O << "\
  --help, -h\n\
-     This help\n\
+     Short help on usage. Use --longhelp or --fullhelp for more/all options.\n";
+        if(v>=1)O << "\
+ --help, -h\n\
+     Short help on usage\n\
+ --longhelp\n\
+     List most commandline options\n\
+ --fullhelp\n\
+     List all commandline options and detailed help on usage\n";
+        if(v>=1)O << "\
  --version, -V\n\
      Displays version information\n\
  --verbose, -v\n\
-     Increase verbosity\n\
-\n\
-Canvas affecting options:\n\
+     Increase verbosity\n";
+                O << "\n\
+Canvas affecting options:\n";
+        if(v>=2)O << "\
  --mask, -m <defs>\n\
      Define a mask, see instructions below\n\
  --maskmethod, -u <value>\n\
-     Specify how the masked content will be hidden, see instructions below\n\
+     Specify how the masked content will be hidden, see instructions below\n";
+        if(v>=2)O << "\
  --method, -p <mode>\n\
-     Select pixel type, see below\n\
- --bgmethod, -b <mode>\n\
-     Select pixel type for alignment tests\n\
- --bgmethod0 <mode>\n\
-     Explicit pixel mode for ChangeLog background before camera comes\n\
- --bgmethod1 <mode>\n\
-     Explicit pixel mode for ChangeLog background after camera leaves\n\
+     Select pixel type, see below\n";
+        if(v<2)O << "\
+ --method, -p <mode>\n\
+     Select pixel type (average/actionavg/mostused/changelog/loopingavg)\n\
+     See full help for details.\n";
+        if(v>=0)O << "\
  --looplength, -l <int>\n\
-     Set loop length for the LOOPINGxx modes\n\
+     Set loop length for the LOOPINGxx modes\n";
+        if(v>=1)O << "\
  --motionblur, -B <int>\n\
-     Set motion blur length for animated modes\n\
+     Set motion blur length for animated modes\n";
+        if(v>=2)O << "\
  --firstlast, -f <int>\n\
      Set threshold for xxNMOST modes\n\
  --yuv, -y\n\
      Specifies that average-colors are to be calculated in the YUV\n\
-     colorspace rather than the default RGB colorspace.\n\
-\n\
-Image aligning options:\n\
+     colorspace rather than the default RGB colorspace.\n";
+        if(v>=0)O << "\n\
+Image aligning options:\n";
+        if(v>=1)O << "\
  --bgmethod, -b <mode>\n\
-     Select pixel type for alignment tests\n\
+     Select pixel type for alignment tests\n";
+        if(v>=2)O << "\
+ --bgmethod0 <mode>\n\
+     Explicit pixel mode for ChangeLog background before camera comes\n\
+ --bgmethod1 <mode>\n\
+     Explicit pixel mode for ChangeLog background after camera leaves\n";
+        if(v>=1)O << "\
  --refscale, -r <x>,<y>\n\
      Change the grid size that controls\n\
      how many samples are taken from the background image\n\
@@ -183,31 +220,60 @@ Image aligning options:\n\
      Change the limits of motion vectors.\n\
      Default: -9999,-9999,9999,9999\n\
      Example: --mvrange -4,0,4,0 specifies that the screen may\n\
-     only scroll horizontally and by 4 pixels at most per frame.\n\
+     only scroll horizontally and by 4 pixels at most per frame.\n";
+        if(v>=0)O << "\
  --noalign\n\
-     Disable automatic image aligner\n\
-\n\
+     Disable automatic image aligner. Useful if you only want to\n\
+     utilize the dithering and quantization features of animmerger,\n\
+     or your images simply don't happen to form a nice 2D map.\n";
+        if(v>=0)O << "\n\
 Output options:\n\
+ --output, -o <filename/pattern>\n\
+     Output to given filename. The filename may also be a pattern.\n\
+     The default value is \"%%2$s-%1$04u.%3$s\".\n\
+        %%2$s gets replaced with pixel method name (such as \"Average\") or \"tile\".\n\
+        %%3$s gets replaced with \"gif\" or \"png\" depending on output format.\n\
+        %%1$04u gets replaced with a sequential frame number, padded to 4 zero digits.\n";
+        if(v>=1)O << "\
  --gif, -g [=always|=never|=auto]\n\
-     Control how GIF files are saved. Always/never/auto.\n\
+     Control how GIF files are saved. Always/never/auto.\n";
+        if(v>=1)O << "\
      In automatic mode (default), GIF is selected for animations\n\
      if quantization was configured, PNG otherwise.\n\
      Default: auto. --gif without parameter defaults to always.\n\
      See below on details on when and how GIF files are written\n\
-     depending on this option.\n\
- --quantize <method>,<num_colors>\n\
-     Reduce palette, see instructions below\n\
- --quantize <file>\n\
+     depending on this option.\n";
+        if(v<2)O << "\
+ --quantize, -Q <method>,<num_colors>\n\
+     Reduce palette using method (diversity/neuquant). See full help for details.\n\
+ --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --quantize, -Q <R>x<G>x<B>\n\
+     Set a regular RGB palette with given dimensions (e.g. 6x8x5).\n\
  --dithmethod, -D <method>[,<method>]\n\
-     Select dithering method (see below)\n\
+     Select dithering method (ky/y2/floyd). See full help for details.\n";
+        if(v>=2)O << "\
+ --quantize, -Q <method>,<num_colors>\n\
+     Reduce palette, see instructions below\n\
+ --quantize, -Q <file>\n\
+     Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --quantize, -Q <R>x<G>x<B>\n\
+     Set a regular RGB palette with given dimensions.\n\
+     Examples: -Q2x2x2 (8 color RGB extremes)\n\
+               -Q6x6x6 (so called web-safe palette)\n\
+               -Q6x8x5, -Q6x7x6, -Q8x8x4, -Q7x9x4 (some ~256 color palettes)\n\
+ --dithmethod, -D <method>[,<method>]\n\
+     Select dithering method (see full help)\n";
+        if(v>=2)O << "\
  --ditherror, --de <float>\n\
      Set error multiplication value for the dithering algorithm.\n\
      0.0 = disable dithering. 1.0 = full dithering.\n\
-     Usable values lie somewhere in between. Default: 1.0\n\
+     Usable values lie somewhere in between. Default: 1.0\n";
+        if(v>=1)O << "\
  --dithmatrix, --dm <x>,<y>[<,time>]\n\
      Set the Bayer matrix size to be used in dithering.\n\
-     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n\
+     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.\n";
+        if(v>=2)O << "\
  --dithcount, --dc <int>\n\
      Set maximum number of palette colors to use in dithering\n\
      of an uniform color area of the source picture.\n\
@@ -218,22 +284,22 @@ Output options:\n\
      Set the maximum contrast between two or more color items\n\
      that are pre-selected for combined candidates for dithering.\n\
      The value must be in range 0..3. Default value: 1.\n\
-     See details below.\n\
+     See details below.\n";
+        if(v==1)O << "\
  --deltae, --cie [=<type>|=<formula>]\n\
-     Select color comparison method, see details below.\n\
+     Select color comparison method (rgb/76/94/2000/cmc/bfd).\n\
+     See full help for details.\n";
+        if(v>=2)O << "\
+ --deltae, --cie [=<type>|=<formula>]\n\
+     Select color comparison method, see below for details.\n";
+        if(v>=0)O << "\
  --gamma [=<value>]\n\
-     Select gamma to use in dithering. Default: 1.0\n\
+     Select gamma to use in dithering. Default: 1.0\n";
+        if(v>=2)O << "\
  --transform { r= | g= | b= }<function>\n\
      Transform red, green and blue color channel values according\n\
-     to the given mathematical function. See details below.\n\
-\n\
-animmerger will always output files into the current\n\
-working directory, with the filename pattern tile-####.png\n\
-where #### is a sequential number beginning from 0000.\n\
-The file name can be also .gif (see details below).\n\
-If multiple output methods are specified, then the filename is\n\
-method-####.png, such as Average-0000.png or ChangeLog-0155.gif.\n\
-\n\
+     to the given mathematical function. See details below.\n";
+        if(v>=2)O << "\n\
 AVAILABLE PIXEL TYPES\n\
 \n\
   AVERAGE, long option: --method=average , short option: -pa\n\
@@ -277,8 +343,8 @@ AVAILABLE PIXEL TYPES\n\
      Also called, \"lemmings mode\".\n\
      Use the -l option to set loop length in frames. Supports motion blur.\n\
   LOOPINGAVG, long option: --methods=loopingavg, short option: -pv\n\
-     A combination of loopinglog and actionavg, also supports motion blur.\n\
-\n\
+     A combination of loopinglog and actionavg, also supports motion blur.\n";
+        if(v>=2)O << "\n\
 DEFINING MASKS\n\
 \n\
   You can use masks to block out HUD / splitscreens\n\
@@ -319,8 +385,8 @@ DEFINING MASKS\n\
 \n\
      --maskmethod=blank or -ublack\n\
          Replace the masked areas with black pixels, \"censoring\" them.\n\
-         Alias: blank, black, censor\n\
-\n\
+         Alias: blank, black, censor\n";
+        if(v>=2)O << "\n\
 REDUCING PALETTE\n\
 \n\
   GIF files are restricted to 256 colors, but regardless of whether\n\
@@ -369,8 +435,8 @@ REDUCING PALETTE\n\
   If necessary, the image will be dithered using a positional dithering method.\n\
   If you are making a GIF file and you do not specify any quantization options\n\
   at all, animmerger will use whatever method GD graphics library happens to use.\n\
-  Note that the blending quantization methods are subject to the YUV selection.\n\
-\n\
+  Note that the blending quantization methods are subject to the YUV selection.\n";
+        if(v>=2)O << "\n\
 DITHERING\n\
 \n\
   Dithering methods\n\
@@ -379,8 +445,8 @@ DITHERING\n\
        Yliluoma1            y1            Yes (positional)\n\
        Yliluoma2            y2            Yes (positional)\n\
        Yliluoma3            y3            Yes (positional)\n\
-       Yliluoma1Iterative   ky            Yes (positional)\n\
-       Floyd-Steinberg      fs            No (diffuses +4 pixels)\n\
+       Yliluoma1Iterative   y1i / ky      Yes (positional)\n\
+       Floyd-Steinberg      fs / floyd    No (diffuses +4 pixels)\n\
        Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)\n\
        Stucki               s             No (diffuses +12 pixels)\n\
        Burkes               b             No (diffuses +7 pixels)\n\
@@ -391,9 +457,9 @@ DITHERING\n\
        Atkinson             a             No (diffuses +6 pixels, though only 75%)\n\
      To set the dithering method, use the --dithmethod or -D option.\n\
      Examples:\n\
-       -Dky or --dithmethod=ky (default)\n\
+       -Dy1i or --dithmethod=ky (default)\n\
        -Dfloyd-steinberg\n\
-       -Ds24a,y2\n\
+       -Ds24a,y2 --dr=2 --dc=4 --dm 8x8\n\
 \n\
   Dithering matrix size\n\
      You can use an uneven ratio such as 8x2 to produce images\n\
@@ -475,8 +541,8 @@ Ordered dithering method differences:\n\
   Yliluoma3\n\
      Only uses color combinations of 1 or 2 items.\n\
      Ignores the --ditherror parameter.\n\
-     Slow.\n\
-\n\
+     Slow.\n";
+        if(v>=2)O << "\n\
 COLOR TRANSFORMATION FUNCTION\n\
 \n\
   The option --transform can be used to transform the image's color.\n\
@@ -503,8 +569,8 @@ COLOR TRANSFORMATION FUNCTION\n\
         Will make the screen cycle in colors.\n\
 \n\
   Note that rendering with a transformation function is much\n\
-  slower than rendering without it.\n\
-\n\
+  slower than rendering without it.\n";
+        if(v>=2)O << "\n\
 COLOR COMPARE METHODS\n\
 \n\
   For dithering purposes, animmerger has to compare colors\n\
@@ -558,8 +624,8 @@ COLOR COMPARE METHODS\n\
     gamma           -- Configured gamma correction rate\n\
   Functions supported in the color comparison formula:\n\
     Standard fparser functions such as cos,atan2,asinh,log10\n\
-    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n\
-\n\
+    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).\n";
+        if(v>=2)O << "\n\
 GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
   GIF is capable of paletted images of 256 colors or less.\n\
   PNG is capable of paletted images, as well as truecolor images.\n\
@@ -570,8 +636,8 @@ GIF VERSUS PNG AND WHAT ANIMMERGER CREATES\n\
   --never        -Q was used   Always paletted PNG        Yes, unless disabled\n\
   --never        -Q NOT used   Always trueclor PNG        Never\n\
   --always       -Q was used   Always GIF                 Yes, unless disabled\n\
-  --always       -Q not used   Always GIF                 Never\n\
-\n\
+  --always       -Q not used   Always GIF                 Never\n";
+        if(v>=2)O << "\n\
 TIPS\n\
 \n\
 Converting a GIF animation into individual frame files:\n\
@@ -592,15 +658,16 @@ Different combinations of pixel methods require different\n\
 amounts of memory. Use the -v option to see how much memory\n\
 is required per pixel when using different options.\n\
 animmerger always strives to choose the smallest pixel\n\
-implementation that provides all of the requested features.\n\
-\n\
+implementation that provides all of the requested features.\n";
+        if(v>=1)O << "\n\
 When creating animations of video game content, please take\n\
 all necessary steps to ensure that background stays fixed\n\
 while characters move. Parallax animation is bad; If possible,\n\
 please fix all background layers so that they scroll at even\n\
 rate.\n\
-\n");
-                return 0;
+\n";
+                opt_exit = true;
+                break;
             }
             case 'm':
             {
@@ -640,6 +707,7 @@ rate.\n\
                 if(tmp != FirstLastLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad first/last threshold: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     FirstLastLength = 1;
                 }
                 break;
@@ -652,6 +720,7 @@ rate.\n\
                 if(LoopingLogLength < 1 || tmp != LoopingLogLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad loop length: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     LoopingLogLength = 1;
                 }
                 break;
@@ -664,6 +733,7 @@ rate.\n\
                 if(tmp < 0 || tmp != AnimationBlurLength)
                 {
                     std::fprintf(stderr, "animmerger: Bad motion blur length: %ld\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     AnimationBlurLength = 0;
                 }
                 break;
@@ -679,6 +749,7 @@ rate.\n\
                     std::fprintf(stderr, "animmerger: Invalid parameter to -r: %s\n", arg);
                     x_divide_reference=32;
                     y_divide_reference=32;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
@@ -691,25 +762,109 @@ rate.\n\
                 if(n != 4)
                 {
                     std::fprintf(stderr, "animmerger: Invalid parameter to -a: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
                 }
+                break;
+            }
+            case 'o':
+            {
+                OutputNameTemplate = optarg;
                 break;
             }
             case 'Q':
             {
                 char *arg = optarg;
+                std::vector<uint32> colors;
                 if(access(arg, R_OK) == 0)
                 {
-                    PaletteMethodItem method;
-                    method.size     = 0;
-                    method.filename = arg;
-                    PaletteReductionMethod.push_back(method);
-                    break;
+                    FILE* fp = fopen(arg, "rb");
+                    if(!fp)
+                    {
+                        std::perror(arg);
+                        opt_exit = true; exit_code = errno;
+                        break;
+                    }
+                    gdImagePtr im = gdImageCreateFromPng(fp);
+                    if(!im) { std::rewind(fp); im = gdImageCreateFromGif(fp); }
+                    if(!im) { std::rewind(fp); im = gdImageCreateFromWBMP(fp); }
+                    if(!im)
+                    {
+                        std::fprintf(stderr,
+                            "%s: Not a PNG, GIF or WBMP file! Cannot read palette.\n",
+                                arg);
+                        opt_exit = true; exit_code = 1;
+                    }
+                    else
+                    {
+                        if(gdImageTrueColor(im))
+                        {
+                            std::fprintf(stderr,
+                                "%s: Not a paletted picture! Will hastily use libGD to make a 256-color palette out of it regardless.\n",
+                                arg);
+                            gdImageTrueColorToPalette(im, 0, 256);
+                        }
+                        unsigned n_colors = gdImageColorsTotal(im);
+                        colors.reserve(n_colors);
+                        for(unsigned c=0; c<n_colors; ++c)
+                        {
+                            int r = gdImageRed(im,c);
+                            int g = gdImageGreen(im,c);
+                            int b = gdImageBlue(im,c);
+                            int a = gdImageAlpha(im,c);
+                            colors.push_back( gdTrueColorAlpha(r,g,b, a) );
+                        }
+                        if(verbose >= 1)
+                            std::fprintf(stderr, "Loaded %u colors from %s\n", n_colors, arg);
+                        gdImageDestroy(im);
+                    }
+                    std::fclose(fp);
+                    goto opt_Q_handled;
                 }
-                char *comma = std::strchr(arg, ',');
-                if(!comma)
+               {int r_dim=0;
+                int g_dim=0;
+                int b_dim=0;
+                // Try parse as RxGxB expression
+                char* q = arg;
+                while(*q>='0' && *q<='9') { r_dim = r_dim*10 + (*q++ - '0'); }
+                if(*q != 'x') goto not_rgb_Q; ++q;
+                while(*q>='0' && *q<='9') { g_dim = g_dim*10 + (*q++ - '0'); }
+                if(*q != 'x') goto not_rgb_Q; ++q;
+                while(*q>='0' && *q<='9') { b_dim = b_dim*10 + (*q++ - '0'); }
+                if(*q != '\0') goto not_rgb_Q;
+                if(r_dim < 2 || g_dim < 2 || b_dim < 2
+                || r_dim > 256 || g_dim > 256 || b_dim > 256)
+                {
                     std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
                 else
                 {
+                    for(int r=0; r<r_dim; ++r)
+                    {
+                        unsigned rr = (((r*2)*255/(r_dim-1)+1)/2) << 16;
+                        for(int g=0; g<g_dim; ++g)
+                        {
+                            unsigned gg = (((g*2)*255/(g_dim-1)+1)/2) << 8;
+                            unsigned rrgg = rr + gg;
+                            for(int b=0; b<b_dim; ++b)
+                            {
+                                unsigned bb = ((b*2)*255/(b_dim-1)+1)/2;
+                                colors.push_back(rrgg+bb);
+                            }
+                        }
+                    }
+                    goto opt_Q_handled;
+                }}
+            not_rgb_Q:;
+               {char *comma = std::strchr(arg, ',');
+                if(!comma)
+                {
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
+                else
+                {
+                opt_q_got_comma:;
                     *comma = '\0';
                     PaletteMethodItem method;
                     method.size = 0;
@@ -720,13 +875,32 @@ rate.\n\
                     DefinePaletteMethods(AddOption)
                     else
                     {
-                        std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                        /* Check if the name looks like a hex color */
+                        char* endpos = 0;
+                        long colorvalue = strtol(arg, &endpos, 16);
+                        if(comma == arg+6 && endpos == comma)
+                        {
+                            colors.push_back(colorvalue);
+                            arg = comma+1;
+                            comma = std::strchr(arg, ',');
+                            if(comma) goto opt_q_got_comma;
+                            colorvalue = strtol(arg, 0, 16);
+                            colors.push_back(colorvalue);
+                        }
+                        else
+                        {
+                            std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                            opt_exit = true; exit_code = 1;
+                        }
                     }
                     if(method.size)
                     {
                         long ncolors = strtol(comma+1, 0, 10);
-                        if(ncolors < 1 || ncolors > 65536)
+                        if(ncolors < 1 || ncolors > (1u<<24))
+                        {
                             std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
+                            opt_exit = true; exit_code = 1;
+                        }
                         else
                         {
                             method.size = ncolors;
@@ -734,6 +908,17 @@ rate.\n\
                         }
                     }
                     #undef AddOption
+                }}
+            opt_Q_handled:;
+                if(!colors.empty())
+                {
+                    if(verbose >= 1)
+                        std::fprintf(stderr, "Adding fixed palette of %u colors\n",
+                            (unsigned) colors.size());
+                    PaletteMethodItem method;
+                    method.size     = 0;
+                    method.entries.swap(colors);
+                    PaletteReductionMethod.push_back(method);
                 }
                 break;
             }
@@ -776,7 +961,7 @@ rate.\n\
                 {
                     std::fprintf(stderr,
                         "animmerger: Unrecognized method: %s\n", optarg);
-                    return -1;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
@@ -843,7 +1028,10 @@ rate.\n\
                     { DitherMatrixWidth = DitherMatrixHeight = 1;
                       DitherColorListSize = 1; }
                 if(errors)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither method selection: %s.\n", optarg_save.c_str());
+                    opt_exit = true; exit_code = 1;
+                }
                 break;
             }
 
@@ -855,6 +1043,7 @@ rate.\n\
                 if(tmp < 0 || tmp >= 256.0)
                 {
                     std::fprintf(stderr, "animmerger: Bad dither error multiplication value: %g. Valid range: 0..1, though 0..255 is permitted.\n", tmp);
+                    opt_exit = true; exit_code = 1;
                     DitherErrorFactor = 1.0;
                 }
                 dithering_configured = true;
@@ -867,9 +1056,15 @@ rate.\n\
                 int dx,dy,dt;
                 int result = sscanf(arg, "%d,%d,%d", &dx,&dy,&dt);
                 if(result < 2)
+                {
                     std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
                 else if(dx < 1 || dy < 1 || dx*dy > 65536)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither matrix size: %dx%d.\n", dx,dy);
+                    opt_exit = true; exit_code = 1;
+                }
                 else
                 {
                     DitherMatrixWidth  = dx;
@@ -878,7 +1073,10 @@ rate.\n\
                 if(result >= 3)
                 {
                     if(dt < -64 || dt > 64 || dt == -1 || dt == 0)
+                    {
                         std::fprintf(stderr, "animmerger: Bad temporal dither length: %d. Valid range is -64..-2 and +1..+64, where +1 disables temporal dithering.\n", dt);
+                        opt_exit = true; exit_code = 1;
+                    }
                     else if(dt < 0)
                     {
                         TemporalDitherSize = -dt;
@@ -902,6 +1100,7 @@ rate.\n\
                 {
                     std::fprintf(stderr, "animmerger: Bad dither color list size: %ld. Valid range: 1..65536\n", tmp);
                     DitherColorListSize = 0;
+                    opt_exit = true; exit_code = 1;
                 }
                 dithering_configured = true;
                 break;
@@ -915,15 +1114,24 @@ rate.\n\
                 int result = sscanf(arg, "%lf,%ld,%ld", &contrast,&recursionlimit,&changeslimit);
                 DitherCombinationContrast = -1.0; // re-enable heuristic.
                 if(result < 1)
+                {
                     std::fprintf(stderr, "animmerger: Syntax error in '%s'\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
                 else if(contrast < 0.0 || contrast > 3.0)
+                {
                     std::fprintf(stderr, "animmerger: Bad dither contrast parameter: %g. Valid range: 0..3\n", contrast);
+                    opt_exit = true; exit_code = 1;
+                }
                 else
                     DitherCombinationContrast = contrast;
                 if(result >= 2)
                 {
                     if(recursionlimit < 1)
+                    {
                         std::fprintf(stderr, "animmerger: Bad dither combination limit: %ld\n", recursionlimit);
+                        opt_exit = true; exit_code = 1;
+                    }
                     else
                         DitherCombinationRecursionLimit = recursionlimit;
                     if(result >= 3)
@@ -932,7 +1140,10 @@ rate.\n\
                             { DitherCombinationChangesLimit = ~0u;
                               DitherCombinationAllowSame    = false; }
                         else if(changeslimit < 1)
+                        {
                             std::fprintf(stderr, "animmerger: Bad dither combination changes limit: %ld\n", changeslimit);
+                            opt_exit = true; exit_code = 1;
+                        }
                         else
                         {
                             DitherCombinationChangesLimit = changeslimit;
@@ -1005,8 +1216,11 @@ rate.\n\
                          || std::strcmp(optarg, "0") == 0)
                         SaveGif = 0;
                     else
+                    {
                         std::fprintf(stderr, "animmerger: Invalid parameter to --gif: %s. Allowed values: auto, always, never\n",
                             optarg);
+                        opt_exit = true; exit_code = 1;
+                    }
                 }
                 else
                     SaveGif = 1;
@@ -1042,12 +1256,12 @@ rate.\n\
                 {
                     std::fprintf(stderr, "animmerger: Bad dither gamma parameter: %g. Valid range: > 0\n", tmp);
                     DitherGamma = 1.0;
+                    opt_exit = true; exit_code = 1;
                 }
                 break;
             }
         }
     }
-
     SetColorTransformations();
 
     if(!color_compare_formula.empty())
@@ -1114,8 +1328,13 @@ rate.\n\
             "            patented by Adobe Systems Incorporated (US patent 6606166).\n"
             "            And due to that patent, this method cannot be implemented\n"
             "            in free software. Method patents are annoying, we all know.\n");
-        return -1;
+        opt_exit = true;
+        exit_code = -1;
     }
+
+    if(opt_exit)
+        return exit_code;
+
 
     switch(Dithering)
     {
@@ -1197,10 +1416,17 @@ rate.\n\
             for(size_t b = PaletteReductionMethod.size(), a=0; a<b; ++a)
             {
                 if(a) std::printf(", followed by ");
-                if(!PaletteReductionMethod[a].filename.empty())
+                if(!PaletteReductionMethod[a].entries.empty())
                 {
-                    std::printf("load from file: %s",
-                        PaletteReductionMethod[a].filename.c_str());
+                    unsigned n_colors = PaletteReductionMethod[a].entries.size();
+                    std::printf("fixed palette of %u colors", n_colors);
+                    if(verbose >= 2)
+                    {
+                        std::printf(":");
+                        for(unsigned c=0; c<n_colors; ++c)
+                            std::printf(" %06X",
+                                (unsigned) PaletteReductionMethod[a].entries[c]);
+                    }
                     continue;
                 }
                 switch(PaletteReductionMethod[a].method)
@@ -1319,6 +1545,8 @@ rate.\n\
     }
 
     VecType<uint32> pixels;
+
+    estimated_num_frames = argc-optind;
 
     for(int a=optind; a<argc; ++a)
     {
