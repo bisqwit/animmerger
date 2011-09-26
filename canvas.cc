@@ -642,6 +642,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         0x343434, // gray
         0x7D7D7D, // gray2
         0xD8D8D8); // gray4
+    CurrentPalette.Analyze();
     return;
     #endif
     #if CGA16mode
@@ -662,6 +663,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
         0xE3CB1F, // 1101
         0xFF84FF, // 1110
         0xFFFFFF); // 1111
+    CurrentPalette.Analyze();
     return;
     #endif
 

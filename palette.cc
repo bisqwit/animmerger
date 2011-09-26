@@ -286,7 +286,7 @@ void Palette::SetHardcoded(unsigned n, ...)
         AddPaletteRGB(val);
     }
     va_end(ap);
-    Analyze();
+    //Analyze();
 }
 
 void Palette::AddPaletteRGB(uint32 val)
@@ -322,5 +322,22 @@ Palette Palette::GetSlice(unsigned begin, unsigned count) const
 {
     Palette result;
     result.Data.assign( Data.begin()+begin, Data.begin()+begin+count );
+    return result;
+}
+
+Palette Palette::GetTwoColors(unsigned color1, unsigned color2) const
+{
+    Palette result;
+    result.Data.push_back(Data[color1]);
+    result.Data.push_back(Data[color2]);
+    return result;
+}
+Palette Palette::GetFourColors(unsigned c1,unsigned c2,unsigned c3,unsigned c4) const
+{
+    Palette result;
+    result.Data.push_back(Data[c1]);
+    result.Data.push_back(Data[c2]);
+    result.Data.push_back(Data[c3]);
+    result.Data.push_back(Data[c4]);
     return result;
 }
