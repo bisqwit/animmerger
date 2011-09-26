@@ -248,7 +248,7 @@ Output options:\n\
      Reduce palette using method (diversity/neuquant). See full help for details.\n\
  --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
- --quantize, -Q <R>x<G>x<B>\n\
+ --quantize, -Q <R>x<G>x<B>[x<I>]\n\
      Set a regular RGB palette with given dimensions (e.g. 6x8x5).\n\
  --dithmethod, -D <method>[,<method>]\n\
      Select dithering method (ky/y2/floyd). See full help for details.\n";
@@ -257,11 +257,12 @@ Output options:\n\
      Reduce palette, see instructions below\n\
  --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
- --quantize, -Q <R>x<G>x<B>\n\
+ --quantize, -Q <R>x<G>x<B>[x<I>]\n\
      Set a regular RGB palette with given dimensions.\n\
      Examples: -Q2x2x2 (8 color RGB extremes)\n\
                -Q6x6x6 (so called web-safe palette)\n\
                -Q6x8x5, -Q6x7x6, -Q8x8x4, -Q7x9x4 (some ~256 color palettes)\n\
+               -Q2x2x2x2 (8 color RGB extremes at 2 intensity levels)\n\
  --dithmethod, -D <method>[,<method>]\n\
      Select dithering method (see full help)\n";
         if(v>=2)O << "\
@@ -823,13 +824,19 @@ rate.\n\
                {int r_dim=0;
                 int g_dim=0;
                 int b_dim=0;
-                // Try parse as RxGxB expression
+                int i_dim=1;
+                // Try parse as RxGxB or RxGxBxI expression
                 char* q = arg;
                 while(*q>='0' && *q<='9') { r_dim = r_dim*10 + (*q++ - '0'); }
                 if(*q != 'x') goto not_rgb_Q; ++q;
                 while(*q>='0' && *q<='9') { g_dim = g_dim*10 + (*q++ - '0'); }
                 if(*q != 'x') goto not_rgb_Q; ++q;
                 while(*q>='0' && *q<='9') { b_dim = b_dim*10 + (*q++ - '0'); }
+                if(*q == 'x')
+                {
+                    i_dim = 0; ++q;
+                    while(*q>='0' && *q<='9') { i_dim = i_dim*10 + (*q++ - '0'); }
+                }
                 if(*q != '\0') goto not_rgb_Q;
                 if(r_dim < 2 || g_dim < 2 || b_dim < 2
                 || r_dim > 256 || g_dim > 256 || b_dim > 256)
@@ -839,17 +846,22 @@ rate.\n\
                 }
                 else
                 {
-                    for(int r=0; r<r_dim; ++r)
+                    for(int i=0; i<i_dim; ++i)
                     {
-                        unsigned rr = (((r*2)*255/(r_dim-1)+1)/2) << 16;
-                        for(int g=0; g<g_dim; ++g)
+                        int i_base = (i+0)*256 / i_dim;
+                        int i_max  = (i+1)*256 / i_dim - i_base - 1;
+                        for(int r=0; r<r_dim; ++r)
                         {
-                            unsigned gg = (((g*2)*255/(g_dim-1)+1)/2) << 8;
-                            unsigned rrgg = rr + gg;
-                            for(int b=0; b<b_dim; ++b)
+                            unsigned rr = (i_base + ((r*2)*i_max/(r_dim-1)+1)/2) << 16;
+                            for(int g=0; g<g_dim; ++g)
                             {
-                                unsigned bb = ((b*2)*255/(b_dim-1)+1)/2;
-                                colors.push_back(rrgg+bb);
+                                unsigned gg = (i_base + ((g*2)*i_max/(g_dim-1)+1)/2) << 8;
+                                unsigned rrgg = rr + gg;
+                                for(int b=0; b<b_dim; ++b)
+                                {
+                                    unsigned bb = (i_base + ((b*2)*i_max/(b_dim-1)+1)/2) << 0;
+                                    colors.push_back(rrgg+bb);
+                                }
                             }
                         }
                     }
