@@ -32,9 +32,21 @@ public:
     static double MakeRGB(const double* vars)
     {
         int r = vars[0], g = vars[1], b = vars[2];
-        if(r < 0) r = 0; if(r > 255) r = 255;
-        if(g < 0) g = 0; if(g > 255) g = 255;
-        if(b < 0) b = 0; if(b > 255) b = 255;
+        int l = r*299 + g*587 + b*114;
+        if(l <= 0)        return double( 0x000000 );
+        if(l >= 1000*255) return double( 0xFFFFFF );
+        double ll = l / 255e3, ss = 1.0;
+        for(unsigned n=0; n<3; ++n)
+        {
+            if(vars[n] > 255.0)    ss = std::min(ss, (ll-1.0) / (ll - vars[n]/255.0));
+            else if(vars[n] < 0.0) ss = std::min(ss,     ll   / (ll - vars[n]/255.0));
+        }
+        if(ss != 1.0)
+        {
+            r = ((r/255.0 - ll) * ss + ll) * 255;
+            g = ((g/255.0 - ll) * ss + ll) * 255;
+            b = ((b/255.0 - ll) * ss + ll) * 255;
+        }
         return double( (r<<16) + (g<<8) + (b) );
     }
     CanvasFunctionParser()
