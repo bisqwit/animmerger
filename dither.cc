@@ -188,7 +188,6 @@ namespace
 
         MixingPlan result;
         GammaColorVec so_far(0.0);
-        unsigned proportion_total = 0;
 
         while(result.size() < GenerationLimit)
         {
@@ -197,14 +196,18 @@ namespace
 
             double least_penalty = -1;
 
+            unsigned proportion_total = result.size();
             for(unsigned i=0; i<NumCombinations; ++i)
             {
                 unsigned count = pal.Combinations[i].indexlist.size();
-                const unsigned max_test_count_comb =
+                unsigned max_test_count_comb =
                     count==1
                         ? (proportion_total ? proportion_total : 1)
                         : std::min(proportion_total,
                                    (unsigned)GenerationLimit-proportion_total-count);
+
+                if(proportion_total + max_test_count_comb*count > GenerationLimit)
+                    max_test_count_comb = (GenerationLimit - proportion_total) / count;
 
                 GammaColorVec add = pal.Combinations[i].combination.gammac * double(count);
                 for(unsigned p=1; p<=max_test_count_comb; p+=p, add+=add)
@@ -222,8 +225,6 @@ namespace
             for(unsigned i=0; i<count; ++i)
                 result.resize(result.size() + chosen_amount,
                               pal.Combinations[chosen].indexlist[i]);
-
-            proportion_total += chosen_amount*count;
 
             so_far += pal.Combinations[chosen].combination.gammac * double(chosen_amount*count);
         }
