@@ -108,7 +108,7 @@ static const struct option long_options[] =
     {"ditherror",  1,0,5001},  {"de",1,0,5001},
     {"dithmatrix", 1,0,5002},  {"dm",1,0,5002},
     {"dithcount",  1,0,5003},  {"dc",1,0,5003},
-    {"dithcombine",1,0,5004}, {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
+    {"dithcombine",1,0,5004},  {"dr",1,0,5004}, {"dithcontrast",1,0,5004},
     {"deltae",     2,0,5005},  {"cie",2,0,5005},
     {"gamma",      1,0,'G'},
     {"output",     1,0,'o'},
@@ -183,10 +183,21 @@ public:
             argv3.push_back(p);
         }}//end scope for argv2
 
+        std::vector<std::string> result
+            ( RealParseOptions(argv3.size(), &argv3[0]) );
+
+        for(auto j: argv3) delete[] j;
+        return result;
+    }
+
+private:
+    std::vector<std::string>
+        RealParseOptions(int argc, char** argv)
+    {
         for(;;)
         {
             int option_index = 0;
-            int c = getopt_long(argv3.size(), &argv3[0], "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:o:", long_options, &option_index);
+            int c = getopt_long(argc, argv, "hVm:b:p:l:B:f:r:a:g::vyu:Q:G:D:o:", long_options, &option_index);
             if(c == -1) break;
             switch(c)
             {
@@ -1367,11 +1378,8 @@ rate.\n\
                 }
             }
         }
-        std::vector<std::string> result;
-        for(size_t a = optind; a<argv3.size(); ++a)
-            result.push_back( argv3[a] );
-        for(auto j: argv3) delete[] j;
-        return result;
+
+        return std::vector<std::string>( argv+optind, argv+argc );
     }
 };
 
