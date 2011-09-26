@@ -674,7 +674,7 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     #endif
     #if VICIImode
     // Commodore 64 palette
-    CurrentPalette.SetHardcoded(15,
+    CurrentPalette.SetHardcoded(16,
         0x000000,
         0xFFFFFF,
         0x894036,
@@ -1642,6 +1642,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_BBCMicro(
         return baseim; // 8-color mode. No palette trickery needed.
     }
 
+    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
     const unsigned choose_colors = wid < 480 ? 4 : 2;
 
     #pragma omp parallel for schedule(static,4)
@@ -1708,11 +1709,25 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_BBCMicro(
                             {
                                 output = FindBestMixingPlan(input, pal);
                             }
-                            // Mix the colors together
+                        #if 1
+                            // Mix the colors together and compare the result to original.
                             GammaColorVec our_sum(0.0);
                             for(auto a: output) our_sum += pal.GetMeta(a).gammac;
                             GammaColorVec combined = our_sum * (1/double(output.size()));
-                            av.Cumulate( ColorCompare( input, ColorInfo(combined) ) );
+                            av.Cumulate( ColorCompare( input, ColorInfo(combined) ) , 2 );
+                        #endif
+                        #if 1
+                            // To prevent the ditherer being _too_ optimistic,
+                            // also add the raw dithered pixel to the equation
+                            unsigned pattern_value =
+                                DitheringMatrix
+                                    [ ((y%DitherMatrixHeight)*DitherMatrixWidth
+                                     + (x%DitherMatrixWidth)
+                                       )// % (DitherMatrixHeight*DitherMatrixWidth)
+                                    ];
+                            int color = output[ pattern_value * output.size() / max_pattern_value ];
+                            av.Cumulate( ColorCompare( input, pal.GetMeta(color) ) );
+                        #endif
                         }
                         double diff = av.GetValue();
                         if(diff < 0)

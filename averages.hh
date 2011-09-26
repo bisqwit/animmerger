@@ -27,6 +27,7 @@ public:
     virtual void Cumulate(double value) { sum += value; ++n;
     //printf("Now %g, %u\n", sum, n);
     }
+    void Cumulate(double value, unsigned weight) { sum += value*weight; n+=weight; }
     virtual double GetValue() const { return sum / n; }
 };
 
