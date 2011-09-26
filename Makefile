@@ -5,6 +5,7 @@ ARCHDIR=archives/
 ARCHFILES=\
 	quantize.cc quantize.hh \
 	palette.cc palette.hh \
+	presets.cc presets.hh \
 	canvas.cc canvas.hh \
 	dither.cc dither.hh \
 	align.cc align.hh \
@@ -54,7 +55,7 @@ CPPFLAGS += -Ifparser
 OBJS=\
 	main.o canvas.o pixel.o align.o \
 	palette.o quantize.o dither.o \
-	mask.o
+	mask.o presets.o
 PROGS=\
 	animmerger
 
