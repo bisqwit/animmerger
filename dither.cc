@@ -547,6 +547,7 @@ MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
         case Dither_Yliluoma1:
             return FindBestMixingPlan_Yliluoma1<false>(input, pal);
         case Dither_Yliluoma1Iterative:
+        default:
             return FindBestMixingPlan_Yliluoma1<true>(input, pal);
         case Dither_Yliluoma2:
             return FindBestMixingPlan_Yliluoma2(input, pal);
