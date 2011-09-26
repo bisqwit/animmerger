@@ -248,6 +248,8 @@ Output options:\n\
      Reduce palette using method (diversity/neuquant). See full help for details.\n\
  --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --quantize, -Q <R>x<G>x<B>\n\
+     Set a regular RGB palette with given dimensions (e.g. 6x8x5).\n\
  --dithmethod, -D <method>[,<method>]\n\
      Select dithering method (ky/y2/floyd). See full help for details.\n";
         if(v>=2)O << "\
@@ -255,6 +257,11 @@ Output options:\n\
      Reduce palette, see instructions below\n\
  --quantize, -Q <file>\n\
      Load palette from the given file (PNG or GIF, must be paletted)\n\
+ --quantize, -Q <R>x<G>x<B>\n\
+     Set a regular RGB palette with given dimensions.\n\
+     Examples: -Q2x2x2 (8 color RGB extremes)\n\
+               -Q6x6x6 (so called web-safe palette)\n\
+               -Q6x8x5, -Q6x7x6, -Q8x8x4, -Q7x9x4 (some ~256 color palettes)\n\
  --dithmethod, -D <method>[,<method>]\n\
      Select dithering method (see full help)\n";
         if(v>=2)O << "\
@@ -811,63 +818,98 @@ rate.\n\
                         gdImageDestroy(im);
                     }
                     std::fclose(fp);
+                    goto opt_Q_handled;
+                }
+               {int r_dim=0;
+                int g_dim=0;
+                int b_dim=0;
+                // Try parse as RxGxB expression
+                char* q = arg;
+                while(*q>='0' && *q<='9') { r_dim = r_dim*10 + (*q++ - '0'); }
+                if(*q != 'x') goto not_rgb_Q; ++q;
+                while(*q>='0' && *q<='9') { g_dim = g_dim*10 + (*q++ - '0'); }
+                if(*q != 'x') goto not_rgb_Q; ++q;
+                while(*q>='0' && *q<='9') { b_dim = b_dim*10 + (*q++ - '0'); }
+                if(*q != '\0') goto not_rgb_Q;
+                if(r_dim < 2 || g_dim < 2 || b_dim < 2
+                || r_dim > 256 || g_dim > 256 || b_dim > 256)
+                {
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
                 }
                 else
                 {
-                    char *comma = std::strchr(arg, ',');
-                    if(!comma)
+                    for(int r=0; r<r_dim; ++r)
                     {
-                        std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
-                        opt_exit = true; exit_code = 1;
+                        unsigned rr = (((r*2)*255/(r_dim-1)+1)/2) << 16;
+                        for(int g=0; g<g_dim; ++g)
+                        {
+                            unsigned gg = (((g*2)*255/(g_dim-1)+1)/2) << 8;
+                            unsigned rrgg = rr + gg;
+                            for(int b=0; b<b_dim; ++b)
+                            {
+                                unsigned bb = ((b*2)*255/(b_dim-1)+1)/2;
+                                colors.push_back(rrgg+bb);
+                            }
+                        }
                     }
+                    goto opt_Q_handled;
+                }}
+            not_rgb_Q:;
+               {char *comma = std::strchr(arg, ',');
+                if(!comma)
+                {
+                    std::fprintf(stderr, "animmerger: Invalid parameter to -Q: %s\n", arg);
+                    opt_exit = true; exit_code = 1;
+                }
+                else
+                {
+                opt_q_got_comma:;
+                    *comma = '\0';
+                    PaletteMethodItem method;
+                    method.size = 0;
+                    #define AddOption(optchar,name) \
+                        else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
+                            { method.size = 1; method.method = quant_##name; }
+                    if(false) {}
+                    DefinePaletteMethods(AddOption)
                     else
                     {
-                    opt_q_got_comma:;
-                        *comma = '\0';
-                        PaletteMethodItem method;
-                        method.size = 0;
-                        #define AddOption(optchar,name) \
-                            else if(strcmp(arg, #optchar) == 0 || strcasecmp(arg, #name) == 0) \
-                                { method.size = 1; method.method = quant_##name; }
-                        if(false) {}
-                        DefinePaletteMethods(AddOption)
+                        /* Check if the name looks like a hex color */
+                        char* endpos = 0;
+                        long colorvalue = strtol(arg, &endpos, 16);
+                        if(comma == arg+6 && endpos == comma)
+                        {
+                            colors.push_back(colorvalue);
+                            arg = comma+1;
+                            comma = std::strchr(arg, ',');
+                            if(comma) goto opt_q_got_comma;
+                            colorvalue = strtol(arg, 0, 16);
+                            colors.push_back(colorvalue);
+                        }
                         else
                         {
-                            /* Check if the name looks like a hex color */
-                            char* endpos = 0;
-                            long colorvalue = strtol(arg, &endpos, 16);
-                            if(comma == arg+6 && endpos == comma)
-                            {
-                                colors.push_back(colorvalue);
-                                arg = comma+1;
-                                comma = std::strchr(arg, ',');
-                                if(comma) goto opt_q_got_comma;
-                                colorvalue = strtol(arg, 0, 16);
-                                colors.push_back(colorvalue);
-                            }
-                            else
-                            {
-                                std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
-                                opt_exit = true; exit_code = 1;
-                            }
+                            std::fprintf(stderr, "animmerger: Unknown quantization mode: %s\n", arg);
+                            opt_exit = true; exit_code = 1;
                         }
-                        if(method.size)
-                        {
-                            long ncolors = strtol(comma+1, 0, 10);
-                            if(ncolors < 1 || ncolors > (1u<<24))
-                            {
-                                std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
-                                opt_exit = true; exit_code = 1;
-                            }
-                            else
-                            {
-                                method.size = ncolors;
-                                PaletteReductionMethod.push_back(method);
-                            }
-                        }
-                        #undef AddOption
                     }
-                }
+                    if(method.size)
+                    {
+                        long ncolors = strtol(comma+1, 0, 10);
+                        if(ncolors < 1 || ncolors > (1u<<24))
+                        {
+                            std::fprintf(stderr, "animmerger: Invalid palette size: %ld\n", ncolors);
+                            opt_exit = true; exit_code = 1;
+                        }
+                        else
+                        {
+                            method.size = ncolors;
+                            PaletteReductionMethod.push_back(method);
+                        }
+                    }
+                    #undef AddOption
+                }}
+            opt_Q_handled:;
                 if(!colors.empty())
                 {
                     if(verbose >= 1)
