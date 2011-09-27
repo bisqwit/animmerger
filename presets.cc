@@ -151,6 +151,25 @@ const decltype(presets) presets =
         }
     },
     { "cga16",
+/*
+    // composite cga (to be rendered on 640x200 monochrome mode)
+    CurrentPalette.SetHardcoded(15,
+        0x000000, // 0000
+        0x007A00, // 0001
+        0x1B33DF, // 0010
+        0x01ADDE, // 0011
+        0x990580, // 0100
+        0x7F7F7F, // 0101, 1010
+        0xB538FF, // 0110
+        0x9AB2FF, // 0111
+        0x644C00, // 1000
+        0x49C600, // 1001
+        0x65F97E, // 1011
+        0xFD5120, // 1100
+        0xE3CB1F, // 1101
+        0xFF84FF, // 1110
+        0xFFFFFF); // 1111
+*/
         {
             "Special 16-color CGA mode",
                 "Recommended resolution for authenticity: 160x200",

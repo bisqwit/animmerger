@@ -93,11 +93,6 @@ public:
         A im, B& NumSlots, size_t round, unsigned x0,unsigned y0,unsigned x1,unsigned y1);
 
     template<bool TransformColors, bool UseErrorDiffusion>
-    gdImagePtr CreateFrame_Palette_Dither_CGA16(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei);
-
-    template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_With(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei,

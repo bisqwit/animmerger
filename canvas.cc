@@ -16,9 +16,7 @@
 #include <omp.h>
 #endif
 
-#ifndef CGA16mode
-# define CGA16mode 0
-#endif
+bool CGA16mode = false;
 
 int pad_top=0, pad_bottom=0, pad_left=0, pad_right=0;
 
@@ -619,28 +617,6 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
 
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
-    #if CGA16mode
-    // composite cga (to be rendered on 640x200 monochrome mode)
-    CurrentPalette.SetHardcoded(15,
-        0x000000, // 0000
-        0x007A00, // 0001
-        0x1B33DF, // 0010
-        0x01ADDE, // 0011
-        0x990580, // 0100
-        0x7F7F7F, // 0101, 1010
-        0xB538FF, // 0110
-        0x9AB2FF, // 0111
-        0x644C00, // 1000
-        0x49C600, // 1001
-        0x65F97E, // 1011
-        0xFD5120, // 1100
-        0xE3CB1F, // 1101
-        0xFF84FF, // 1110
-        0xFFFFFF); // 1111
-    CurrentPalette.Analyze();
-    return;
-    #endif
-
     HistogramType Histogram = UsingTransformations
         ? CountColors<true>(method, nframes)
         : CountColors<false>(method, nframes);
@@ -718,12 +694,6 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     {
         if(Diffusion == Diffusion_None)
         {
-          #if CGA16mode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_CGA16<true,false>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_CGA16<false,false>(screen, frameno, wid, hei);
-          #else
             if(!DitheringSections.empty())
               if(UsingTransformations)
                 im = CreateFrame_Palette_Dither_Sections<true,false>(screen, frameno, wid, hei);
@@ -734,16 +704,9 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                 im = CreateFrame_Palette_Dither<true,false>(screen, frameno, wid, hei);
               else
                 im = CreateFrame_Palette_Dither<false,false>(screen, frameno, wid, hei);
-          #endif
         }
         else
         {
-          #if CGA16mode
-            if(UsingTransformations)
-              im = CreateFrame_Palette_Dither_CGA16<true,true>(screen, frameno, wid, hei);
-            else
-              im = CreateFrame_Palette_Dither_CGA16<false,true>(screen, frameno, wid, hei);
-          #else
             if(!DitheringSections.empty())
               if(UsingTransformations)
                 im = CreateFrame_Palette_Dither_Sections<true,true>(screen, frameno, wid, hei);
@@ -754,7 +717,6 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
                 im = CreateFrame_Palette_Dither<true,true>(screen, frameno, wid, hei);
               else
                 im = CreateFrame_Palette_Dither<false,true>(screen, frameno, wid, hei);
-          #endif
         }
     }
     else
@@ -1205,6 +1167,73 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
         }
     }
 
+    if(CGA16mode)
+    {
+        static const struct cga16_palette_initializer
+        {
+            unsigned colors[16*5];
+            cga16_palette_initializer()
+            {
+                double hue = (35.0 + 0.0)*0.017453239;
+                double sinhue = std::sin(hue), coshue = std::cos(hue);
+                for(unsigned i=0; i<16; ++i)
+                    for(unsigned j=0; j<5; ++j)
+                    {
+                        unsigned colorBit4 = (i&1)>>0;
+                        unsigned colorBit3 = (i&2)>>1;
+                        unsigned colorBit2 = (i&4)>>2;
+                        unsigned colorBit1 = (i&8)>>3;
+                        //calculate lookup table   
+                        double I = 0, Q = 0, Y;
+                        I += (double) colorBit1;
+                        Q += (double) colorBit2;
+                        I -= (double) colorBit3;
+                        Q -= (double) colorBit4;
+                        Y  = (double) j / 4.0; //calculated avarage is over 4 bits
+
+                        double pixelI = I * 1.0 / 3.0; //I* tvSaturation / 3.0
+                        double pixelQ = Q * 1.0 / 3.0; //Q* tvSaturation / 3.0
+                        I = pixelI*coshue + pixelQ*sinhue;
+                        Q = pixelQ*coshue - pixelI*sinhue;
+
+                        double R = Y + 0.956*I + 0.621*Q; if (R < 0.0) R = 0.0; if (R > 1.0) R = 1.0;
+                        double G = Y - 0.272*I - 0.647*Q; if (G < 0.0) G = 0.0; if (G > 1.0) G = 1.0;
+                        double B = Y - 1.105*I + 1.702*Q; if (B < 0.0) B = 0.0; if (B > 1.0) B = 1.0;
+                        unsigned char rr = R*0xFF, gg = G*0xFF, bb = B*0xFF;
+                        colors[(j<<4)|i] = (rr << 16) | (gg << 8) | bb;
+                    }
+            }
+        } cga16_palette;
+
+        // FIXME: Padding is not implemented or handled properly here.
+        gdImagePtr im2 = gdImageCreateTrueColor(wid*4, hei);
+        std::vector<unsigned char> cga16temp(hei*(wid*4+3), 0);
+        #pragma omp parallel for schedule(static,2)
+        for(unsigned y=0; y<hei; ++y)
+        {
+            // Update colors 10..14 to 11..15 because pattern 1010 was skipped over in the palette
+            for(unsigned x=0; x<wid; ++x)
+            {
+                unsigned i = gdImageGetPixel(im, x,y);
+                if(i >= 10) gdImageSetPixel(im, x,y, i+1);
+            }
+            unsigned* temp = &cga16temp[y*(wid*4+3)];
+            for(unsigned x=0; x<wid*4; ++x)
+                temp[x+2] = (( gdImageGetPixel(im,x>>2,y) >> (3-(x&3)) ) & 1) << 4;
+            for(unsigned i=0, x=0; x<wid; ++x)
+            {
+                unsigned v = gdImageGetPixel(im,x,y);
+                for(unsigned c=0; c<4; ++c)
+                {
+                    unsigned p = v | (temp[i] + temp[i+1] + temp[i+2] + temp[i+3]);
+                    gdImageSetPixel(im2, i++, y,  cga16_palette.colors[p]);
+                }
+            }
+        }
+        gdImageDestroy(im);
+        return im2;
+    }
+
     return im;
 }
 
@@ -1216,81 +1245,6 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither(
     return
         CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
         (screen, frameno, wid, hei, CurrentPalette);
-}
-
-
-template<bool TransformColors, bool UseErrorDiffusion>
-gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_CGA16(
-    const VecType<uint32>& screen,
-    unsigned frameno, unsigned wid, unsigned hei)
-{
-    static const struct cga16_palette_initializer
-    {
-        unsigned colors[16*5];
-        cga16_palette_initializer()
-        {
-            double hue = (35.0 + 0.0)*0.017453239;
-            double sinhue = std::sin(hue), coshue = std::cos(hue);
-            for(unsigned i=0; i<16; ++i)
-                for(unsigned j=0; j<5; ++j)
-                {
-                    unsigned colorBit4 = (i&1)>>0;
-                    unsigned colorBit3 = (i&2)>>1;
-                    unsigned colorBit2 = (i&4)>>2;
-                    unsigned colorBit1 = (i&8)>>3;
-                    //calculate lookup table   
-                    double I = 0, Q = 0, Y;
-                    I += (double) colorBit1;
-                    Q += (double) colorBit2;
-                    I -= (double) colorBit3;
-                    Q -= (double) colorBit4;
-                    Y  = (double) j / 4.0; //calculated avarage is over 4 bits
-
-                    double pixelI = I * 1.0 / 3.0; //I* tvSaturation / 3.0
-                    double pixelQ = Q * 1.0 / 3.0; //Q* tvSaturation / 3.0
-                    I = pixelI*coshue + pixelQ*sinhue;
-                    Q = pixelQ*coshue - pixelI*sinhue;
-
-                    double R = Y + 0.956*I + 0.621*Q; if (R < 0.0) R = 0.0; if (R > 1.0) R = 1.0;
-                    double G = Y - 0.272*I - 0.647*Q; if (G < 0.0) G = 0.0; if (G > 1.0) G = 1.0;
-                    double B = Y - 1.105*I + 1.702*Q; if (B < 0.0) B = 0.0; if (B > 1.0) B = 1.0;
-                    unsigned char rr = R*0xFF, gg = G*0xFF, bb = B*0xFF;
-                    colors[(j<<4)|i] = (rr << 16) | (gg << 8) | bb;
-                }
-        }
-    } cga16_palette;
-
-    gdImagePtr im =
-        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
-        (screen, frameno, wid, hei, CurrentPalette);
-
-    // FIXME: Padding is not implemented here.
-    gdImagePtr im2 = gdImageCreateTrueColor(wid*4, hei);
-    std::vector<unsigned char> cga16temp(hei*(wid*4+3), 0);
-    #pragma omp parallel for schedule(static,2)
-    for(unsigned y=0; y<hei; ++y)
-    {
-        // Update colors 10..14 to 11..15 because pattern 1010 was skipped over
-        for(unsigned x=0; x<wid; ++x)
-        {
-            unsigned i = gdImageGetPixel(im, x,y);
-            if(i >= 10) gdImageSetPixel(im, x,y, i+1);
-        }
-        unsigned* temp = &cga16temp[y*(wid*4+3)];
-        for(unsigned x=0; x<wid*4; ++x)
-            temp[x+2] = (( gdImageGetPixel(im,x>>2,y) >> (3-(x&3)) ) & 1) << 4;
-        for(unsigned i=0, x=0; x<wid; ++x)
-        {
-            unsigned v = gdImageGetPixel(im,x,y);
-            for(unsigned c=0; c<4; ++c)
-            {
-                unsigned p = v | (temp[i] + temp[i+1] + temp[i+2] + temp[i+3]);
-                gdImageSetPixel(im2, i++, y,  cga16_palette.colors[p]);
-            }
-        }
-    }
-    gdImageDestroy(im);
-    return im2;
 }
 
 #if 0
