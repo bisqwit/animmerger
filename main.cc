@@ -113,6 +113,7 @@ static const struct option long_options[] =
     {"gamma",      1,0,'G'},
     {"output",     1,0,'o'},
     {"transform",  1,0,6001},
+    {"padding",    1,0,6002},  {"margin",1,0,6002}, {"border",1,0,6002},
     {0,0,0,0}
 };
 class OptionParser
@@ -224,9 +225,9 @@ private:
                     if(v>=0)O << "\
 animmerger v"VERSION" - Copyright (C) 2011 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
-Usage: animmerger [<options>] <imagefile> [<...>]\n\
+Usage: animmerger [<options>] <imagefile> [...]\n\
 \n\
-Merges animation frames together with motion shifting.\n";
+Merges (stitches) animation frames together.\n";
                 if(v>=0)O << "\n\
 General options:\n";
                 if(v==0)O << "\
@@ -309,7 +310,11 @@ Image aligning options:\n";
      Disable automatic image aligner. Useful if you only want to\n\
      utilize the dithering and quantization features of animmerger,\n\
      or your images simply don't happen to form a nice 2D map.\n";
-                if(v>=0)O << "\n\
+                if(v==0)O << "\n\
+Output options:\n\
+ --output, -o <filename/pattern>\n\
+     Output to given filename. The filename may also be a pattern. (See longhelp for details.)\n";
+                if(v>=1)O << "\n\
 Output options:\n\
  --output, -o <filename/pattern>\n\
      Output to given filename. The filename may also be a pattern.\n\
@@ -326,7 +331,12 @@ Output options:\n\
      Default: auto. --gif without parameter defaults to always.\n\
      See below on details on when and how GIF files are written\n\
      depending on this option.\n";
-                if(v<2)O << "\
+                if(v==0)O << "\
+ --quantize, -Q <method>,<num_colors> or <file> or <R>x<G>x<B>[x<I>]\n\
+     Reduce/load/synthesize palette. See full help for details.\n\
+ --dithmethod, -D <method>[,<method>]\n\
+     Select dithering method(s) (ky/y2/floyd). See full help for details.\n";
+                if(v==1)O << "\
  --quantize, -Q <method>,<num_colors>\n\
      Reduce palette using method (diversity/neuquant). See full help for details.\n\
  --quantize, -Q <file>\n\
@@ -334,7 +344,7 @@ Output options:\n\
  --quantize, -Q <R>x<G>x<B>[x<I>]\n\
      Set a regular RGB palette with given dimensions (e.g. 6x8x5).\n\
  --dithmethod, -D <method>[,<method>]\n\
-     Select dithering method (ky/y2/floyd). See full help for details.\n";
+     Select dithering method(s) (ky/y2/floyd). See full help for details.\n";
                 if(v>=2)O << "\
  --quantize, -Q <method>,<num_colors>\n\
      Reduce palette, see instructions below\n\
@@ -380,6 +390,8 @@ Output options:\n\
  --gamma [=<value>]\n\
      Select gamma to use in dithering. Default: 1.0\n";
                 if(v>=2)O << "\
+ --padding <top>,<bottom>,<left>,<right>\n\
+     Add a fixed-size margin to each image frame.\n\
  --transform { r= | g= | b= }<function>\n\
      Transform red, green and blue color channel values according\n\
      to the given mathematical function. See details below.\n";
@@ -1310,6 +1322,26 @@ rate.\n\
                     else
                         ColorComparing = Compare_CIE76_DeltaE;
                     break;
+                case 6002: // --padding, --border, --margin
+                {
+                    char* arg = optarg;
+                    bool error = false;
+                    pad_top=pad_bottom=pad_left=pad_right=0;
+                    while(*arg >= '0' && *arg <= '9') { pad_top = pad_top*10 + (*arg++-'0'); }
+                    if(*arg != ',') error=true; else ++arg;
+                    while(*arg >= '0' && *arg <= '9') { pad_bottom = pad_bottom*10 + (*arg++-'0'); }
+                    if(*arg != ',') error=true; else ++arg;
+                    while(*arg >= '0' && *arg <= '9') { pad_left = pad_left*10 + (*arg++-'0'); }
+                    if(*arg != ',') error=true; else ++arg;
+                    while(*arg >= '0' && *arg <= '9') { pad_right = pad_right*10 + (*arg++-'0'); }
+                    if(*arg != '\0') error=true; else ++arg;
+                    if(error)
+                    {
+                        std::fprintf(stderr, "animmerger: Invalid parameter to --padding: %s.\n", optarg);
+                        opt_exit = true; exit_code = 1;
+                    }
+                    break;
+                }
 
                 case 'v':
                     ++verbose;
