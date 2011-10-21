@@ -271,9 +271,8 @@ struct Palette
     int    GetCombinationLuma(unsigned index) const { return Combinations[index].combination.luma; }
     const ColorInfo& GetCombinationMeta(unsigned index) const { return Combinations[index].combination; }
 
-    Palette GetSlice(unsigned offset, unsigned count) const;
-    Palette GetTwoColors(unsigned color1, unsigned color2) const;
-    Palette GetFourColors(unsigned,unsigned,unsigned,unsigned) const;
+    void AddColorFrom(const Palette& b, unsigned index);
+    void ReplaceColorFrom(unsigned myindex, const Palette& b, unsigned index);
 
     void AddPaletteRGB(uint32 p);
 public:

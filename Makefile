@@ -64,7 +64,10 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++0x -fopenmp
+CXXFLAGS += -std=c++0x
+#CXXFLAGS += -O1 -fno-inline
+CXXFLAGS += -fopenmp
+#CXXFLAGS += -fno-openmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 CPPFLAGS += -DFP_USE_THREAD_SAFE_EVAL
 CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
@@ -86,23 +89,8 @@ LDLIBS += -lm
 
 all: $(PROGS) doc/README.html
 
-animmerger: $(OBJS) $(FPOBJS)
+animmerger1b: $(OBJS) $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-
-animmerger_nes: \
-		main.o pixel.o align.o palette.o \
-		quantize.o dither.o mask.o \
-		canvas_nes.o $(FPOBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-animmerger_cga16: \
-		main.o pixel.o align.o palette.o \
-		quantize.o dither.o mask.o \
-		canvas_cga16.o $(FPOBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
-canvas_nes.o: canvas.cc
-	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DNESmode=1
-canvas_cga16.o: canvas.cc
-	$(CXX) $(CXXFLAGS) -o $@ -c $< $(CPPFLAGS) -DCGA16mode=1
 
 doc/README.html: doc/docmaker.php progdesc.php Makefile
 	php -q "$<" "$(ARCHNAME)" > "$@"

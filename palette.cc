@@ -318,26 +318,11 @@ const double* GetIlluminant()
     }
 }
 
-Palette Palette::GetSlice(unsigned begin, unsigned count) const
+void Palette::AddColorFrom(const Palette& b, unsigned index)
 {
-    Palette result;
-    result.Data.assign( Data.begin()+begin, Data.begin()+begin+count );
-    return result;
+    Data.push_back( b.Data[index] );
 }
-
-Palette Palette::GetTwoColors(unsigned color1, unsigned color2) const
+void Palette::ReplaceColorFrom(unsigned myindex, const Palette& b, unsigned index)
 {
-    Palette result;
-    result.Data.push_back(Data[color1]);
-    result.Data.push_back(Data[color2]);
-    return result;
-}
-Palette Palette::GetFourColors(unsigned c1,unsigned c2,unsigned c3,unsigned c4) const
-{
-    Palette result;
-    result.Data.push_back(Data[c1]);
-    result.Data.push_back(Data[c2]);
-    result.Data.push_back(Data[c3]);
-    result.Data.push_back(Data[c4]);
-    return result;
+    Data[myindex] =  b.Data[index];
 }

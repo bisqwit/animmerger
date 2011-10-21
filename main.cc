@@ -1351,7 +1351,7 @@ rate.\n\
                             if(*arg != '=') { error=true; break; } ++arg;
                             while(*arg >= '0' && *arg <= '9') { section.combination_limit = section.combination_limit*10 + (*arg++-'0'); }
                         }
-                        if(arg != comma) { error=true; break; }
+                        if(comma ? arg != comma : *arg) { error=true; break; }
                         DitheringSections.push_back(section);
                         if(!comma) break;
                         optarg = arg = comma+1;

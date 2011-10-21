@@ -39,6 +39,7 @@ std::vector<unsigned> CreatePowerofTwoDitheringMatrix(unsigned Width, unsigned H
             if(M==0 || (M > L && L != 0))
             {
                 unsigned xc = x ^ (y<<M>>L), yc = y;
+                //if(M != L) xc ^= (y&1);
                 for(unsigned bit=0; bit < M+L; )
                 {
                     v |= ((yc >> --ymask)&1) << bit++;
@@ -49,6 +50,7 @@ std::vector<unsigned> CreatePowerofTwoDitheringMatrix(unsigned Width, unsigned H
             else
             {
                 unsigned xc = x, yc = y ^ (x<<L>>M);
+                //if(M != L) yc ^= (x&1);
                 for(unsigned bit=0; bit < M+L; )
                 {
                     v |= ((xc >> --xmask)&1) << bit++;
@@ -58,6 +60,7 @@ std::vector<unsigned> CreatePowerofTwoDitheringMatrix(unsigned Width, unsigned H
             }
             result.push_back(v);
         }
+    if(verbose >= 3)
 
     if(Height != RoundedHeight
     || Width  != RoundedWidth)
@@ -89,6 +92,19 @@ std::vector<unsigned> CreatePowerofTwoDitheringMatrix(unsigned Width, unsigned H
                 ++n_missing;
         }
     }
+
+    if(verbose >= 3)
+    {
+        fprintf(stderr, "%ux%u Dithering matrix generated:\n", Width,Height);
+        for(unsigned p=0, y=0; y<Height; ++y)
+        {
+            fprintf(stderr, "    ");
+            for(unsigned x=0; x<Width; ++x, ++p)
+                fprintf(stderr, "%5u", result[p]);
+            fprintf(stderr, "\n");
+        }
+    }
+
     return result;
 }
 
@@ -544,6 +560,10 @@ namespace
  */
 MixingPlan FindBestMixingPlan(const ColorInfo& input, const Palette& pal)
 {
+    if(pal.Size() <= 1)
+    {
+        return MixingPlan(1, 0);
+    }
     switch(Dithering)
     {
         case Dither_Yliluoma1:
@@ -562,8 +582,9 @@ void Palette::Analyze()
 {
     const unsigned PaletteSize = Data.size();
     Combinations.clear();
+    CombinationTree = KDTree<unsigned,4>();
 
-    if(!PaletteSize) return;
+    if(PaletteSize <= 1) return;
 
     // Sort palette by luma.
     // Create combinations for all pairs where the difference
@@ -684,6 +705,30 @@ void Palette::Analyze()
         0, GammaColorVec(0.0),
         DitherCombinationRecursionLimit,
         DitherCombinationChangesLimit); }
+
+#if 0 /* HACK: ADD SIMPLE GRADIENTS */
+    for(unsigned c1=0; c1<Size(); ++c1)
+    for(unsigned c2=0; c2<Size(); ++c2)
+    {
+        if(c1 == c2) continue;
+        for(unsigned e=1; e<4; ++e)
+        {
+            std::vector<unsigned> indices(e, c1);
+            for(unsigned d=1; d+e<=32; ++d)
+            {
+                indices.push_back(c2);
+                if(d < 4) continue;
+                // 1 timse c1, d times c2
+                GammaColorVec combined = Data[c1].gammac;
+                combined +=              Data[c2].gammac * double(d);
+                combined = combined * (1.0 / double(1 + d));
+                uint32 uncorrected_rgb = combined.GetGammaUncorrectedRGB();
+                Combinations.push_back(
+                    Palette::Combination(indices, uncorrected_rgb, combined) );
+            }
+        }
+    }
+#endif
 
     if(Dithering == Dither_Yliluoma1
     || Dithering == Dither_Yliluoma1Iterative)

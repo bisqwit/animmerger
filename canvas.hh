@@ -66,32 +66,31 @@ public:
 
     typedef std::pair<void*,int> ImgResult;
 
+    /* Simply rendering in true color, no dithering. */
     template<bool TransformColors>
     gdImagePtr CreateFrame_TrueColor(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 
+    /* Render into paletted format (implemented as truecolor, let libgd make it paletted) */
     template<bool TransformColors>
     gdImagePtr CreateFrame_Palette_Auto(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 
+    /* Render into palette format with dithering */
     template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 
+    /* Render into palette format with dithering using sections */
     template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_Sections(
         const VecType<uint32>& screen,
         unsigned frameno, unsigned wid, unsigned hei);
 
-    template<bool TransformColors, bool UseErrorDiffusion, typename A,typename B>
-    void CreateFrame_Palette_Dither_Sections_Rounds(
-        const VecType<uint32>& screen,
-        unsigned frameno, unsigned wid, unsigned hei,
-        A im, B& NumSlots, size_t round, unsigned x0,unsigned y0,unsigned x1,unsigned y1);
-
+    /* Helper: Render into palette format with dithering using supplied palette */
     template<bool TransformColors, bool UseErrorDiffusion>
     gdImagePtr CreateFrame_Palette_Dither_With(
         const VecType<uint32>& screen,

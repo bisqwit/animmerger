@@ -791,15 +791,30 @@ public:
     using parent::const_iterator;
 };
 
-static inline dither_cache_t& GetDitherCache()
+static inline dither_cache_t& GetDitherCache(size_t n, size_t of_n)
 {
   #ifdef _OPENMP
-    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*2 );
-    dither_cache_t& dither_cache = dither_caches[omp_get_thread_num()];
+    size_t limit = 2*omp_get_num_procs(), cur = omp_get_thread_num();
+    static omp_lock_t lock;
   #else
-    static dither_cache_t dither_cache;
+    size_t limit = 1, cur = 0;
   #endif
-    return dither_cache;
+    static std::map<size_t/*of_n*/, std::vector<dither_cache_t> > dither_caches;
+  #ifdef _OPENMP
+    omp_set_lock(&lock);
+  #endif
+    std::map<size_t, std::vector<dither_cache_t> >::iterator
+        i = dither_caches.lower_bound(of_n);
+    if(i == dither_caches.end() || i->first != of_n)
+    {
+        i = dither_caches.insert(i,
+            {of_n, std::vector<dither_cache_t>(of_n * limit)}
+                                );
+    }
+  #ifdef _OPENMP
+    omp_unset_lock(&lock);
+  #endif
+    return i->second[n + of_n * omp_get_thread_num()];
 }
 
 static inline uint32 DoCachedPixelTransform(
@@ -933,7 +948,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
     for(unsigned y=0; y<hei; ++y)
     {
         transform_caches_t& transform_cache = GetTransformCache();
-        dither_cache_t& dither_cache = GetDitherCache();
+        dither_cache_t& dither_cache = GetDitherCache(0,1);
 
         for(unsigned p=y*wid, x=0; x<wid; ++x)
         {
@@ -1217,7 +1232,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
                 unsigned i = gdImageGetPixel(im, x,y);
                 if(i >= 10) gdImageSetPixel(im, x,y, i+1);
             }
-            unsigned* temp = &cga16temp[y*(wid*4+3)];
+            unsigned char* temp = &cga16temp[y*(wid*4+3)];
             for(unsigned x=0; x<wid*4; ++x)
                 temp[x+2] = (( gdImageGetPixel(im,x>>2,y) >> (3-(x&3)) ) & 1) << 4;
             for(unsigned i=0, x=0; x<wid; ++x)
@@ -1246,112 +1261,6 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither(
         CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
         (screen, frameno, wid, hei, CurrentPalette);
 }
-
-#if 0
-template<bool TransformColors, bool UseErrorDiffusion>
-gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_TMS9918(
-    const VecType<uint32>& screen,
-    unsigned frameno, unsigned wid, unsigned hei)
-{
-    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
-
-    static Palette palettes[15*15];
-    static bool    inited = false;
-    if(!inited)
-    {
-        for(unsigned c1=0; c1<15; ++c1)
-        for(unsigned c2=0; c2<15; ++c2)
-        {
-            palettes[c1*15+c2] = CurrentPalette.GetTwoColors(c1,c2);
-            palettes[c1*15+c2].Analyze();
-        }
-        inited = true;
-    }
-    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*15*15 );
-
-    gdImagePtr im2 = gdImageCreate(wid,hei);
-    gdImageAlphaBlending(im2, false);
-    gdImageSaveAlpha(im2, true);
-    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
-    {
-        unsigned pix = CurrentPalette.GetColor(a);
-        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
-    }
-    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
-
-    gdImagePtr baseim =
-        CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
-        (screen, frameno, wid, hei, CurrentPalette);
-
-    /* For each 8x1 pixel region in the target image:
-     *
-     * Find the two colors that when combined, best
-     * represent the colors in this section.
-     * (Dither 8 pixels with full palette selection,
-     *  and from the result, choose the most common
-     *  2 colors.)
-     */
-
-    #pragma omp parallel for schedule(static,4)
-    for(unsigned y=0; y<hei; ++y)
-    {
-        transform_caches_t& transform_cache = GetTransformCache();
-        dither_cache_t& dither_cache = GetDitherCache();
-        for(unsigned bx=0; bx<wid; bx += 8)
-        {
-            unsigned ex = bx+8; if(ex > wid) ex = wid;
-
-            MixingPlan tally;
-            for(unsigned x=bx; x<ex; ++x)
-                tally.push_back(gdImageGetPixel(baseim, x,y));
-
-            // Now "tally" records the top colors for this 8x1 slot.
-            // Count how many times each color was used.
-           {std::map<unsigned,unsigned, std::less<unsigned>, FSBAllocator<int> > Solution;
-            for(auto a: tally) Solution[a] += 1;
-            // Get unique colors, and sort them according to commonness.
-            tally.clear();
-            for(auto a: Solution) tally.push_back(a.first);
-
-            std::sort(tally.begin(), tally.end(), [&](unsigned a,unsigned b)
-                { return Solution.find(a)->second > Solution.find(b)->second; });}
-
-            if(tally.size() < 2) tally.push_back( (tally[0] + 1) % 15 );
-
-            /* Now we have two colors. Render these eight pixels
-             * using a palette formed from these two colors.
-             */
-
-            //if(tally[0] > tally[1]) std::swap(tally[0], tally[1]);
-            unsigned bestmode = tally[0]*15 + tally[1];
-            const Palette& pal = palettes[bestmode];
-
-            dither_cache_t& dither_cache2 = dither_caches[
-                bestmode + 15*15*omp_get_thread_num() ];
-            for(unsigned x=bx; x<ex; ++x)
-            {
-                int color = GetMixColor<TransformColors,UseDitherCache>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
-                gdImageSetPixel(im2, x,y, tally[color]);
-            }
-        }
-    }
-
-    gdImageDestroy(baseim);
-
-    return im2;
-}
-#endif
-
-struct SectionConfiguration
-{
-    unsigned n_horiz;
-    unsigned n_vert;
-    struct Chosen
-    {
-        std::vector<unsigned> colors;
-    };
-    std::vector<Chosen> chosen; // For each section, the chosen colors
-};
 
 
 template<bool TransformColors, bool UseErrorDiffusion>
@@ -1386,246 +1295,285 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_Sections(
         return CreateFrame_Palette_Dither<TransformColors,UseErrorDiffusion> (screen,frameno,wid,hei);
     }}
 
-    // For each DitheringSection, determine how many slots it is comprised of.
-    std::vector<SectionConfiguration> NumSlots;
-    NumSlots.reserve ( DitheringSections.size() );
-    for(auto d: DitheringSections)
-    {
-        unsigned w = d.width  ? d.width  : wid;
-        unsigned h = d.height ? d.height : hei;
-        unsigned n_horiz = (wid + w-1) / w;
-        unsigned n_vert  = (hei + h-1) / h;
-        SectionConfiguration c = { n_horiz, n_vert, {} };
-        NumSlots.push_back(c);
-    }
-
     // Create the target image.
-    gdImagePtr im = gdImageCreate(wid,hei);
+    gdImagePtr im = gdImageCreate(wid + pad_left+pad_right, hei + pad_top+pad_bottom);
     gdImageAlphaBlending(im, false);
     gdImageSaveAlpha(im, true);
-    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
+    for(size_t a=0; a<CurrentPalette.Size(); ++a)
     {
         unsigned pix = CurrentPalette.GetColor(a);
         gdImageColorAllocateAlpha(im, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
     }
     gdImageColorAllocateAlpha(im, 0,0,0, 127); //0xFF000000u;
 
-    // For each DitheringSection, start accumulating colors for the slots.
-    CreateFrame_Palette_Dither_Sections_Rounds(
-        screen, frameno, wid, hei,
-        im,
-        NumSlots,
-        0, 0,0, wid,hei);
+    unsigned num_colors_total = 0;
+    for(auto d: DitheringSections) num_colors_total += d.n_colors;
 
-#if 0
-    static Palette palettes[8*8*8*8];
-    static bool    inited = false;
-    if(!inited)
+    const unsigned max_combinations_for_cache = 65536;
+    std::vector<std::vector<Palette> > palette_cache(num_colors_total);
+
+    UseDitherCache = true;
+    unsigned num_combinations = 1;
+    for(unsigned n=0; n<num_colors_total; ++n)
     {
-        for(unsigned c1=0; c1<8; ++c1)
-        for(unsigned c2=0; c2<8; ++c2)
-        for(unsigned c3=0; c3<8; ++c3)
-        for(unsigned c4=0; c4<8; ++c4)
+        unsigned palette_size = CurrentPalette.Size();
+        num_combinations *= palette_size;
+        palette_cache[n].resize(num_combinations);
+        if(num_combinations > max_combinations_for_cache)
+            { UseDitherCache = false; break; }
+    }
+    for(unsigned n=0; n<num_colors_total; ++n)
+    {
+        unsigned palette_size = CurrentPalette.Size();
+        std::vector<Palette>& p = palette_cache[n];
+        std::vector<unsigned> counter(n+1);
+        for(size_t c=0; c<p.size(); ++c)
         {
-            palettes[c1+8*(c2+8*(c3+8*c4))] = CurrentPalette.GetFourColors(c1,c2,c3,c4);
-            palettes[c1+8*(c2+8*(c3+8*c4))].Analyze();
-        }
-        inited = true;
-    }
-    static std::vector<dither_cache_t> dither_caches( omp_get_num_procs()*8*8*8*8 );
-
-    gdImagePtr im2 = gdImageCreate(wid,hei);
-    gdImageAlphaBlending(im2, false);
-    gdImageSaveAlpha(im2, true);
-    for(unsigned a=0; a<CurrentPalette.Size(); ++a)
-    {
-        unsigned pix = CurrentPalette.GetColor(a);
-        gdImageColorAllocateAlpha(im2, (pix>>16)&0xFF, (pix>>8)&0xFF, pix&0xFF, (pix>>24)&0x7F);
-    }
-    gdImageColorAllocateAlpha(im2, 0,0,0, 127); //0xFF000000u;
-
-    // BBC micro modes are determined by width:
-    //     160 = 8 colors (we use width 0..239)
-    //     320 = 4 colors (we use width 240..479)
-    //     640 = 2 colors (we use 480...)
-
-    if(wid < 240)
-    {
-        gdImageDestroy(im2);
-        gdImagePtr baseim =
-            CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
-            (screen, frameno, wid, hei, CurrentPalette);
-        return baseim; // 8-color mode. No palette trickery needed.
-    }
-
-    const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
-    const unsigned choose_colors = wid < 480 ? 4 : 2;
-
-    #pragma omp parallel for schedule(static,4)
-    for(unsigned y=0; y<hei; ++y)
-    {
-        transform_caches_t& transform_cache = GetTransformCache();
-        //dither_cache_t& dither_cache = GetDitherCache();
-        for(unsigned bx=0; bx<wid; bx += wid)
-        {
-            unsigned ex = bx+wid; if(ex > wid) ex = wid;
-
-            // Find best companion color to black, and then to that, and so on
-            unsigned bestmode = 0;
-            double bestdiff  = -1;
-            bool refined=true, tested[8*8*8*8] = { false };
-            for(unsigned tries=0; refined; ++tries)
+            //fprintf(stderr, "%u-color palette %zu/%zu: ", n+1, c, p.size());
+            for(int i=n; i>=0; --i)
             {
-                refined=false;
-                for(unsigned round=0; round<choose_colors; ++round)
+                //fprintf(stderr, " %u", counter[i]);
+                p[c].AddColorFrom(CurrentPalette, counter[i]);
+            }
+            //fprintf(stderr, "\n");
+            p[c].Analyze();
+            for(int i=n; i>=0; counter[i--] = 0)
+                if(++counter[i] < palette_size)
+                    break;
+        }
+    }
+
+    std::function<void(size_t,unsigned,unsigned,unsigned,unsigned,const std::vector<unsigned>&)>
+        DoSection = [&]
+        (size_t section_index, unsigned x0,unsigned y0, unsigned x1,unsigned y1,
+         const std::vector<unsigned>& in_colors)
+    {
+        unsigned palette_size = CurrentPalette.Size();
+
+        if(section_index == DitheringSections.size())
+        {
+            // Render this section using the supplied colors.
+            fprintf(stderr, "Chose for (%u,%u)-(%u,%u):", x0,y0, x1,y1);
+            for(auto ic: in_colors) fprintf(stderr, " %u", ic);
+            fprintf(stderr, "\n");
+
+            unsigned pal_index = 0;
+            for(size_t p=1,i2=0; i2<in_colors.size(); ++i2, p*=palette_size)
+                pal_index += p * in_colors[i2];
+            dither_cache_t& dither_cache2 =
+                GetDitherCache(UseDitherCache?pal_index:0,
+                               UseDitherCache?num_combinations:1);
+
+            // Got all colors we want. Render this slot.
+            Palette wip_palette;
+            bool usewip = palette_cache[ in_colors.size()-1 ].empty();
+            Palette& pal =
+                usewip ? wip_palette : palette_cache[ in_colors.size()-1 ][pal_index ];
+            if(usewip)
+            {
+                for(auto ic: in_colors) pal.AddColorFrom( CurrentPalette, ic );
+                pal.Analyze();
+            }
+
+            transform_caches_t& transform_cache = GetTransformCache();
+            int pl=pad_left,pr=pad_right, pt=pad_top, pb=pad_bottom;
+            for(unsigned y=y0; y<y1; y+=1)
+                for(unsigned x=x0; x<x1; x+=1)
                 {
-                    unsigned bestc   = (bestmode >> (round*3)) % 8;
-                    unsigned bestmode_without = bestmode & ~(7 << (round*3));
-                    for(unsigned c=0; c<8; ++c)
+                    int color = GetMixColor<TransformColors>
+                        (dither_cache2,
+                         transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
+                    color = in_colors[color];
+                    if(x == 0)
                     {
-                        bool match=false;
-                        for(unsigned r=0; r<choose_colors; ++r)
-                            if(c == (bestmode >> (r*3)) % 8)
-                                { match=true; break; }
-                        if(match) continue;
-
-                        unsigned mode = bestmode_without + (c << (round*3));
-                        if(choose_colors == 2) mode = (mode % (8*8)) * (1+8*8);
-
-                        if(tested[mode]) continue;
-                        tested[mode] = true;
-
-                        const Palette& pal = palettes[mode];
-
-                        dither_cache_t& dither_cache2 = dither_caches[
-                            mode + 8*8*8*8*omp_get_thread_num() ];
-                        /*Pessimistic*/Averaging av; // Pessimistic average has bugs: It produces negative values.
-                        av.Reset();
-                        for(unsigned x=bx + ((~y % 5)^2); x<ex; x += 5)
-                        {
-                            uint32 pix1 = screen[y*wid+x];
-                            if(pix1 == DefaultPixel) pix1 = 0x7F000000u;
-                            if(TransformColors) pix1 = DoCachedPixelTransform(transform_cache, pix1,wid,hei, frameno,x,y);
-                            ColorInfo input(pix1);
-
-                            // Create a mixing plan
-                            MixingPlan output;
-                            if(UseDitherCache)
-                            {
-                                dither_cache_t::iterator i = dither_cache2.lower_bound(pix1);
-                                if(i == dither_cache2.end() || i->first != pix1)
-                                {
-                                    output = FindBestMixingPlan(input, pal);
-                                    dither_cache2.insert(i, std::make_pair(pix1, output));
-                                }
-                                else
-                                    output = i->second;
-                            }
-                            else
-                            {
-                                output = FindBestMixingPlan(input, pal);
-                            }
-                        #if 1
-                            // Mix the colors together and compare the result to original.
-                            GammaColorVec our_sum(0.0);
-                            for(auto a: output) our_sum += pal.GetMeta(a).gammac;
-                            GammaColorVec combined = our_sum * (1/double(output.size()));
-                            av.Cumulate( ColorCompare( input, ColorInfo(combined) ) , 2 );
-                        #endif
-                        #if 1
-                            // To prevent the ditherer being _too_ optimistic,
-                            // also add the raw dithered pixel to the equation
-                            unsigned pattern_value =
-                                DitheringMatrix
-                                    [ ((y%DitherMatrixHeight)*DitherMatrixWidth
-                                     + (x%DitherMatrixWidth)
-                                       )// % (DitherMatrixHeight*DitherMatrixWidth)
-                                    ];
-                            int color = output[ pattern_value * output.size() / max_pattern_value ];
-                            av.Cumulate( ColorCompare( input, pal.GetMeta(color) ) );
-                        #endif
-                        }
-                        double diff = av.GetValue();
-                        if(diff < 0)
-                            fprintf(stderr, "ERROR: diff = %g\n", diff);
-                        if(diff < bestdiff || bestdiff < 0)
-                            { bestdiff = diff; bestc = c;
-                              refined = true; }
+                        if(y == 0)     gdImageFilledRectangle(im, 0,0,      wid+pl+pr,        pt-1, in_colors[0]);
+                        gdImageLine(im, 0,y+pt, x+pl-1,y+pt, in_colors[0]);
                     }
-                    bestmode = bestmode_without + (bestc << (round*3));
-                    if(choose_colors == 2) bestmode = (bestmode % (8*8)) * (1+8*8);
+                    if(x == wid-1)
+                    {
+                        if(y == hei-1) gdImageFilledRectangle(im, 0,y+pt+1, wid+pl+pr, hei+pt+pb-1, in_colors[0]);
+                        gdImageLine(im, x+pl+1, y+pt, wid+pl+pr,y+pt, in_colors[0]);
+                    }
+                    gdImageSetPixel(im, x+pl, y+pt, color);
                 }
-                fprintf(stderr, "scanline %u: chosen for try %u : bestmode=0%o, bestdiff=%g\n",
-                    y,tries, bestmode, bestdiff);
-            }
-
-            if(choose_colors == 2) bestmode = (bestmode % (8*8)) * (1+8*8);
-            MixingPlan tally;
-            for(unsigned r=0; r<4; ++r)
-                tally.push_back( (bestmode >> (r*3)) % 8 );
-
-            /* Now we have four colors. Render these pixels
-             * using a palette formed from these four colors.
-             */
-            const Palette& pal = palettes[bestmode];
-
-            dither_cache_t& dither_cache2 = dither_caches[
-                bestmode + 8*8*8*8*omp_get_thread_num() ];
-            for(unsigned x=bx; x<ex; ++x)
-            {
-                int color = GetMixColor<TransformColors>(dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], pal);
-                gdImageSetPixel(im2, x, y, tally[color]);
-            }
+            return;
         }
-    }
-    return im2;
-#endif
-}
 
-template<bool TransformColors, bool UseErrorDiffusion, typename A,typename B>
-void CreateFrame_Palette_Dither_Sections_Rounds(
-    const VecType<uint32>& screen,
-    unsigned frameno, unsigned wid, unsigned hei,
-    A im,
-    B& NumSlots,
-    size_t round, unsigned x0,unsigned y0,unsigned x1,unsigned y1)
-{
-    auto& got_slot  = NumSlots[round];
-    unsigned width  = DitheringSections[round].width;  // Section width
-    unsigned height = DitheringSections[round].height; //    and height
-    unsigned colors = DitheringSections[round].n_colors; // Number of colors to allocate
+        // Still need to accumulate more colors.
+        const auto& d = DitheringSections[section_index];
+        // Number of colors to choose for each slot of this section
+        unsigned colors = d.n_colors;
+        // Determine the geometry of slots in this section
+        unsigned width  = d.width;  unsigned w = width  ? width  : wid;
+        unsigned height = d.height; unsigned h = height ? height : hei;
 
-    for(unsigned h=0; h<slot.n_vert; ++h)
-    {
-        unsigned y = h*height; if(y < y0) continue; if(y >= y1) break;
-        unsigned slotno = h * slot.n_horiz;
-        for(unsigned w=0; w<slot.n_horiz; ++w, ++slotno)
+      #if 0
+        if(colors == 1)
         {
-            unsigned x = x*width; if(x < x0) continue; if(x >= x1) break;
-            //
-            std::vector<unsigned> so_far;
-            if(round > 0) so_far = NumSlots[round-1].chosen;
+            // Dither the image using the entire palette and choose the most common color.
+            transform_caches_t& transform_cache = GetTransformCache();
 
-            // FIXME kesken tässä. Testaa värejä kerrallaan kunnes <colors> väriä on saatu
+            dither_cache_t& dither_cache2 = GetDitherCache(0,1);
 
-
-            //
-            if(round+1 < NumSlots.size())
-            {
-                // Need accumulate more colors
-                CreateFrame_Palette_Dither_Sections_Rounds
-                    <TransformColors,UseErrorDiffusion>
-                ( screen,frameno,wid,hei, im,NumSlots, round+1,
-                  w*width, h*height,
-                  std::min( (w+1)*width, wid ),
-                  std::min( (h+1)*height, hei ) );
-            }
-            else
-            {
-                // Got all colors we want
-            }
+            std::map<int, unsigned, std::less<int>, FSBAllocator<int> > tally;
+            for(unsigned y=y0; y<y1; ++y)
+                for(unsigned x=x0; x<x1; ++x)
+                {
+                    int color = GetMixColor<TransformColors>
+                        (dither_cache2,transform_cache, wid,hei,frameno,x,y, screen[y*wid+x], CurrentPalette);
+                    tally[color] += 1;
+                }
+            std::vector< std::pair<unsigned,int> > sortvec;
+            sortvec.reserve( tally.size() );
+            for(auto i: tally) sortvec.push_back( { i.second, i.first } );
+            std::sort(sortvec.begin(), sortvec.end());
+            unsigned chosen_color = sortvec.back().second;
+            std::vector<unsigned> chosen( in_colors );
+            chosen.push_back(chosen_color);
+            // Got colors. Accumulate more colors, or output the image.
+            DoSection( section_index+1, x0,y0, x1,y1, chosen);
+            return;
         }
-    }
+      #endif
+
+        // How many colors do we have as _choices_?
+        const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
+
+        // Process each slot.
+        #pragma omp parallel for schedule(static) collapse(2)
+        for(unsigned by = y0; by < y1; by += h)
+            for(unsigned bx = x0; bx < x1; bx += w)
+            {
+                transform_caches_t& transform_cache = GetTransformCache();
+                unsigned ey = std::min(hei, by+h);
+                unsigned ex = std::min(wid, bx+w);
+                /*fprintf(stderr, "Round %zu/%zu: section (%u,%u)-(%u,%u) of (%u,%u)-(%u,%u) of %u,%u\n",
+                    section_index, DitheringSections.size(),
+                    bx,by, ex,ey, x0,y0, x1,y1, wid,hei);*/
+
+                // Generate colors for this slot.
+                std::vector<unsigned> chosen( in_colors );
+                chosen.resize( in_colors.size() + colors );
+
+                double bestdiff = -1;
+                bool refined = true;
+
+                unsigned try_space = 1;
+                for(unsigned i=0; i<in_colors.size()+colors; ++i) try_space *= palette_size;
+                std::vector<bool> used_tries( try_space, false );
+
+                for(unsigned tries=0; refined; ++tries)
+                {
+                    refined = false;
+                    // Each color:
+                    for(unsigned i=0; i<colors; ++i)
+                    {
+                        Palette wip_palette;
+                        for(auto ic: chosen) wip_palette.AddColorFrom( CurrentPalette, ic );
+                        //fprintf(stderr, "chosen size=%zu, palette_cache size %zu\n", chosen.size(), palette_cache.size());
+                        auto& cache_palettes = palette_cache.at(chosen.size()-1);
+                        bool usewip = cache_palettes.empty();
+
+                        for(unsigned c=0; c<palette_size; ++c)
+                        {
+                            // Don't create a duplicate to an already chosen color
+                            bool match=false;
+                            for(auto ic: chosen) if(c == ic) { match=true; break; }
+                            if(match) continue;
+
+                            unsigned pal_index = 0;
+                            for(size_t p=1,i2=0; i2<chosen.size(); ++i2, p*=palette_size)
+                                pal_index += p * (i2==(in_colors.size()+i) ? c : chosen[i2]);
+
+                            if(used_tries.at(pal_index)) continue;
+                            used_tries[pal_index] = true;
+
+                            dither_cache_t& dither_cache2 =
+                                GetDitherCache(UseDitherCache?pal_index:0,
+                                               UseDitherCache?num_combinations:1);
+
+                            // Profile this palette.
+                            Palette& pal =
+                                usewip ? wip_palette
+                                       : cache_palettes.at(pal_index);
+                            if(usewip)
+                            {
+                                pal.ReplaceColorFrom( in_colors.size() + i, CurrentPalette, c );
+                                pal.Analyze();
+                            }
+                            Averaging av;
+                            av.Reset();
+                            for(unsigned y=by; y<ey; y+=1)
+                                //for(unsigned x=bx + ((~y % 5)^2); x<ex; x += 5)
+                                for(unsigned x=bx; x<ex; x += 1)
+                                {
+                                    uint32 pix1 = screen[y*wid+x];
+                                    if(pix1 == DefaultPixel) pix1 = 0x7F000000u;
+                                    if(TransformColors) pix1 = DoCachedPixelTransform(transform_cache, pix1,wid,hei, frameno,x,y);
+                                    ColorInfo input(pix1);
+
+                                    // Create a mixing plan
+                                    MixingPlan output;
+                                    if(UseDitherCache)
+                                    {
+                                        dither_cache_t::iterator i = dither_cache2.lower_bound(pix1);
+                                        if(i == dither_cache2.end() || i->first != pix1)
+                                        {
+                                            output = FindBestMixingPlan(input, pal);
+                                            dither_cache2.insert(i, std::make_pair(pix1, output));
+                                        }
+                                        else
+                                            output = i->second;
+                                    }
+                                    else
+                                    {
+                                        output = FindBestMixingPlan(input, pal);
+                                    }
+                                #if 1
+                                    // Mix the colors together and compare the result to original.
+                                    GammaColorVec our_sum(0.0);
+                                    for(auto a: output) our_sum += pal.GetMeta(a).gammac;
+                                    GammaColorVec combined = our_sum * (1 / double(output.size()));
+                                    av.Cumulate( ColorCompare( input, ColorInfo(combined) ) , 12 );
+                                #endif
+                                #if 1
+                                    // To prevent the ditherer being _too_ optimistic,
+                                    // also add the raw dithered pixel to the equation
+                                    unsigned pattern_value =
+                                        DitheringMatrix
+                                            [ ((y%DitherMatrixHeight)*DitherMatrixWidth
+                                             + (x%DitherMatrixWidth)
+                                               )// % (DitherMatrixHeight*DitherMatrixWidth)
+                                            ];
+                                    int color = output[ pattern_value * output.size() / max_pattern_value ];
+                                    av.Cumulate( ColorCompare( input, pal.GetMeta(color) ) );
+                                #endif
+                                }
+                            double diff = av.GetValue();
+
+                            /*fprintf(stderr, "Trying %zu-color palette %u:", chosen.size(), pal_index);
+                            for(size_t i2=0; i2<chosen.size(); ++i2)
+                                fprintf(stderr, " %u", (i2==(in_colors.size()+i) ? c : chosen[i2]) );
+                            fprintf(stderr, " (wip=%s) -gets %g\n", usewip?"true":"false", diff);*/
+
+                            if(diff < 0)
+                                fprintf(stderr, "ERROR: diff = %g\n", diff);
+                            if(diff < bestdiff || bestdiff < 0)
+                                { bestdiff = diff; chosen[in_colors.size() + i] = c;
+                                  //fprintf(stderr, "Chose [%u] = %u (round %zu, %u colors)\n", i,c, section_index,colors);
+                                  refined = true; }
+                        }
+                    }
+                }
+
+                // Got colors. Accumulate more colors, or output the image.
+                DoSection( section_index+1, bx,by, ex,ey, chosen );
+            }
+    };
+
+    // For each DitheringSection, start accumulating colors for the slots.
+    DoSection(0, 0,0, wid,hei, std::vector<unsigned>());
+    return im;
 }
 
 AlignResult TILE_Tracker::TryAlignWithHotspots

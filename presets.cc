@@ -30,35 +30,35 @@ const decltype(presets) presets =
         {
             "Choose 8-color BBC-Micro palette",
                 "Chooses a 8-color palette comprised of slightly desaturated RGB extremes.",
-            { "-Q000000,1010FA,10FA10,10FAFA,FA1010,FA10FA,FAFA40,FAFAFA" }
+            { "-Q121212,2323FA,23FA23,23FAFA,FA2323,FA23FA,FAFA23,FAFAFA" }
         }
     },
     { "fastdither",
         {
             "Fast ordered dithering",
                 "",
-            { "--dm 8x8", "--dc 16", "-Dky", "--dr 1" },
+            { "--dm=8x8", "--dc=16", "-Dky", "--dr=1" },
         }
     },
     { "dither",
         {
             "Medium ordered dithering",
                 "",
-            { "--dm 8x8", "--dc 16", "-Dy2", "--dr 2" },
+            { "--dm=8x8", "--dc=16", "-Dy2", "--dr=2" },
         }
     },
     { "lowdither",
         {
             "Low ordered dithering",
                 "",
-            { "--dm 32x32", "--dc 3", "-Dy2", "--dr 3,2,-2" },
+            { "--dm=32x32", "--dc=3", "-Dy2", "--dr=3,2,-2" },
         }
     },
     { "slowdither",
         {
             "Slow ordered dithering",
                 "",
-            { "--dm 8x8", "--dc 32", "-Dy2", "--dr 3,4,-2" },
+            { "--dm=8x8", "--dc=32", "-Dy2", "--dr=3,4,-2" },
         }
     },
 
@@ -87,7 +87,7 @@ const decltype(presets) presets =
                 "Fixed 15-color palette.\n"
                 "For each 8x1 section, 2-color selection from the palette.\n"
                 "Recommended resolution for authenticity: 256x160",
-            { "--sections 8x1=2",
+            { "--sections=8x1=2",
               "-Q000000,24DB24,6DFF6D,2424FF,496DFF,B62424,49DBFF,FF2424"
                ",FF6D6D,DBDB24,DBDB92,249224,DB49B6,B6B6B6,FFFFFF"
             }
@@ -99,11 +99,11 @@ const decltype(presets) presets =
                 "Fixed 16-color palette.\n"
                 "For each 8x4 section, 3-color selection from the palette,\n"
                 "plus background color that changes once per screen.\n"
-                "A 108x50 border will be automatically added.\n"
+                "A 72x32 border will be automatically added.\n"
                 "Recommended resolution for authenticity: 160x200",
-            { "--preset c64palette",
-              "--sections WxH=1,8x4=3",
-              "--padding 72,36,32,18" // top,bottom,left,right
+            { "--preset=c64palette",
+              "--sections=WxH=1,8x4=3",
+              "--padding=36,36,18,14" // top,bottom,left,right
             }
         }
     },
@@ -113,8 +113,8 @@ const decltype(presets) presets =
                 "Fixed 8-color palette.\n"
                 "For entire screen, 2-color selection from the palette.\n"
                 "Recommended resolution for authenticity: 640x256",
-            { "--preset bbcpalette",
-              "--sections WxH=2" }
+            { "--preset=bbcpalette",
+              "--sections=WxH=2" }
         }
     },
     { "bbc2",
@@ -123,8 +123,8 @@ const decltype(presets) presets =
                 "Fixed 8-color palette.\n"
                 "For entire screen, 4-color selection from the palette.\n"
                 "Recommended resolution for authenticity: 320x256",
-            { "--preset bbcpalette",
-              "--sections WxH=2" }
+            { "--preset=bbcpalette",
+              "--sections=WxH=4" }
         }
     },
     { "bbc3",
@@ -132,7 +132,7 @@ const decltype(presets) presets =
             "BBC-Micro 3-bpp (8-color) mode",
                 "Fixed 8-color palette.\n"
                 "Recommended resolution for authenticity: 160x256",
-            { "--preset bbcpalette"
+            { "--preset=bbcpalette"
             }
         }
     },
@@ -145,7 +145,7 @@ const decltype(presets) presets =
                 "3-color selections. Plus background color that changes once per screen.\n"
                 "Recommended resolution for authenticity: 256x240 or 256x224",
             { "-Q000000",
-              "--sections WxH=1,16x16=3@WxH=4"
+              "--sections=WxH=1,16x16=3@WxH=4"
               // TODO: Color emphasis bits
             }
         }
@@ -173,7 +173,7 @@ const decltype(presets) presets =
         {
             "Special 16-color CGA mode",
                 "Recommended resolution for authenticity: 160x200",
-            { "--sections cga",
+            { "--sections=cga",
               "-Q000000,007A00,1B33DF,01ADDE,990580,7F7F7F,B538FF,9AB2FF"
                ",644C00,49C600,65F97E,FD5120,E3CB1F,FF84FF,FFFFFF"
             }
