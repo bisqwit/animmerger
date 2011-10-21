@@ -140,5 +140,6 @@ extern std::string transform_r;
 extern std::string transform_g;
 extern std::string transform_b;
 void SetColorTransformations();
+extern int pad_top, pad_bottom, pad_left, pad_right;
 
 #endif

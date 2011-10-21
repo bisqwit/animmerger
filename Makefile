@@ -1,10 +1,11 @@
-VERSION=1.6.0
+VERSION=1.6.0.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
 ARCHFILES=\
 	quantize.cc quantize.hh \
 	palette.cc palette.hh \
+	presets.cc presets.hh \
 	canvas.cc canvas.hh \
 	dither.cc dither.hh \
 	align.cc align.hh \
@@ -23,6 +24,7 @@ ARCHFILES=\
 	pixels/tinyaveragepixel.hh \
 	pixels/mostusedpixel.hh \
 	pixels/changelogpixel.hh \
+	pixels/solidpixel.hh \
 	alloc/FSBAllocator.hh \
 	alloc/FSBAllocator.html \
 	alloc/SmartPtr.hh \
@@ -54,7 +56,7 @@ CPPFLAGS += -Ifparser
 OBJS=\
 	main.o canvas.o pixel.o align.o \
 	palette.o quantize.o dither.o \
-	mask.o
+	mask.o presets.o
 PROGS=\
 	animmerger
 

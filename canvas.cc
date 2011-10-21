@@ -19,6 +19,8 @@
 # define CGA16mode 0
 #endif
 
+int pad_top=0, pad_bottom=0, pad_left=0, pad_right=0;
+
 int SaveGif = -1;
 bool UseDitherCache = true;
 std::string OutputNameTemplate = "%2$s-%1$04u.%3$s";
@@ -893,7 +895,7 @@ gdImagePtr TILE_Tracker::CreateFrame_TrueColor(
     const VecType<uint32>& screen,
     unsigned frameno, unsigned wid, unsigned hei)
 {
-    gdImagePtr im = gdImageCreateTrueColor(wid,hei);
+    gdImagePtr im = gdImageCreateTrueColor(wid+pad_left+pad_right, hei+pad_top+pad_bottom);
     gdImageAlphaBlending(im, 0);
     gdImageSaveAlpha(im,     1);
 
@@ -909,7 +911,7 @@ gdImagePtr TILE_Tracker::CreateFrame_TrueColor(
                 pix = 0x7F000000u;
             if(TransformColors)
                 pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
-            gdImageSetPixel(im, x,y, pix);
+            gdImageSetPixel(im, x+pad_left,y+pad_top, pix);
         }
     }
     return im;
@@ -920,26 +922,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Auto(
     const VecType<uint32>& screen,
     unsigned frameno, unsigned wid, unsigned hei)
 {
-    gdImagePtr im = gdImageCreateTrueColor(wid,hei);
-    gdImageAlphaBlending(im, 0);
-    gdImageSaveAlpha(im,     1);
-
-    #pragma omp parallel for schedule(static)
-    for(unsigned y=0; y<hei; ++y)
-    {
-        transform_caches_t& transform_cache = GetTransformCache();
-
-        for(unsigned p=y*wid, x=0; x<wid; ++x)
-        {
-            uint32 pix = screen[p+x];
-            if(pix == DefaultPixel)
-                pix = 0x7F000000u;
-            if(TransformColors)
-                pix = DoCachedPixelTransform(transform_cache, pix,wid,hei, frameno,x,y);
-            gdImageSetPixel(im, x,y, pix);
-        }
-    }
-    return im;
+    return CreateFrame_TrueColor<TransformColors> (screen, frameno,wid,hei);
 }
 
 template<bool TransformColors, bool UseErrorDiffusion>
@@ -952,8 +935,8 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
 
     /* First try to create a paletted image */
     gdImagePtr im = pal.Size() <= 256
-        ? gdImageCreate(wid,hei)
-        : gdImageCreateTrueColor(wid,hei);
+        ? gdImageCreate(         wid+pad_left+pad_right,hei+pad_top+pad_bottom)
+        : gdImageCreateTrueColor(wid+pad_left+pad_right,hei+pad_top+pad_bottom);
 
     gdImageAlphaBlending(im, 0);
     gdImageSaveAlpha(im,     1);
@@ -1100,9 +1083,9 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
             int color = output[ pattern_value * output.size() / max_pattern_value ];
             if(pix & 0xFF000000u) gdImageColorTransparent(im, color);
             if(pal.Size() <= 256)
-                gdImageSetPixel(im, x,y, color);
+                gdImageSetPixel(im, x+pad_left,y+pad_top, color);
             else
-                gdImageSetPixel(im, x,y, pal.GetColor( color ));
+                gdImageSetPixel(im, x+pad_left,y+pad_top, pal.GetColor( color ));
 
             if(UseErrorDiffusion)
             {
@@ -1268,6 +1251,7 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_CGA16(
         CreateFrame_Palette_Dither_With<TransformColors,UseErrorDiffusion>
         (screen, frameno, wid, hei, CurrentPalette);
 
+    // FIXME: Padding is not implemented here.
     gdImagePtr im2 = gdImageCreateTrueColor(wid*4, hei);
     std::vector<unsigned char> cga16temp(hei*(wid*4+3), 0);
     #pragma omp parallel for schedule(static,2)
