@@ -16,14 +16,14 @@
 #endif
 
 #ifndef NESmode
-# define NESmode   0
+# define NESmode   1
 #endif
 #ifndef CGA16mode
 # define CGA16mode 0
 #endif
 
 int SaveGif = -1;
-bool UseDitherCache = true;
+bool UseDitherCache = false;
 std::string OutputNameTemplate = "%2$s-%1$04u.%3$s";
 
 class CanvasFunctionParser: public FunctionParser
@@ -622,26 +622,49 @@ void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
     #if NESmode
     // NES palette
     CurrentPalette.SetHardcoded(16,
-        // selection 1: reds
+/*
+        // selection 1: text, sand, sea
         0x000000, // black
-        0xF83800, // red
-        0x7D7D7D, // gray2
-        0xFCE0A8, // desaturated yellow
-        // selection 2: blues
+        0x0088FC, // dark blue
+        0xFCD884, // light yellow
+        0xFFFFFF, // white
+        // selection 2: lake + house
         0x000000, // black
-        0x0E78F6, // blue
-        0x503000, // brown
-        0x7D7D7D, // lightgray
-        // selection 3: greens
+        0x7C3800, // dark brown
+        0xFF1000, // red
+        0xFCD884, // yellow
+        // selection 3: moat, forests
         0x000000, // black
-        0x005800, // dark green
-        0x00A844, // green-turquoise
-        0xB8F8B8, // light green
-        // selection 4: grayscale
+        0x7C3800, // dark brown
+        0x005800, // green
+        0xFCD884, // yellow
+        // selection 4: lake
         0x000000, // black
-        0x343434, // gray
-        0x7D7D7D, // gray2
-        0xD8D8D8); // gray4
+        0x0088FC, // dark blue
+        0xFCD884, // yellow
+        0x94008C  // light blue
+*/
+        // select 1: grayscale
+        0x000000,
+        0x404040, //
+        0x7D7D7D, // gray
+        0xFFFFFF,
+        // select 2: blues
+        0x000000,
+        0x0000FC, //
+        0x0088FC, // 
+        0x38C0FC,
+        // select 3: blue, white
+        0x000000,
+        0x38C0FC, //
+        0x7D7D7D, // 
+        0xFFFFFF, // white
+        // select 4: gray & green
+        0x000000, // 
+        0x2D402D, // dark green
+        0x88B848, // average green
+        0xFFFFFF  // white
+    );
     CurrentPalette.Analyze();
     return;
     #endif

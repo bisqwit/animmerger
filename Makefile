@@ -61,8 +61,11 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++0x -fopenmp
+CXXFLAGS += -std=c++0x
+
+CXXFLAGS += -fopenmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
+
 CPPFLAGS += -DFP_USE_THREAD_SAFE_EVAL
 CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 
@@ -70,7 +73,7 @@ CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 
 #CXXFLAGS += -m32
 #CXXFLAGS += -fomit-frame-pointer
-#OPTIM=-O2 -fno-inline
+#OPTIM=-O1 -fno-inline
 
 #CXXFLAGS += -Wno-ambiguous-bases -Wno-ambiguous-virtual-bases
 # ^ Apparently, cannot be helped

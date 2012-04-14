@@ -322,6 +322,7 @@ Palette Palette::GetSlice(unsigned begin, unsigned count) const
 {
     Palette result;
     result.Data.assign( Data.begin()+begin, Data.begin()+begin+count );
+    result.Analyze();
     return result;
 }
 
@@ -330,6 +331,7 @@ Palette Palette::GetTwoColors(unsigned color1, unsigned color2) const
     Palette result;
     result.Data.push_back(Data[color1]);
     result.Data.push_back(Data[color2]);
+    result.Analyze();
     return result;
 }
 Palette Palette::GetFourColors(unsigned c1,unsigned c2,unsigned c3,unsigned c4) const
@@ -339,5 +341,6 @@ Palette Palette::GetFourColors(unsigned c1,unsigned c2,unsigned c3,unsigned c4) 
     result.Data.push_back(Data[c2]);
     result.Data.push_back(Data[c3]);
     result.Data.push_back(Data[c4]);
+    result.Analyze();
     return result;
 }
