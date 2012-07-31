@@ -1,5 +1,5 @@
 /***************************************************************************\
-|* Function Parser for C++ v4.4.1                                          *|
+|* Function Parser for C++ v4.5                                            *|
 |*-------------------------------------------------------------------------*|
 |* Copyright: Juha Nieminen, Joel Yliluoma                                 *|
 |*                                                                         *|
@@ -50,6 +50,9 @@ class FunctionParserBase
 
     void setDelimiterChar(char);
 
+    static Value_t epsilon();
+    static void setEpsilon(Value_t);
+
     const char* ErrorMsg() const;
     ParseErrorType GetParseErrorType() const;
 
@@ -59,15 +62,19 @@ class FunctionParserBase
     bool AddConstant(const std::string& name, Value_t value);
     bool AddUnit(const std::string& name, Value_t value);
 
-#ifndef FP_USER_DEFINED_FUNCTION_TYPE
     typedef Value_t (*FunctionPtr)(const Value_t*);
-#else
-    typedef FP_USER_DEFINED_FUNCTION_TYPE;
-#endif
 
     bool AddFunction(const std::string& name,
                      FunctionPtr, unsigned paramsAmount);
     bool AddFunction(const std::string& name, FunctionParserBase&);
+
+    class FunctionWrapper;
+
+    template<typename DerivedWrapper>
+    bool AddFunctionWrapper(const std::string& name, const DerivedWrapper&,
+                            unsigned paramsAmount);
+
+    FunctionWrapper* GetFunctionWrapper(const std::string& name);
 
     bool RemoveIdentifier(const std::string& name);
 
@@ -168,6 +175,10 @@ class FunctionParserBase
     inline void PutOpcodeParamAt(unsigned, unsigned offset);
     const char* Compile(const char*);
 
+    bool addFunctionWrapperPtr(const std::string&, FunctionWrapper*, unsigned);
+    static void incFuncWrapperRefCount(FunctionWrapper*);
+    static unsigned decFuncWrapperRefCount(FunctionWrapper*);
+
 protected:
     // Parsing utility functions
     static std::pair<const char*, Value_t> ParseLiteral(const char*);
@@ -184,4 +195,29 @@ class FunctionParser_cd: public FunctionParserBase<std::complex<double> > {};
 class FunctionParser_cf: public FunctionParserBase<std::complex<float> > {};
 class FunctionParser_cld: public FunctionParserBase<std::complex<long double> > {};
 
+
+
+template<typename Value_t>
+class FunctionParserBase<Value_t>::FunctionWrapper
+{
+    unsigned mReferenceCount;
+    friend class FunctionParserBase<Value_t>;
+
+ public:
+    FunctionWrapper(): mReferenceCount(1) {}
+    FunctionWrapper(const FunctionWrapper&): mReferenceCount(1) {}
+    virtual ~FunctionWrapper() {}
+    FunctionWrapper& operator=(const FunctionWrapper&) { return *this; }
+
+    virtual Value_t callFunction(const Value_t*) = 0;
+};
+
+template<typename Value_t>
+template<typename DerivedWrapper>
+bool FunctionParserBase<Value_t>::AddFunctionWrapper
+(const std::string& name, const DerivedWrapper& wrapper, unsigned paramsAmount)
+{
+    return addFunctionWrapperPtr
+        (name, new DerivedWrapper(wrapper), paramsAmount);
+}
 #endif
