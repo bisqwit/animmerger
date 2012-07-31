@@ -22,10 +22,10 @@ public:
     V& operator[] (Kt key)
     {
         typename BinaryHeapType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
-        iterator i = lower_bound(key);
+        iterator i = this->lower_bound(key);
         if(i == this->end() || !(key==i->first))
         {
-            i = insert(i,
+            i = this->insert(i,
                 typename BinaryHeapType<std::pair<K,V>, Multiple, MapKeyMethod<K,V> >::
                     value_type(key, V()));
         }

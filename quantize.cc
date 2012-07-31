@@ -272,10 +272,10 @@ namespace
             for(size_t b=slot.items.size(), a=0; a<b; ++a)
             {
                 const uint32 pix = slot.items[a].first;
-                int r=(pix>>16)&0xFF, g=(pix>>8)&0xFF, b=pix&0xFF;
+                {int r=(pix>>16)&0xFF, g=(pix>>8)&0xFF, b=pix&0xFF;
                 if(r<minr) minr=r; if(r>maxr) maxr=r;
                 if(g<ming) ming=g; if(g>maxg) maxg=g;
-                if(b<minb) minb=b; if(b>maxb) maxb=b;
+                if(b<minb) minb=b; if(b>maxb) maxb=b;}
             }
             /* 2.3. Sort colors according to the channel that
              * contains the largest distribution of luminance */
