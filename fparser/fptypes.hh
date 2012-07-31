@@ -1,5 +1,5 @@
 /***************************************************************************\
-|* Function Parser for C++ v4.4.1                                          *|
+|* Function Parser for C++ v4.5                                            *|
 |*-------------------------------------------------------------------------*|
 |* Copyright: Juha Nieminen, Joel Yliluoma                                 *|
 |*                                                                         *|
@@ -37,7 +37,6 @@ namespace FUNCTIONPARSERTYPES
         cCbrt, cCeil,
         cConj,  /* get the complex conjugate of a complex value */
         cCos, cCosh, cCot, cCsc,
-        cEval,
         cExp, cExp2, cFloor, cHypot,
         cIf,
         cImag,  /* get imaginary part of a complex value */
@@ -97,8 +96,7 @@ namespace FUNCTIONPARSERTYPES
             AngleIn     = 0x02,
             AngleOut    = 0x04,
             OkForInt    = 0x08,
-            ComplexOnly = 0x10,
-            EvalOnly    = 0x20
+            ComplexOnly = 0x10
         };
 
 #ifdef FUNCTIONPARSER_SUPPORT_DEBUGGING
@@ -111,7 +109,6 @@ namespace FUNCTIONPARSERTYPES
 
         inline bool okForInt() const { return (flags & OkForInt) != 0; }
         inline bool complexOnly() const { return (flags & ComplexOnly) != 0; }
-        inline bool evalOnly() const { return (flags & EvalOnly) != 0; }
     };
 
 #ifdef FUNCTIONPARSER_SUPPORT_DEBUGGING
@@ -140,7 +137,6 @@ namespace FUNCTIONPARSERTYPES
         /*cCosh */ { FP_FNAME("cosh"),  1, FuncDefinition::AngleIn },
         /*cCot  */ { FP_FNAME("cot"),   1, FuncDefinition::AngleIn },
         /*cCsc  */ { FP_FNAME("csc"),   1, FuncDefinition::AngleIn },
-        /*cEval */ { FP_FNAME("eval"),  0, FuncDefinition::EvalOnly | FuncDefinition::OkForInt },
         /*cExp  */ { FP_FNAME("exp"),   1, 0 },
         /*cExp2 */ { FP_FNAME("exp2"),  1, 0 },
         /*cFloor*/ { FP_FNAME("floor"), 1, 0 },
@@ -228,7 +224,6 @@ struct FunctionParserBase<Value_t>::Data
     int mEvalErrorType;
     bool mUseDegreeConversion;
     bool mHasByteCodeFlags;
-    unsigned mEvalRecursionLevel;
     const char* mErrorLocation;
 
     unsigned mVariablesAmount;
@@ -244,15 +239,30 @@ struct FunctionParserBase<Value_t>::Data
     typedef std::vector<InlineVariable> InlineVarNamesContainer;
     InlineVarNamesContainer mInlineVarNames;
 
-    struct FuncPtrData
+    struct FuncWrapperPtrData
     {
-        FunctionPtr mFuncPtr;
+        /* Only one of the pointers will point to a function, the other
+           will be null. (The raw function pointer could be implemented
+           as a FunctionWrapper specialization, but it's done like this
+           for efficiency.) */
+        FunctionPtr mRawFuncPtr;
+        FunctionWrapper* mFuncWrapperPtr;
+        unsigned mParams;
+
+        FuncWrapperPtrData();
+        ~FuncWrapperPtrData();
+        FuncWrapperPtrData(const FuncWrapperPtrData&);
+        FuncWrapperPtrData& operator=(const FuncWrapperPtrData&);
+    };
+
+    struct FuncParserPtrData
+    {
         FunctionParserBase<Value_t>* mParserPtr;
         unsigned mParams;
     };
 
-    std::vector<FuncPtrData> mFuncPtrs;
-    std::vector<FuncPtrData> mFuncParsers;
+    std::vector<FuncWrapperPtrData> mFuncPtrs;
+    std::vector<FuncParserPtrData> mFuncParsers;
 
     std::vector<unsigned> mByteCode;
     std::vector<Value_t> mImmed;
