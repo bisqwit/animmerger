@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include <getopt.h>
+#include <unistd.h> //For access(R_OK)
 
 #define MakePixName(o,f,name) #name,
 static const char* const PixelMethodNames[NPixelMethods] =
@@ -223,7 +224,7 @@ private:
                     int v = c=='h' ? 0 : c-3000;
 
                     if(v>=0)O << "\
-animmerger v"VERSION" - Copyright (C) 2011 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+animmerger v" VERSION " - Copyright (C) 2012 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
 Usage: animmerger [<options>] <imagefile> [...]\n\
 \n\

@@ -11,7 +11,7 @@ CXXOPTS=$(WARNINGS) $(CXXWARNINGS)
 
 
 # Optimization
-OPTIM=-O3
+OPTIM=-Ofast
 #-march=pentiumpro
 
 # Flags.
@@ -24,9 +24,9 @@ LDFLAGS=-g
 
 #####
 #
-CC=gcc
-CPP=cpp
-CXX=g++
+CC=gcc-4.
+CPP=cpp-4.7
+CXX=g++-4.7
 OPTIM += -minline-stringops-dynamically -ffunction-cse -ffunction-sections -fdata-sections
 CPPFLAGS += 
 LDFLAGS +=  -Xlinker --gc-sections
