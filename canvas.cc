@@ -618,6 +618,8 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
 
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
+    //return; // HACK: DON'T CHANGE PALETTE
+
     #if CGA16mode
     // composite cga (to be rendered on 640x200 monochrome mode)
     CurrentPalette.SetHardcoded(15,
