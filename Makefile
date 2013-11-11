@@ -1,4 +1,4 @@
-VERSION=1.6.0.3
+VERSION=1.6.1
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -38,6 +38,8 @@ ARCHFILES=\
 	fparser/fptypes.hh \
 	fparser/fpaux.hh \
 	main.cc \
+	range.hh range.tcc \
+	rangemap.hh rangemap.tcc \
 	\
 	doc/AddingPixelMethods.txt \
 	doc/docmaker.php doc/document.php \
@@ -63,12 +65,14 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++0x -fopenmp
+CXXFLAGS += -std=c++11 -fopenmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 CPPFLAGS += -DFP_USE_THREAD_SAFE_EVAL
 CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 
-
+INSTALLPROGS = $(PROGS)
+BINDIR = /usr/local/bin
+INSTALL=install
 
 #CXXFLAGS += -m32
 #CXXFLAGS += -fomit-frame-pointer
