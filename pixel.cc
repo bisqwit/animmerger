@@ -175,10 +175,24 @@ namespace
     template<unsigned Value, unsigned Basevalue>
     struct GetLowestBit<Value, Basevalue, true> { enum { result = Basevalue }; };
 
-    template<unsigned value, unsigned alreadycounted = 0>
-    struct PopCount : public PopCount< value/2, alreadycounted+(value&1) > { };
-    template<unsigned alreadycounted>
-    struct PopCount<0, alreadycounted> { static const unsigned result = alreadycounted; };
+    struct PopCountCommon
+    {
+        static constexpr unsigned Compute(unsigned v,unsigned mask,unsigned shift)
+            { return (v&mask) + ((v >> shift) & mask); }
+        static constexpr unsigned Compute(unsigned value)
+        {
+            return (Compute(Compute(Compute(value,1,~0u/3u),
+                                                  2,~0u/5u),
+                                                  4,~0u/17u)
+                   * (~0u/255u))
+                   >> (sizeof(unsigned)*8 - 8);
+        }
+    };
+    template<unsigned value>
+    struct PopCount: public PopCountCommon
+    {
+        static constexpr unsigned result = Compute(value);
+    };
 
     template<typename T1, typename T2, bool select1st>
     struct ChooseType { typedef T2 result; };
