@@ -136,6 +136,7 @@ extern unsigned x_divide_input;
 extern unsigned y_divide_input;
 extern unsigned x_divide_reference;
 extern unsigned y_divide_reference;
+extern bool always_align_with_canvas;
 
 extern int mv_xmin, mv_ymin, mv_xmax, mv_ymax;
 

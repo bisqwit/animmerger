@@ -797,14 +797,35 @@ Palette MakePalette(const HistogramType& Histogram, unsigned MaxColors)
         return result;
     }
 
+    // First add those colors that were force-given on commandline.
     Palette result;
+/*
+    HistogramType done;
+    for(size_t b=PaletteReductionMethod.size(), a=0; a<b; ++a)
+    {
+        if(!PaletteReductionMethod[a].entries.empty())
+        {
+            for(auto color: PaletteReductionMethod[a].entries)
+            {
+                ++done[color];
+                if(result.Size() > MaxColors)
+                {
+                    goto skip_preset;
+                }
+                result.AddPaletteRGB(color);
+            }
+        }
+    }
+skip_preset:
+*/
     for(HistogramType::const_iterator
         i = Histogram.begin();
         i != Histogram.end();
         ++i)
     {
         if(result.Size() >= MaxColors) break;
-        result.AddPaletteRGB( i->first );
+//        if(done.find(i->first) == done.end())
+            result.AddPaletteRGB( i->first );
     }
     result.Analyze();
     return result;

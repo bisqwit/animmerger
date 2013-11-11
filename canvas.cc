@@ -618,6 +618,8 @@ HistogramType TILE_Tracker::CountColors(PixelMethod method, unsigned nframes)
 
 void TILE_Tracker::CreatePalette(PixelMethod method, unsigned nframes)
 {
+    //return; // HACK: DON'T CHANGE PALETTE
+
     #if CGA16mode
     // composite cga (to be rendered on 640x200 monochrome mode)
     CurrentPalette.SetHardcoded(15,
@@ -1390,7 +1392,7 @@ TILE_Tracker::FitScreenAutomatic
 {
     static VecType<uint32> prev_frame;
     //fprintf(stderr, "sx=%u,sy=%u, prev_frame size=%u\n", sx,sy, prev_frame.size());
-    if(prev_frame.size() == sx*sy)
+    if(prev_frame.size() == sx*sy && !always_align_with_canvas)
     {
         AlignResult align = TryAlignWithPrevFrame(&prev_frame[0], input,sx,sy);
         if(!align.suspect_reset)

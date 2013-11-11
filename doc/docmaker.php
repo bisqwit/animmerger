@@ -74,7 +74,7 @@ SMALL    {font-size:70%}
   <h2 class=level2> 0. Contents </h2>
   
   This is the documentation of <?=htmlspecialchars($archivename)?>.
-<?
+<?php
 
 $url = 'http://iki.fi/bisqwit/source/'.rawurlencode($progname).'.html';
 $k = '
@@ -102,13 +102,13 @@ $st1 = stat($docmodulefn);
 $st2 = stat($argv[0]);
 ?>
  <p align=right><small>Generated from
-       <tt><?=$docmodulefn?></tt> (last updated: <?=date('r', $st1[9])?>)<br>
-  with <tt>docmaker.php</tt> (last updated: <?=date('r', $st2[9])?>)<br>
+       <tt><?=$docmodulefn?></tt> (last updated: <?php print date('r', $st1[9]); ?>)<br>
+  with <tt>docmaker.php</tt> (last updated: <?php print date('r', $st2[9]); ?>)<br>
   at <?=date('r')?></small>
  </p>
 </body>
 </html>
-<?
+<?php
 
 if($outset)
 {

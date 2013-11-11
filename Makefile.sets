@@ -24,9 +24,9 @@ LDFLAGS=-g
 
 #####
 #
-CC=gcc-4.
-CPP=cpp-4.7
-CXX=g++-4.7
+CC=gcc
+CPP=cpp
+CXX=g++
 OPTIM += -minline-stringops-dynamically -ffunction-cse -ffunction-sections -fdata-sections
 CPPFLAGS += 
 LDFLAGS +=  -Xlinker --gc-sections

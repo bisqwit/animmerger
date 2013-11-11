@@ -15,6 +15,8 @@ unsigned y_divide_input = 1;
 unsigned x_divide_reference = 32;
 unsigned y_divide_reference = 32;
 
+bool always_align_with_canvas = false;
+
 int mv_xmin = -9999;
 int mv_ymin = -9999;
 int mv_xmax = +9999;

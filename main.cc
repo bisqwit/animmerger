@@ -16,6 +16,8 @@
 #include <getopt.h>
 #include <unistd.h> //For access(R_OK)
 
+#include "rangemap.hh"
+
 #define MakePixName(o,f,name) #name,
 static const char* const PixelMethodNames[NPixelMethods] =
 {
@@ -25,6 +27,8 @@ static const char* const PixelMethodNames[NPixelMethods] =
 
 namespace
 {
+    rangemap<unsigned long, std::pair<int,int>> forced_align;
+
     int ParsePixelMethod(
         char* optarg,
         bool allow_multiple,
@@ -104,6 +108,8 @@ static const struct option long_options[] =
     {"verbose",    0,0,'v'},
     {"yuv",        0,0,'y'},
     {"noalign",    0,0,4002},
+    {"nofastalign",0,0,4003},
+    {"forcealign", 1,0,4004},
     {"quantize",   1,0,'Q'},
     {"dithmethod", 1,0,'D'},
     {"ditherror",  1,0,5001},  {"de",1,0,5001},
@@ -224,7 +230,7 @@ private:
                     int v = c=='h' ? 0 : c-3000;
 
                     if(v>=0)O << "\
-animmerger v" VERSION " - Copyright (C) 2012 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+animmerger v" VERSION " - Copyright (C) 2013 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
 Usage: animmerger [<options>] <imagefile> [...]\n\
 \n\
@@ -310,7 +316,17 @@ Image aligning options:\n";
  --noalign\n\
      Disable automatic image aligner. Useful if you only want to\n\
      utilize the dithering and quantization features of animmerger,\n\
-     or your images simply don't happen to form a nice 2D map.\n";
+     or your images simply don't happen to form a nice 2D map.\n\
+     This option is identical to --forcealign 0-N=0,0 where N=movie length.\n";
+                if(v>=2)O << "\
+ --nofastalign\n\
+     When aligning, always use the entire picture even when the heuristics\n\
+     detects that the last frame would probably work as a good and fast\n\
+     reference frame.\n";
+                if(v>=1)O << "\
+ --forcealign <frame>[-<frame2>][,<...>]=<xoffset>,<yoffset>\n\
+     Override automatic alignment. You can force the given frame(s)\n\
+     placed at the particular offset, relative to the previous frame.\n";
                 if(v==0)O << "\n\
 Output options:\n\
  --output, -o <filename/pattern>\n\
@@ -1110,9 +1126,64 @@ rate.\n\
                     bgmethod1_chosen = true;
                     break;
                 }
-                case 4002:
+                case 4002: // noalign
                 {
                     autoalign = false;
+                    break;
+                }
+                case 4003: // nofastalign
+                {
+                    always_align_with_canvas = true;
+                    break;
+                }
+                case 4004: // forcealign
+                {
+                    // Format:  <frameranges>=<int>,<int>
+                    // where 
+                    //          <frameranges> = <framerange>
+                    //                        | <frameranges>,<framerange>
+                    //          <framerange>  = <unsigned>
+                    //                        | <unsigned>-<unsigned>
+                    bool errors = false;
+                    for(char* arg = optarg; arg; arg = 0)
+                    {
+                        std::vector<std::pair<unsigned long,unsigned long>> ranges;
+                        for(;;)
+                        {
+                            unsigned long frame1 = 0;
+                            if(!(*arg >= '0' && *arg <= '9')) { errors=true; break; }
+                            while(*arg >= '0' && *arg <= '9') { frame1=frame1*10 + *arg++ - '0'; }
+                            unsigned long frame2 = frame1 + 1;
+                            if(*arg == '-')
+                            {
+                                ++arg;
+                                frame2=0;
+                                if(!(*arg >= '0' && *arg <= '9')) { errors=true; break; }
+                                while(*arg >= '0' && *arg <= '9') { frame2=frame2*10 + *arg++ - '0'; }
+                            }
+                            if(frame2 < frame1) { errors=true; break; }
+                            ranges.emplace_back(frame1,frame2);
+                            if(*arg != ',') break;
+                            ++arg;
+                        }
+                        if(errors) break;
+                        if(*arg != '=') { errors=true; break; }
+                        ++arg;
+                        std::pair<int,int> coords{0, 0};
+                        if(!(*arg >= '0' && *arg <= '9')) { errors=true; break; }
+                        while(*arg >= '0' && *arg <= '9') { coords.first=coords.first*10 + *arg++ - '0'; }
+                        if(*arg != ',') { errors=false; break; }
+                        ++arg;
+                        if(!(*arg >= '0' && *arg <= '9')) { errors=true; break; }
+                        while(*arg >= '0' && *arg <= '9') { coords.second=coords.second*10 + *arg++ - '0'; }
+                        for(const auto& r: ranges)
+                            forced_align.set(r.first, r.second, coords);
+                    }
+                    if(errors)
+                    {
+                        std::fprintf(stderr, "animmerger: Bad value for --forcealign: %s.\n", optarg);
+                        opt_exit = true; exit_code = 1;
+                    }
                     break;
                 }
 
@@ -1707,6 +1778,7 @@ int main(int argc, char** argv)
 
     estimated_num_frames = files.size();
 
+    unsigned long framecounter = 0;
     for(auto fn: files)
     {
         if(verbose) std::fprintf(stderr, "Reading %s\n", fn.c_str());
@@ -1738,7 +1810,16 @@ int main(int argc, char** argv)
 
         MaskImage(pixels, sx,sy);
 
-        if(autoalign)
+        auto i = forced_align.find(framecounter);
+        if(i != forced_align.end())
+        {
+            AlignResult align;
+            align.offs_x = i->value.first;
+            align.offs_y = i->value.second;
+            align.suspect_reset = false;
+            tracker.FitScreen(&pixels[0], sx,sy, align);
+        }
+        else if(autoalign)
         {
             tracker.FitScreenAutomatic(&pixels[0], sx,sy);
         }
@@ -1752,6 +1833,7 @@ int main(int argc, char** argv)
         }
 
         tracker.NextFrame();
+        ++framecounter;
     }
     tracker.Save();
 }

@@ -23,8 +23,15 @@ SMALL    {font-size:70%}
   <h1>Animation merger</h1>
   <h2 class=level2> 0. Contents </h2>
   
-  This is the documentation of animmerger-1.6.0.3.
-<div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="33%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.6. <a href="#solid">SOLID</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.7. <a href="#firstnmost">FIRSTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.8. <a href="#lastnmost">LASTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.9. <a href="#leastused">LEASTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1.1. <a href="#motionblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopingavg">LOOPINGAVG</a><br></td>
+  This is the documentation of animmerger-1.6.1.
+<script type="text/javascript" src="http://sc5.github.com/copyright-campaign/copyright-campaign.js" charset="UTF-8"></script>
+<script type="text/javascript" charset="UTF-8">
+copyrightCampaign({ onCampaignDayOnly: true,
+                    showOnlyOnce: false,
+                    title: 'Järkeä<br>tekijänoikeuslakiin?',
+                    bigText: 'Allekirjoita <a href="https://www.kansalaisaloite.fi/fi/aloite/70">kansalaisaloite kohtuullisemman tekijänoikeuslain puolesta</a>.',
+                    smallText: 'Katso myös: <a href="#">Internetin musta päivä 23.4.</a>'});
+</script><div class=toc><table cellspacing=0 cellpadding=0 class=toc><tr><td width="33%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;1. <a href="#h0">Purpose</a><br>&nbsp;&nbsp;&nbsp;2. <a href="#methods">Pixel methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1. <a href="#static">Static methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.1. <a href="#average">AVERAGE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.2. <a href="#actionavg">ACTIONAVG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.3. <a href="#mostused">MOSTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.4. <a href="#last">LAST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.5. <a href="#last">FIRST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.6. <a href="#solid">SOLID</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.7. <a href="#firstnmost">FIRSTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.8. <a href="#lastnmost">LASTNMOST</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.1.9. <a href="#leastused">LEASTUSED</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2. <a href="#animated">Animated methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1. <a href="#changelog">CHANGELOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.1.1. <a href="#motionblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.2. <a href="#loopinglog">LOOPINGLOG</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3. <a href="#loopingavg">LOOPINGAVG</a><br></td>
 <td width="33%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.2.3.1. <a href="#avgblur">Motion blur</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.3. <a href="#methodsummary">Summary</a><br>&nbsp;&nbsp;&nbsp;3. <a href="#maskmethods">Masking methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.1. <a href="#maskmethod_black">BLACK/BLANK/CENSOR</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.2. <a href="#maskmethod_hole">HOLE/ALPHA/TRANSPARENT</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.3. <a href="#maskmethod_interpolate">DELOGO/BLUR/INTERPOLATE</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.4. <a href="#maskmethod_extrapolate">PATTERN/EXTRAPOLATE</a><br>&nbsp;&nbsp;&nbsp;4. <a href="#palettemethods">Color quantization methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.1. <a href="#palette_heckbert">Median-cut (aka. Heckbert)</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.2. <a href="#palette_diversity">Diversity</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.3. <a href="#palette_blenddiversity">Blend-diversity</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4.4. <a href="#palette_neuquant">NeuQuant</a><br>&nbsp;&nbsp;&nbsp;5. <a href="#dither">Dithering</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.1. <a href="#dither_gamma">Gamma correction</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2. <a href="#dither_sample">Example</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.1. <a href="#dither_error">Dither error spread factor</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.2. <a href="#dither_matrix">Dither matrix size</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.3. <a href="#dither_count">Dither candidate count</a><br></td>
 <td width="34%" valign=middle align=left nowrap class=toc>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5.2.4. <a href="#dither_contrast">Dither contrast limiter</a><br>&nbsp;&nbsp;&nbsp;6. <a href="#dither_compare">Color compare methods</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.1. <a href="#cie_rgb">RGB</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.2. <a href="#cie_cie76">CIE76</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.3. <a href="#cie_cie94">CIE94</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.4. <a href="#cie_ciede2000">CIEDE2000</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.5. <a href="#cie_cmc">CMC l:c</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.6. <a href="#cie_bfd">BFD l:c</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6.7. <a href="#cie_illuminants">Illuminants</a><br>&nbsp;&nbsp;&nbsp;7. <a href="#transformation">Transformation</a><br>&nbsp;&nbsp;&nbsp;8. <a href="#caveats">Caveats</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8.1. <a href="#caveat_parallax">Parallax motion</a><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8.2. <a href="#caveat_flash">Flashes, fog and other transparent layers</a><br>&nbsp;&nbsp;&nbsp;9. <a href="#usage">Usage</a><br>&nbsp;&nbsp;&nbsp;10. <a href="#h1">Copying</a><br>&nbsp;&nbsp;&nbsp;11. <a href="#h2">Requirements</a><br>&nbsp;&nbsp;&nbsp;12. <a href="#h3">See also</a><br>&nbsp;&nbsp;&nbsp;13. <a href="#download">Downloading</a><br></td>
 </tr></table></div><H2 id="h0" class="level2"><a name="h0"></a>1. Purpose</H2><div class="level2" id="divh0">
@@ -1350,474 +1357,39 @@ when using the power bomb in Super Metroid</i>
 
 </div><H2 id="usage" class="level2"><a name="usage"></a>9. Usage</H2><div class="level2" id="divusage">
 
-<pre class=smallerpre>animmerger v1.5.0 - Copyright (C) 2010 Joel Yliluoma (http://iki.fi/bisqwit/)
+<pre class=smallerpre>animmerger v1.6.1 - Copyright (C) 2013 Joel Yliluoma (http://iki.fi/bisqwit/)
 
-Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [&lt;...&gt;]
+Usage: animmerger [&lt;options&gt;] &lt;imagefile&gt; [...]
 
-Merges animation frames together with motion shifting.
+Merges (stitches) animation frames together.
 
 General options:
  --help, -h
-     This help
- --version, -V
-     Displays version information
- --verbose, -v
-     Increase verbosity
+     Short help on usage. Use --longhelp or --fullhelp for more/all options.
 
 Canvas affecting options:
- --mask, -m &lt;defs&gt;
-     Define a mask, see instructions below
- --maskmethod, -u &lt;value&gt;
-     Specify how the masked content will be hidden, see instructions below
  --method, -p &lt;mode&gt;
-     Select pixel type, see below
- --bgmethod, -b &lt;mode&gt;
-     Select pixel type for alignment tests
- --bgmethod0 &lt;mode&gt;
-     Explicit pixel mode for ChangeLog background before camera comes
- --bgmethod1 &lt;mode&gt;
-     Explicit pixel mode for ChangeLog background after camera leaves
+     Select pixel type (average/actionavg/mostused/changelog/loopingavg)
+     See full help for details.
  --looplength, -l &lt;int&gt;
      Set loop length for the LOOPINGxx modes
- --motionblur, -B &lt;int&gt;
-     Set motion blur length for animated modes
- --firstlast, -f &lt;int&gt;
-     Set threshold for xxNMOST modes
- --yuv, -y
-     Specifies that average-colors are to be calculated in the YUV
-     colorspace rather than the default RGB colorspace.
 
 Image aligning options:
- --bgmethod, -b &lt;mode&gt;
-     Select pixel type for alignment tests
- --refscale, -r &lt;x&gt;,&lt;y&gt;
-     Change the grid size that controls
-     how many samples are taken from the background image
-     for comparing with the input image, for image alignment.
-     Smaller grid = more accurate but slower aligning.
-     Default: -r32,32
-     Set to e.g. -r8,8 if you experience misalignment problems.
- --mvrange, -a &lt;xmin&gt;,&lt;ymin&gt;,&lt;xmax&gt;,&lt;ymax&gt;
-     Change the limits of motion vectors.
-     Default: -9999,-9999,9999,9999
-     Example: --mvrange -4,0,4,0 specifies that the screen may
-     only scroll horizontally and by 4 pixels at most per frame.
  --noalign
-     Disable automatic image aligner
+     Disable automatic image aligner. Useful if you only want to
+     utilize the dithering and quantization features of animmerger,
+     or your images simply don't happen to form a nice 2D map.
+     This option is identical to --forcealign 0-N=0,0 where N=movie length.
 
 Output options:
- --gif, -g [=always|=never|=auto]
-     Control how GIF files are saved. Always/never/auto.
-     In automatic mode (default), GIF is selected for animations
-     if quantization was configured, PNG otherwise.
-     Default: auto. --gif without parameter defaults to always.
-     See below on details on when and how GIF files are written
-     depending on this option.
- --quantize &lt;method&gt;,&lt;num_colors&gt;
-     Reduce palette, see instructions below
- --quantize &lt;file&gt;
-     Load palette from the given file (PNG or GIF, must be paletted)
+ --output, -o &lt;filename/pattern&gt;
+     Output to given filename. The filename may also be a pattern. (See longhelp for details.)
+ --quantize, -Q &lt;method&gt;,&lt;num_colors&gt; or &lt;file&gt; or &lt;R&gt;x&lt;G&gt;x&lt;B&gt;[x&lt;I&gt;]
+     Reduce/load/synthesize palette. See full help for details.
  --dithmethod, -D &lt;method&gt;[,&lt;method&gt;]
-     Select dithering method (see below)
- --ditherror, --de &lt;float&gt;
-     Set error multiplication value for the dithering algorithm.
-     0.0 = disable dithering. 1.0 = full dithering.
-     Usable values lie somewhere in between. Default: 1.0
- --dithmatrix, --dm &lt;x&gt;,&lt;y&gt;[&lt;,time&gt;]
-     Set the Bayer matrix size to be used in dithering.
-     Common values include 2x2, 4x4 and 8x8. Default: 8x8x1.
- --dithcount, --dc &lt;int&gt;
-     Set maximum number of palette colors to use in dithering
-     of an uniform color area of the source picture.
-     Value 1 disables dithering.
-     This number should not be made larger than x*y*time.
-     Default: 32 or x*y*time, whichever is smaller.
- --dithcombine, --dr &lt;float&gt;[,&lt;combinationlimit&gt;[,&lt;changeslimit&gt;]]]
-     Set the maximum contrast between two or more color items
-     that are pre-selected for combined candidates for dithering.
-     The value must be in range 0..3. Default value: 1.
-     See details below.
- --deltae, --cie [=&lt;type&gt;|=&lt;formula&gt;]
-     Select color comparison method, see details below.
+     Select dithering method(s) (ky/y2/floyd). See full help for details.
  --gamma [=&lt;value&gt;]
      Select gamma to use in dithering. Default: 1.0
- --transform { r= | g= | b= }&lt;function&gt;
-     Transform red, green and blue color channel values according
-     to the given mathematical function. See details below.
-
-animmerger will always output files into the current
-working directory, with the filename pattern tile-####.png
-where #### is a sequential number beginning from 0000.
-The file name can be also .gif (see details below).
-If multiple output methods are specified, then the filename is
-method-####.png, such as Average-0000.png or ChangeLog-0155.gif.
-
-AVAILABLE PIXEL TYPES
-
-  AVERAGE, long option: --method=average , short option: -pa
-     Produces a single image. Each pixel
-     is the average of all frames addressing that pixel.
-  TINYAVERAGE, long option: --method=tinyaverage , short option: -pA
-     A less accurate but more space-efficient version of &quot;average&quot;.
-  LAST, long option: --method=last , short option: -pl
-     Produces a single image. Each pixel
-     records the latest color addressing that pixel.
-  FIRST, long option: --method=first , short option: -pf
-     Produces a single image. Each pixel
-     records whatever first appeared in that spot.
-  SOLID, long option:: --method=solid , short option: -pO
-     Produces a single image. Changing pixels are
-     made transparent until something unchanging appears.
-  MOSTUSED, long option: --method=mostused, short option: -pm
-     Produces a single image. Each pixel
-     records the color that most often occured in that location.
-     Use this option for making maps!
-  LEASTUSED, long option: --method=leastused, short option: -pe
-     Produces a single image. Each pixel
-     records the color that least commonly occured in that location.
-  LASTNMOST, long option: --method=lastnmost, short option: -pL
-     Combines &quot;mostused&quot; and &quot;last&quot;. Set threshold using
-     the -f option. Example: -f16 -pL = most used of last 16 pixels.
-     If -f0, then selects the last not-common pixel value.
-     If -f value is negative, uses leastused instead of mostused.
-  FIRSTNMOST, long option: --method=firstnmost, short option: -pF
-     Combines &quot;mostused&quot; and &quot;first&quot;. Set threshold using
-     the -f option. Example: -f16 -pF = most used of first 16 pixels.
-     If -f0, then selects the first not-common pixel value.
-     If -f value is negative, uses leastused instead of mostused.
-  ACTIONAVG, long option: --method=actionavg, short option: -pt
-     Similar to average, except that blurring of actors
-     over the background is avoided.
-  CHANGELOG, long option: --method=changelog, short option: -pc
-     Produces an animation. Also supports motion blur.
-  LOOPINGLOG, long option: --methods=loopinglog, short option: -po
-     Produces a time-restricted animation.
-     Also called, &quot;lemmings mode&quot;.
-     Use the -l option to set loop length in frames. Supports motion blur.
-  LOOPINGAVG, long option: --methods=loopingavg, short option: -pv
-     A combination of loopinglog and actionavg, also supports motion blur.
-
-DEFINING MASKS
-
-  You can use masks to block out HUD / splitscreens
-  so that it will not intervene with the animation.
-  To define mask, use the --mask option, or -m for short.
-  Mask syntax: x1,y1,width,height,colors
-
-  Examples:
-
-    -m0,0,256,32
-       Mask out a 256x32 wide section at the top of screen
-
-    -m0,0,256,32,FFFFFF
-       From the 256x32 wide section at the top of screen,
-       mask out those pixels whose color is white (#FFFFFF)
-
-    -m16,16,8,40,000000,483D8B
-       From the 8x40 wide section at coordinates 16x16,
-       mask out those pixels whose color is either
-       black (#000000) or dark slate blue (#483D8B)
-
-  The masking method option --maskmethod, or -u for short,
-  can be used to control how masks are handled.
-
-     --maskmethod=hole or -uhole (default)
-         Make the masked areas entirely transparent. It will be as
-         if there was a hole in the image where the masked part was.
-         Alias: hole, alpha, transparent
-
-     --maskmethod=delogo or -ublur
-         Hide masked areas by blurring them with circular interpolation.
-         Alias: delogo, blur, interpolate
-
-     --maskmethod=pattern or -upattern
-         Hide masked areas by extrapolating a surrounding
-         pattern over the masked areas.
-         Alias: pattern, extrapolate
-
-     --maskmethod=blank or -ublack
-         Replace the masked areas with black pixels, &quot;censoring&quot; them.
-         Alias: blank, black, censor
-
-REDUCING PALETTE
-
-  GIF files are restricted to 256 colors, but regardless of whether
-  you use GIF or PNG for the output format, you can use the --quantize
-  option to reduce your images to a particular number of colors.
-  The following quantization methods are defined:
-
-    Median cut ( example: --quantize=mediancut,32  or -Qm,32 )
-      Heckbert quantization. Progressively bisects the colorspace
-      into roughly equal sizes per population until the number of
-      sections matches the required size. Then chooses the weighted
-      average of each section.
-
-    Diversity ( example: --quantize=diversity,10 or -Qd,10 )
-      XV's modified diversity algorithm. Tries to choose the
-      most diverse set of the original colors.
-
-    Blend-diversity ( example: --quantize=blenddiversity,64 or -Qb,64 )
-      Same as diversity, but sometimes makes up new colors by blending.
-
-    Merging ( example: --quantize=merging,4 or -Qg,4 )
-      A last-resort method which progressively finds two most similar
-      colors in the remaining colormap and averages them together.
-      Very slow, thus not recommended.
-
-    Octree ( example: --quantize=octree,4 or -Qo,4 )
-      Currently broken, don't use
-
-    NeuQuant ( example: --quantize=neuquant,16 or -Qq,16 )
-      A self-balancing Kohonen neural network is used to generate
-      an optimal palette for the imageset. Fast and very high quality.
-      Especially good with color gradients. Not useful for smallest palettes.
-
-    Load from file ( example: --quantize=test.gif )
-      Animmerger will attempt to open the named file, read the
-      palette from it and append its colors to the current palette
-      (or replace with loaded palette if was the first -Q option).
-
-  Multiple quantization phases can be performed in a sequence.
-  For example, -Qb,32 -Qd,16 first reduces with &quot;blend-diversity&quot;
-  to 32 colors, then reduces the remaining set with &quot;diversity&quot; to 16 colors.
-  It is not an error to reduce to a larger set than 256 colors.
-  If you are creating a GIF file and the last explicitly chosen quantization
-  method yields more than 256 colors, the colormap will be implicitly reduced
-  with a method that picks the 256 most-used colors.
-  If necessary, the image will be dithered using a positional dithering method.
-  If you are making a GIF file and you do not specify any quantization options
-  at all, animmerger will use whatever method GD graphics library happens to use.
-  Note that the blending quantization methods are subject to the YUV selection.
-
-DITHERING
-
-  Dithering methods
-     The following dithering methods are defined:
-      FULL NAME            SHORT NAME    Suitable for animation
-       Yliluoma1            y1            Yes (positional)
-       Yliluoma2            y2            Yes (positional)
-       Yliluoma3            y3            Yes (positional)
-       Yliluoma1Iterative   y1i / ky      Yes (positional)
-       Floyd-Steinberg      fs / floyd    No (diffuses +4 pixels)
-       Jarvis-Judice-Ninke  jjn           No (diffuses +12 pixels)
-       Stucki               s             No (diffuses +12 pixels)
-       Burkes               b             No (diffuses +7 pixels)
-       Sierra-3             s3            No (diffuses +10 pixels)
-       Sierra-2             s2            No (diffuses +7 pixels)
-       Sierra-2-4A          s24a          No (diffuses +3 pixels)
-       Stevenson-Arce       sa            No (diffuses +12 pixels)
-       Atkinson             a             No (diffuses +6 pixels, though only 75%)
-     To set the dithering method, use the --dithmethod or -D option.
-     Examples:
-       -Dy1i or --dithmethod=ky (default)
-       -Dfloyd-steinberg
-       -Ds24a,y2 --dr=2 --dc=4 --dm 8x8
-
-  Dithering matrix size
-     You can use an uneven ratio such as 8x2 to produce images
-     that are displayed on a device where pixels are not square.
-     The values should be powers of two, but it is not required.
-     A non-poweroftwo dimension will produce uneven dithering.
-     The third dimension, time, can be specified in order to
-     use temporal dithering, which will appear as flickering.
-     For example, 2x2x2 will use a 2x2 matrix plus 2 frames of
-     flickering to produce the average color. By default, temporal
-     dithering is done from the LSB of the color error, so as to minimize
-     the flicker with cost to spatial accuracy. By specifying a negative time
-     value, such as 2x2x-2, it will be done from the MSB, causing much more
-     prominent flickering, while improving the spatial accuracy.
-
-  Dithering combine control (--dithcombine)
-     The contrast is specified as a sliding scale where
-       0 means that no combinations are loaded.
-       1 represents the average luma difference between
-         two successive colors in luma-sorted palette,
-       2 represents the maximum luma difference between two
-         two successive colors in luma-sorted palette,
-       3 represents the maximum luma coverage of the
-         palette, in practice allowing all combinations.
-     In general, a higher number will produce more ugly dithering
-     and will slow down the dithering algorithm a great deal too,
-     so animmerger tries to choose a reasonable (low) default value.
-     If you have lots of time and you're rendering a high-resolution
-     picture, you can try 3. Otherwise, less than 1.3 is a safe bet.
-     Note that a low value of dithcount can make this option useless.
-
-     --dithcombine takes up to three parameters:
-         &lt;float&gt;
-            Contrast, as described above.
-         &lt;combinationlimit&gt;
-            Maximum number of colors to combine.
-            This value defaults to DithCount, but it may be lower.
-            Lower values are faster. It must be at least 1.
-         &lt;changeslimit&gt;
-            Maximum number of _different_ colors to combine.
-            For example, depth 16 &amp; changes 2 means that up to 16 colors
-            are mixed, but the list can contain only 2 distinct colors.
-            If you specify a negative value, it means that identical colors
-            are not mixed together at all; all candidate components are distinct.
-            It is the fastest option, though not best quality.
-     Examples:
-       --dithcombine 2,4,2
-          Select all combinations of up to 4 palette colors where:
-            - The difference between dimmest and brightest colors in the mix
-              is equal or less than 100% of the maximum difference between
-              consecutive elements in the luma-sorted palette
-            - Only 2 distinct palette indices may occur in the mix
-       --dithcombine 3,16,-1
-          Select all combinations of up to 16 palette colors where:
-            - All palette indices are distinct (same index does not appear twice)
-            - No restrictions on how bright&amp;dim colors are mixed together
-       --dithcombine 0
-          No precalculated mixes. For Yliluoma1 and Yliluoma3 dithers,
-          this means that no dithering is done at all. For Yliluoma1Improved
-          and Yliluoma2, this is the fastest possible option.
-
-Ordered dithering method differences:
-
-  Yliluoma1
-     Completely reliant on --dithcombine to provide
-     the selection of mix candidates.
-     Ignores the --ditherror parameter.
-     Ignores the --dithcount parameter (which still controls the defaults
-                                        to --dithcombine though)
-     Fastest. Depending on --dithcombine, quality may be good or bad.
-  Yliluoma1Iterative
-     Can be improved with --dithcombine, but does not depend on it at all.
-     The only dither that uses --ditherror parameter.
-     Fast. Quality adequate in most cases.
-  Yliluoma2
-     Can be improved with --dithcombine.
-     Ignores the --ditherror parameter.
-     Slow.
-  Yliluoma3
-     Only uses color combinations of 1 or 2 items.
-     Ignores the --ditherror parameter.
-     Slow.
-
-COLOR TRANSFORMATION FUNCTION
-
-  The option --transform can be used to transform the image's color.
-
-  The following identifiers are defined for the function:
-    r,g,b   Input color (0..255)
-    frameno Frame number (0..n)
-    x,y     Screen coordinates (x,y)
-
-  Note that when animmerger counts color, it
-  will pass bogus coordinates to the x,y values.
-  The output value is expected to be in range 0..255, though not required.
-  For a description of the accepted function syntax, see:
-         http://iki.fi/warp/FunctionParser/
-
-  Examples:
-    --transform 'r=g=b=(r*0.299+g*0.587+b*0.114)'
-        Renders grayscale rather than color.
-    --transform 'r=0x80+(r/2)'
-        Makes image considerably redder.
-    --transform 'r=128+127*sin(frameno*.1+x/40+y/90)' \
-    --transform 'g=128+127*cos(frameno*.1+x/40+y/90)' \
-    --transform 'b=128+127*sin(frameno*.1+x/40+y/90+20)'
-        Will make the screen cycle in colors.
-
-  Note that rendering with a transformation function is much
-  slower than rendering without it.
-
-COLOR COMPARE METHODS
-
-  For dithering purposes, animmerger has to compare colors
-  and decide out of many options which combination represents
-  the desired color best.
-
-  The comparison algorithm can be selected from the following choices:
-
-    default   = 0    = RGB                 e.g. --deltae=0 or --deltae=rgb
-    CIE76     = 76   = CIE76 Delta E       e.g. --deltae or --deltae=76
-    CIE94     = 94   = CIE94 Delta E       e.g. --deltae=94 or --deltae=cie94
-    CIEDE2000 = 2000 = CIEDE2000 Delta E   e.g. --deltae=2000
-    CMC              = CMC l:c Delta E     e.g. --deltae=cmc
-    BFD              = BFD l:c Delta E     e.g. --deltae=bfd
-    user-defined  (see below)
-
-  When a CIE method is selected, colors are compared in the CIE L*a*b* colorspace.
-  Animmerger converts RGB values into CIE using an Adobe D65 illuminant profile or
-  a close equivalent.
-
-  Performance:
-     RGB and CIE76 are simple euclidean differences.
-       Because animmerger will calculate the CIE L*a*b* value
-       for each color regardless of whether you use RGB or not,
-       there is no speed difference between these two.
-     CIE94 includes more mathematics than RGB or CIE74.
-     CMC   is complex, and not always very good.
-     CIEDE2000 includes very complicated mathematics,
-               and can be expected to be very slow.
-     BFD   is very complex.
-
-  It is also possible to use a homebrew color comparison formula.
-  Examples:
-    --deltae='(R1-R2)^2 + (G1-G2)^2 + (B1-B2)^2'
-      This is equivalent to --deltae=RGB, though --deltae=RGB is faster.
-      Note that it is not necessary to take the square root of the result,
-      because animmerger only cares about whether a deltae value is larger
-      or smaller than another, not about its exact value.
-    --deltae='(L1-L2)^2 + (a1-a2)^2 + (b1-b2)^2'
-      This is equivalent to --deltae=CIE76, though --deltae=CIE76 is faster.
-    --deltae='abs(luma1-luma2)'
-      This simply compares luminosity and disregards any color information.
-    --deltae='hypot(a1-a2, b1-b2)'
-      This simply compares chroma and disregards luminance.
-  Variables supported in the color comparison formula:
-    R1,G1,B1,A1     -- RGB+alpha value (0..1 range)
-    L1,a1,b1,C1,h1  -- L*a*b* and L*C*h[ab] values (unspecified range)
-                       Note that h is indicated in radians, not degrees
-    luma1           -- Equivalent to R1*.299 + G1*.587 + B1*.114
-    And the same for color 2 (replace 1 with 2)
-    gamma           -- Configured gamma correction rate
-  Functions supported in the color comparison formula:
-    Standard fparser functions such as cos,atan2,asinh,log10
-    g(x) is equivalent to x^gamma and ug(x) is equivalent to x^(1/gamma).
-
-GIF VERSUS PNG AND WHAT ANIMMERGER CREATES
-  GIF is capable of paletted images of 256 colors or less.
-  PNG is capable of paletted images, as well as truecolor images.
-
-  GIF selection  Quantization  Saves in format            Dithering used
-  --auto         -Q was used   Animations=GIF, other=PNG  For GIF, unless disabled
-  --auto         -Q NOT used   Always PNG                 Never
-  --never        -Q was used   Always paletted PNG        Yes, unless disabled
-  --never        -Q NOT used   Always trueclor PNG        Never
-  --always       -Q was used   Always GIF                 Yes, unless disabled
-  --always       -Q not used   Always GIF                 Never
-
-TIPS
-
-Converting a GIF animation into individual frame files:
-   gifsicle -U -E animation.gif
-   animmerger &lt;...&gt; animation.gif.*
-
-To create images with multiple methods in succession,
-you can use the multimode option. For example,
-    --method average,last,mostused, or -pa,l,m
-creates three images, corresponding to that if
-you ran animmerger with -pa, -pl, -pm options
-in succession. Note that all modes share the same
-other parameters (firstlast, looplength).
-The benefit in doing this is that the image alignment
-phase needs only be done once.
-
-Different combinations of pixel methods require different
-amounts of memory. Use the -v option to see how much memory
-is required per pixel when using different options.
-animmerger always strives to choose the smallest pixel
-implementation that provides all of the requested features.
-
-When creating animations of video game content, please take
-all necessary steps to ensure that background stays fixed
-while characters move. Parallax animation is bad; If possible,
-please fix all background layers so that they scroll at even
-rate.
-
 </pre>
 
 </div><H2 id="h1" class="level2"><a name="h1"></a>10. Copying</H2><div class="level2" id="divh1">
@@ -1846,9 +1418,9 @@ libgd is also required.
    is at <a href="http://iki.fi/bisqwit/source/animmerger.html">http://iki.fi/bisqwit/source/animmerger.html</a>.<br>
    Check there for new versions.
 <p>Additionally, the most recent source code (bleeding edge) for animmerger can also be downloaded by cloning the Git repository by:<ul style="margin-left:3em;margin-top:0px"><li><code> git clone <a href="git://bisqwit.iki.fi/animmerger.git">git://bisqwit.iki.fi/animmerger.git</a></code></li><li><code> git checkout origin/release -b release</code></li><li><code> git checkout origin/master  -b master</code></li></ul></p></div> <p align=right><small>Generated from
-       <tt>progdesc.php</tt> (last updated: Tue, 31 Jul 2012 21:58:08 +0000)<br>
-  with <tt>docmaker.php</tt> (last updated: Tue, 31 Jul 2012 21:58:08 +0000)<br>
-  at Tue, 31 Jul 2012 21:58:08 +0000</small>
+       <tt>progdesc.php</tt> (last updated: Mon, 11 Nov 2013 03:26:45 +0200)<br>
+  with <tt>docmaker.php</tt> (last updated: Mon, 11 Nov 2013 03:26:45 +0200)<br>
+  at Mon, 11 Nov 2013 03:26:45 +0200</small>
  </p>
 </body>
 </html>

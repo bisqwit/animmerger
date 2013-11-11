@@ -142,14 +142,14 @@ private:
         // make the algorithm work correctly.
         static void nnbr(const KDNode* kd, const KDPoint& target,
                          KDRect& hr, // in-param and temporary; not an out-param.
-                         int lev,
+                         const int lev,
                          Nearest& nearest)
         {
             // 1. if kd is empty then set dist-sqd to infinity and exit.
             if (!kd) return;
 
             // 2. s := split field of kd
-            int s = lev % K;
+            //const int s = lev % K;
 
             // 3. pivot := dom-elt field of kd
             const KDPoint& pivot = kd->k;
@@ -160,11 +160,11 @@ private:
             //    dimension.
             KDRect& left_hr = hr; // optimize by not cloning
             KDRect right_hr = hr;
-            left_hr.max.coord[s]  = pivot.coord[s];
-            right_hr.min.coord[s] = pivot.coord[s];
+            left_hr.max.coord[lev]  = pivot.coord[lev];
+            right_hr.min.coord[lev] = pivot.coord[lev];
 
             // 5. target-in-left := target_s <= pivot_s
-            bool target_in_left = target.coord[s] < pivot.coord[s];
+            bool target_in_left = target.coord[lev] < pivot.coord[lev];
 
             const KDNode* nearer_kd;
             const KDNode* further_kd;
@@ -189,7 +189,7 @@ private:
             // 8. Recursively call Nearest Neighbor with parameters
             //    (nearer-kd, target, nearer-hr, max-dist-sqd), storing the
             //    results in nearest and dist-sqd
-            nnbr(nearer_kd, target, nearer_hr, lev + 1, nearest);
+            nnbr(nearer_kd, target, nearer_hr, (lev + 1) % K, nearest);
 
             // 10. A nearer point could only lie in further-kd if there were some
             //     part of further-hr within distance sqrt(max-dist-sqd) of
@@ -208,7 +208,7 @@ private:
 
                 // 10.2 Recursively call Nearest Neighbor with parameters
                 //      (further-kd, target, further-hr, max-dist_sqd)
-                nnbr(further_kd, target, further_hr, lev + 1, nearest);
+                nnbr(further_kd, target, further_hr, (lev + 1) % K, nearest);
             }
             // SDL: otherwise, current point is nearest
             else if (pivot_to_target < nearest.dist_sqd)
