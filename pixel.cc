@@ -100,7 +100,7 @@ namespace
 
         // Determine traits
         // E.g. Trait pm_FirstPixel is set if the class defines GetFirst().
-        static const unsigned long Traits = 0
+        static constexpr unsigned long Traits = 0
         #define MakeTest(o,f,name) \
              | ((sizeof(PixelMetaInfoAux::ttest##name<T> (0))==sizeof(char)) \
                   ? (1ul << pm_##name##Pixel) : 0ul)
@@ -110,7 +110,7 @@ namespace
 
         // Determine components
         // E.g. Component impl_First is set if the class is or inherits FirstPixel.
-        static const unsigned Components = 0
+        static constexpr unsigned Components = 0
         #define MakeTest(name) \
              | ((sizeof(PixelMetaInfoAux::ctest##name( (const T*) 0))==sizeof(char)) \
                   ? (1u << impl_##name) : 0u)
@@ -119,17 +119,17 @@ namespace
         ;
 
         // Determine size and cost
-        static const unsigned Size = sizeof(T);
-        static const unsigned Cost = Size + T::SizePenalty;
+        static constexpr unsigned Size = sizeof(T);
+        static constexpr unsigned Cost = Size + T::SizePenalty;
     };
     template<>
     struct PixelMetaInfo<void>
     {
         typedef void result;
-        static const unsigned long Traits = 0ul;
-        static const unsigned Size        = 0xffffu;
-        static const unsigned Cost        = 0xffffu;
-        static const unsigned Components  = ~0u;
+        static constexpr unsigned long Traits = 0ul;
+        static constexpr unsigned Size        = 0xffffu;
+        static constexpr unsigned Cost        = 0xffffu;
+        static constexpr unsigned Components  = ~0u;
     };
     #define MakeImpl(name) \
         template<> struct PixelMethodClass<impl_##name>\
@@ -209,7 +209,7 @@ namespace
             T2::set(p,timer);
         }
         /* Legal combination of two classes */
-        static const unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
+        static constexpr unsigned SizePenalty = T1::SizePenalty + T2::SizePenalty;
     };
 
     /* This converts an implementation index into a type. */
@@ -277,7 +277,7 @@ namespace
     template<unsigned long Traits,unsigned bm=1>
     struct NextPixelMethodImplComb_WithTraits
     {
-        static const unsigned bitmask =
+        static constexpr unsigned bitmask =
             (Traits & ~PixelMethodImplComb<bm>::Traits)
             ? // Escalate
               NextPixelMethodImplComb_WithTraits<Traits, bm+1>::bitmask
@@ -287,7 +287,7 @@ namespace
     template<unsigned long Traits>
     struct NextPixelMethodImplComb_WithTraits<Traits, (1ul<<NPixelImpls)>
     {   // Default case, ensures termination
-        static const unsigned bitmask = 0;
+        static constexpr unsigned bitmask = 0;
     };
 
     /* Picks the smallest PixelMethodImplComb that fulfills the requested Traits. */
