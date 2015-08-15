@@ -25,11 +25,11 @@ LDFLAGS=-g
 #####
 #
 CC=gcc
-CPP=cpp
+CPP=gcc
 CXX=g++
-OPTIM += -minline-stringops-dynamically -ffunction-cse -ffunction-sections -fdata-sections
+OPTIM +=
 CPPFLAGS += 
-LDFLAGS +=  -Xlinker --gc-sections
-WARNINGS +=  -Wall -Wundef -Wcast-qual -Wpointer-arith -Wconversion -Wwrite-strings -Wsign-compare -Wredundant-decls -Winit-self -Wextra -Wparentheses -Wcast-align -Wformat -Wno-conversion
-CWARNINGS +=  -Waggregate-return -Wshadow -Winline -Wstrict-prototypes -Wmissing-prototypes
-CXXWARNINGS +=  -Woverloaded-virtual  -Wno-non-virtual-dtor
+LDFLAGS +=
+WARNINGS +=  -Wall -Wextra -pedantic
+CWARNINGS +=
+CXXWARNINGS +=

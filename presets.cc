@@ -33,6 +33,14 @@ const decltype(presets) presets =
             { "-Q000000,1010FA,10FA10,10FAFA,FA1010,FA10FA,FAFA40,FAFAFA" }
         }
     },
+    { "dcpu16palette",
+        {
+            "Choose Arne's 16-color DCPU-16 palette",
+                "Chooses Arne's 16-color DCPU-16 palette",
+            { "-Q000000,1B2632,493C2B,2F484E,005784,BE2633,44891A,A46422,31A2F2,"
+             "E06F8B,EB8931,9D9D9D,A3CE27,B2DCEF,FFE26B,FFFFFF" }
+        }
+    },
     { "fastdither",
         {
             "Fast ordered dithering",

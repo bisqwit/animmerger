@@ -6,6 +6,7 @@ typedef unsigned char uint8;
 typedef unsigned short uint16;
 typedef unsigned long long uint64;
 
-const uint32 DefaultPixel = 0xFF404041u;
+const uint32 DefaultPixel = 0x1FF307FEu;
+//const uint32 DefaultPixel = 0xFF404041u;
 
 #endif

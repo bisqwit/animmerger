@@ -161,7 +161,7 @@ namespace
     template<typename T> \
     uint32 CallGet##name(const T& obj, unsigned timer=0) FasterPixelMethod; \
     template<typename T> \
-    uint32 CallGet##name(const T& obj, unsigned timer=0) \
+    uint32 CallGet##name(const T& obj, unsigned timer) \
     { \
         return CallGet##name##Helper<T>::call(obj, timer); \
     }
@@ -177,7 +177,7 @@ namespace
 
     struct PopCountCommon
     {
-        static constexpr unsigned Compute(unsigned v,unsigned mask,unsigned shift)
+        static constexpr unsigned Compute(unsigned v,unsigned shift,unsigned mask)
             { return (v&mask) + ((v >> shift) & mask); }
         static constexpr unsigned Compute(unsigned value)
         {
@@ -427,7 +427,7 @@ namespace
 
         if(Prev == Traits) return cache;
         return cache = FactoryFinder<>::FindForTraits(Prev = Traits);
-    };
+    }
 }
 
 uint32 Array256x256of_Base::GetStatic(unsigned index) const

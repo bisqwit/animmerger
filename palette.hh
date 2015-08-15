@@ -72,7 +72,7 @@ struct GammaColorVec
     };
 
     GammaColorVec() {}
-    GammaColorVec(float v) : r(v),g(v),b(v),a(v) { }
+    GammaColorVec(float v) : vec{v,v,v,v} { }
 
     inline GammaColorVec operator- (const GammaColorVec& b) const
     {
