@@ -12,7 +12,6 @@
 
 #include <gd.h>
 
-
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -686,7 +685,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     bool Dithered = !PaletteReductionMethod.empty();
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
+#ifdef __MINGW32__
+    snprintf(Filename, sizeof(Filename),
+#else
     std::snprintf(Filename, sizeof(Filename),
+#endif
         OutputNameTemplate.c_str(),
         img_counter,
         methodnamepiece,

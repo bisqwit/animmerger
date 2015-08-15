@@ -12,7 +12,10 @@
 #include "alloc/FSBAllocator.hh"
 #include "palette.hh"
 
-#include <gd.h>
+extern "C" {
+//#include <gd.h>
+typedef struct gdImageStruct* gdImagePtr;
+}
 
 extern int SaveGif;
 extern bool UseDitherCache;

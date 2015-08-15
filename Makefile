@@ -1,4 +1,4 @@
-VERSION=1.6.1
+VERSION=1.6.2
 ARCHNAME=animmerger-$(VERSION)
 
 ARCHDIR=archives/
@@ -65,16 +65,17 @@ PROGS=\
 CPPFLAGS += -I.
 LDLIBS += -lgd
 
-CXXFLAGS += -std=c++14 -fopenmp
+CXXFLAGS += -std=gnu++11 -fopenmp
 CPPFLAGS += -DFSBALLOCATOR_USE_THREAD_SAFE_LOCKING_OPENMP
 CPPFLAGS += -DFP_USE_THREAD_SAFE_EVAL
 CPPFLAGS += -DFUNCTIONPARSER_SUPPORT_DEBUGGING
 
-CPPFLAGS += -pipe -fstack-protector -Wl,-z,relro -Wl,-z,now -fvisibility=hidden \
-	    -W -Wall -Wno-unused-parameter -Wno-unused-function -Wno-unused-label \
-	    -Wpointer-arith -Wformat -Wreturn-type -Wsign-compare -Wmultichar \
-	    -Wformat-nonliteral -Winit-self -Wuninitialized -Wno-deprecated -Wformat-security \
-	    -Wno-attributes
+#CPPFLAGS += -pipe -fstack-protector -Wl,-z,relro -Wl,-z,now -fvisibility=hidden \
+#	    -W -Wall -Wno-unused-parameter -Wno-unused-function -Wno-unused-label \
+#	    -Wpointer-arith -Wformat -Wreturn-type -Wsign-compare -Wmultichar \
+#	    -Wformat-nonliteral -Winit-self -Wuninitialized -Wno-deprecated -Wformat-security \
+#	    -Wno-attributes
+CPPFLAGS += -pipe -W -Wall -Wextra
 
 INSTALLPROGS = $(PROGS)
 BINDIR = /usr/local/bin
@@ -92,7 +93,8 @@ INSTALL=install
 
 LDLIBS += -lm
 
-all: $(PROGS) doc/README.html
+all: $(PROGS)
+# doc/README.html
 
 animmerger: $(OBJS) $(FPOBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
