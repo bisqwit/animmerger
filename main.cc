@@ -14,9 +14,22 @@
 
 #include <string.h>
 #include <getopt.h>
+
 #include <unistd.h> //For access(R_OK)
 
 #include "rangemap.hh"
+
+/*#ifdef __MINGW32__
+static int strcasecmp(const char* a, const char* b)
+{
+    for(; *a && *b; ++a, ++b)
+    {
+        int c = std::toupper(*a) - std::toupper(*b);
+        if(c) return c;
+    }
+    return 0;
+}
+#endif*/
 
 #define MakePixName(o,f,name) #name,
 static const char* const PixelMethodNames[NPixelMethods] =
@@ -230,7 +243,7 @@ private:
                     int v = c=='h' ? 0 : c-3000;
 
                     if(v>=0)O << "\
-animmerger v" VERSION " - Copyright (C) 2013 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
+animmerger v" VERSION " - Copyright (C) 2015 Joel Yliluoma (http://iki.fi/bisqwit/)\n\
 \n\
 Usage: animmerger [<options>] <imagefile> [...]\n\
 \n\

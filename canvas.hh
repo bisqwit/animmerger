@@ -1,16 +1,21 @@
 #ifndef bqtTileTrackerCanvasHH
 #define bqtTileTrackerCanvasHH
 
+#include <map>
+#include <vector>
+#include <cstring> // std::memcmp
+#include <string>
+#include <cstdio>
+
 #include "pixel.hh"
 #include "vectype.hh"
 #include "alloc/FSBAllocator.hh"
 #include "palette.hh"
 
-#include <vector>
-#include <map>
-#include <cstring> // std::memcmp
-#include <string>
-#include <cstdio>
+extern "C" {
+//#include <gd.h>
+typedef struct gdImageStruct* gdImagePtr;
+}
 
 extern int SaveGif;
 extern bool UseDitherCache;

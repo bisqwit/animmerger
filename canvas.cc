@@ -1,15 +1,16 @@
-#include <gd.h>
 #include <cstdio>
 #include <cmath>
 #include <iostream>
 
-#include "openmp.hh"
 #include "canvas.hh"
+#include "openmp.hh"
 #include "align.hh"
 #include "palette.hh"
 #include "dither.hh"
 #include "quantize.hh"
 #include "fparser.hh"
+
+#include <gd.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -684,7 +685,11 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
     bool Dithered = !PaletteReductionMethod.empty();
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
+#ifdef __MINGW32__
+    snprintf(Filename, sizeof(Filename),
+#else
     std::snprintf(Filename, sizeof(Filename),
+#endif
         OutputNameTemplate.c_str(),
         img_counter,
         methodnamepiece,
@@ -881,12 +886,15 @@ inline unsigned TILE_Tracker::GetMixColor
         output = FindBestMixingPlan(input, pal);
     }
 
+    //return output[std::rand() % output.size()]; //RANDOM DITHERING
+
     unsigned pattern_value =
         DitheringMatrix
             [ ((y%DitherMatrixHeight)*DitherMatrixWidth
              + (x%DitherMatrixWidth)
                )// % (DitherMatrixHeight*DitherMatrixWidth)
             ];
+
     const unsigned max_pattern_value = DitherMatrixWidth * DitherMatrixHeight;
     return output[ pattern_value * output.size() / max_pattern_value ];
 }
@@ -1035,6 +1043,9 @@ gdImagePtr TILE_Tracker::CreateFrame_Palette_Dither_With(
                      + (x%DitherMatrixWidth)
                        )// % (DitherMatrixHeight*DitherMatrixWidth)
                     ];
+
+           //pattern_value = std::rand() % (DitherMatrixWidth * DitherMatrixHeight); //RANDOM DITHERING
+
         #if 0
             if(output.size() == 2)
             {

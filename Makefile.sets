@@ -25,11 +25,25 @@ LDFLAGS=-g
 #####
 #
 CC=gcc
-CPP=cpp
+CPP=gcc
 CXX=g++
-OPTIM += -minline-stringops-dynamically -ffunction-cse -ffunction-sections -fdata-sections
+OPTIM +=
 CPPFLAGS += 
-LDFLAGS +=  -Xlinker --gc-sections
-WARNINGS +=  -Wall -Wundef -Wcast-qual -Wpointer-arith -Wconversion -Wwrite-strings -Wsign-compare -Wredundant-decls -Winit-self -Wextra -Wparentheses -Wcast-align -Wformat -Wno-conversion
-CWARNINGS +=  -Waggregate-return -Wshadow -Winline -Wstrict-prototypes -Wmissing-prototypes
-CXXWARNINGS +=  -Woverloaded-virtual  -Wno-non-virtual-dtor
+LDFLAGS +=
+WARNINGS +=  -Wall -Wextra -pedantic
+CWARNINGS +=
+CXXWARNINGS +=
+
+
+#CC=i686-pc-mingw32-gcc
+#CXX=i686-pc-mingw32-g++
+#CPPFLAGS += -Ilibgd/libgd-gd-2.1.1/src
+#LDFLAGS  += -Llibgd/libgd-gd-2.1.1/src/.libs
+#CPPFLAGS += -DM_E=2.7182818284590452353602874713526624977572
+#
+#LDFLAGS += libgd/libgd-gd-2.1.1/src/.libs/libgd.a \
+#           libgd/libjpeg-turbo-1.4.1/.libs/libjpeg.a \
+#           libgd/libpng-1.2.50/.libs/libpng.a \
+#           libgd/zlib-1.2.8/libz.a \
+#           -static \
+#           -static-libgcc -static-libstdc++

@@ -155,7 +155,7 @@ void FindInterestingSpots(
                 //randkey = randkey*0x8088405+1;
                 //if((randkey % 3) == 0 || (x&3)==0)
                 {
-                    InterestingSpot spot = { { xoffs+x, yoffs+y }, data };
+                    InterestingSpot spot { { int(xoffs+x), int(yoffs+y) }, data };
                     output.push_back(spot);
                 }
             }
@@ -192,9 +192,9 @@ void FindInterestingSpots(
                     winner = i;
 
             const unsigned coordinate = winner->second.front();
-            InterestingSpot spot =
-                { { xoffs+ coordinate%sx,
-                    yoffs+ coordinate/sx },
+            InterestingSpot spot
+                { { int(xoffs+ coordinate%sx),
+                    int(yoffs+ coordinate/sx) },
                   winner->first };
             output.push_back(spot);
         }
@@ -467,7 +467,7 @@ AlignResult Align(
             unsigned ch = y_divide; if(sy+ch > inputheight) ch = inputheight-sy;
             for(unsigned n=0; n<n_rand_spots_per; ++n)
             {
-                IntCoordinate c = { sx + (rand()%cw), sy + (rand()%ch) };
+                IntCoordinate c { int(sx + (rand()%cw)), int(sy + (rand()%ch)) };
                 rand_spots.push_back(c);
             }
         }
