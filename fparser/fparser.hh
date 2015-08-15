@@ -13,6 +13,7 @@
 
 #include <string>
 #include <vector>
+#include <complex>
 
 #ifdef FUNCTIONPARSER_SUPPORT_DEBUGGING
 #include <iostream>
@@ -190,7 +191,6 @@ class FunctionParser_f: public FunctionParserBase<float> {};
 class FunctionParser_ld: public FunctionParserBase<long double> {};
 class FunctionParser_li: public FunctionParserBase<long> {};
 
-#include <complex>
 class FunctionParser_cd: public FunctionParserBase<std::complex<double> > {};
 class FunctionParser_cf: public FunctionParserBase<std::complex<float> > {};
 class FunctionParser_cld: public FunctionParserBase<std::complex<long double> > {};
