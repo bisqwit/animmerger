@@ -247,6 +247,9 @@ class FSBAllocator_ElemAllocator
             blocksWithFree.push_back(blockIndex);
         block.deallocate(unitPtr);
     }
+
+    bool operator!=(const FSBAllocator_ElemAllocator<ElemSize>& ) { return false; }
+    bool operator==(const FSBAllocator_ElemAllocator<ElemSize>& ) { return true; }
 };
 
 template<unsigned ElemSize>
@@ -416,6 +419,9 @@ class FSBAllocator2_ElemAllocator
             }
         }
     }
+
+    bool operator!=(const FSBAllocator2_ElemAllocator<ElemSize>& ) { return false; }
+    bool operator==(const FSBAllocator2_ElemAllocator<ElemSize>& ) { return true; }
 };
 
 template<unsigned ElemSize>
@@ -489,6 +495,9 @@ class FSBAllocator
     }
 
     size_type max_size() const throw() { return 1; }
+
+    bool operator!=(const FSBAllocator<Ty>& ) { return false; }
+    bool operator==(const FSBAllocator<Ty>& ) { return true; }
 };
 
 
@@ -549,6 +558,9 @@ class FSBAllocator2
     {
         FSBAllocator2_ElemAllocator<sizeof(Ty)>::cleanSweep(unusedValue);
     }
+
+    bool operator!=(const FSBAllocator2<Ty>& ) { return false; }
+    bool operator==(const FSBAllocator2<Ty>& ) { return true; }
 };
 
 typedef FSBAllocator2<std::size_t> FSBRefCountAllocator;
