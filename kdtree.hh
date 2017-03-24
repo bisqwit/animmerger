@@ -1,4 +1,8 @@
+#ifndef bqtKdTreeHH
+#define bqtKdTreeHH
+
 #include <utility> // for std::pair
+#include <limits>  // for std::numeric_limits
 #include "alloc/FSBAllocator.hh"
 
 /* kd-tree implementation translated to C++
@@ -6,26 +10,31 @@
  * at http://www.intelegance.net/video/videomosaic.shtml.
  */
 
-template<typename V, unsigned K = 3>
+template<typename V, unsigned K = 3, typename CoordType = double>
 class KDTree
 {
 public:
     struct KDPoint
     {
-        double coord[K];
+        CoordType coord[K];
 
-        KDPoint() { }
-
-        KDPoint(double a,double b,double c)
+        template<typename... Args>
+        KDPoint(Args&&... args)
         {
-            coord[0] = a; coord[1] = b; coord[2] = c;
-        }
-        KDPoint(double a,double b,double c,double d)
-        {
-            coord[0] = a; coord[1] = b; coord[2] = c; coord[3] = d;
+            static_assert(sizeof...(args) == K || sizeof...(args) == 0u, "Incorrect number of parameters");
+            Assign<0u>( std::forward<Args>(args)... );
         }
 
-        KDPoint(double v[K])
+        template<unsigned index, typename... Args>
+        inline void Assign(CoordType c, Args&&... args)
+        {
+            coord[index] = c;
+            Assign<index+1>( std::forward<Args>(args)... );
+        }
+        template<unsigned index>
+        static inline void Assign() {}
+
+        KDPoint(CoordType v[K])
         {
             for(unsigned n=0; n<K; ++n)
                 coord[n] = v[n];
@@ -37,11 +46,11 @@ public:
                 if(coord[n] != b.coord[n]) return false;
             return true;
         }
-        double sqrdist(const KDPoint& b) const
+        CoordType sqrdist(const KDPoint& b) const
         {
-            double result = 0;
+            CoordType result = 0;
             for(unsigned n=0; n<K; ++n)
-                { double diff = coord[n] - b.coord[n];
+                { CoordType diff = coord[n] - b.coord[n];
                   result += diff*diff; }
             return result;
         }
@@ -67,8 +76,8 @@ private:
         {
             for(unsigned i=0; i<K; ++i)
             {
-                min.coord[i] = -1e99;
-                max.coord[i] =  1e99;
+                min.coord[i] = std::numeric_limits<CoordType>::min();
+                max.coord[i] = std::numeric_limits<CoordType>::max();
             }
         }
     };
@@ -85,9 +94,9 @@ private:
         V       v;
         KDNode  *left, *right;
     public:
-        KDNode() : k(),v(),left(0),right(0) { }
+        KDNode() : k(),v(),left(nullptr),right(nullptr) { }
         KDNode(const KDPoint& kk, const V& vv)
-            : k(kk), v(vv), left(0), right(0) { }
+            : k(kk), v(vv), left(nullptr), right(nullptr) { }
 
         virtual ~KDNode() { DisposeNode(left); DisposeNode(right); }
 
@@ -98,7 +107,7 @@ private:
             if(!t)
                 return (t = NewNode(key, val));
             else if(key == t->k)
-                return 0; /* key duplicate */
+                return nullptr; /* key duplicate */
             else if(key.coord[lev] > t->k.coord[lev])
                 return ins(key, val, t->right, (lev+1)%K);
             else
@@ -135,14 +144,14 @@ private:
         struct Nearest
         {
             const KDNode* kd;
-            double        dist_sqd;
+            CoordType     dist_sqd;
         };
         // Method Nearest Neighbor from Andrew Moore's thesis. Numbered
         // comments are direct quotes from there. Step "SDL" is added to
         // make the algorithm work correctly.
-        static void nnbr(const KDNode* kd, const KDPoint& target,
-                         KDRect& hr, // in-param and temporary; not an out-param.
-                         const int lev,
+        template<unsigned lev>
+        static void nnbr(const KDPoint& target, const KDNode* kd,
+                         KDRect&& hr, // in-param and temporary; not an out-param.
                          Nearest& nearest)
         {
             // 1. if kd is empty then set dist-sqd to infinity and exit.
@@ -153,48 +162,33 @@ private:
 
             // 3. pivot := dom-elt field of kd
             const KDPoint& pivot = kd->k;
-            double pivot_to_target = pivot.sqrdist(target);
+            CoordType pivot_to_target = pivot.sqrdist(target);
+
+            // 5. target-in-left := target_s <= pivot_s
+            const bool target_in_left = target.coord[lev] < pivot.coord[lev];
+            // 6. if target-in-left     then nearer is left, further is right
+            // 7. if not target-in-left then nearer is right, further is left
 
             // 4. Cut hr into to sub-hyperrectangles left-hr and right-hr.
             //    The cut plane is through pivot and perpendicular to the s
             //    dimension.
-            KDRect& left_hr = hr; // optimize by not cloning
-            KDRect right_hr = hr;
-            left_hr.max.coord[lev]  = pivot.coord[lev];
-            right_hr.min.coord[lev] = pivot.coord[lev];
-
-            // 5. target-in-left := target_s <= pivot_s
-            bool target_in_left = target.coord[lev] < pivot.coord[lev];
-
-            const KDNode* nearer_kd;
-            const KDNode* further_kd;
-            KDRect nearer_hr;
-            KDRect further_hr;
-
-            // 6. if target-in-left then nearer is left, further is right
-            if (target_in_left) {
-                nearer_kd = kd->left;
-                nearer_hr = left_hr;
-                further_kd = kd->right;
-                further_hr = right_hr;
-            }
-            // 7. if not target-in-left then nearer is right, further is left
-            else {
-                nearer_kd = kd->right;
-                nearer_hr = right_hr;
-                further_kd = kd->left;
-                further_hr = left_hr;
-            }
+            KDRect& farther_hr = hr; // optimize by not cloning
+            {KDRect nearer_hr  = hr;
+            (target_in_left ? nearer_hr : farther_hr).max.coord[lev] = pivot.coord[lev];
+            (target_in_left ? farther_hr : nearer_hr).min.coord[lev] = pivot.coord[lev];
 
             // 8. Recursively call Nearest Neighbor with parameters
             //    (nearer-kd, target, nearer-hr, max-dist-sqd), storing the
             //    results in nearest and dist-sqd
-            nnbr(nearer_kd, target, nearer_hr, (lev + 1) % K, nearest);
+            nnbr<(lev+1)%K>(target,
+                            target_in_left ? kd->left : kd->right,
+                            std::move(nearer_hr),
+                            nearest);} // end scope for nearer_hr
 
             // 10. A nearer point could only lie in further-kd if there were some
             //     part of further-hr within distance sqrt(max-dist-sqd) of
             //     target.  If this is the case then
-            const KDPoint closest = further_hr.bound(target);
+            const KDPoint closest = farther_hr.bound(target);
             if (closest.sqrdist(target) < nearest.dist_sqd)
             {
                 // 10.1 if (pivot-target)^2 < dist-sqd then
@@ -208,7 +202,10 @@ private:
 
                 // 10.2 Recursively call Nearest Neighbor with parameters
                 //      (further-kd, target, further-hr, max-dist_sqd)
-                nnbr(further_kd, target, further_hr, (lev + 1) % K, nearest);
+                nnbr<(lev+1)%K>(target,
+                                target_in_left ? kd->right : kd->left,
+                                std::move(farther_hr),
+                                nearest);
             }
             // SDL: otherwise, current point is nearest
             else if (pivot_to_target < nearest.dist_sqd)
@@ -222,14 +219,14 @@ private:
     public:
         KDNode(const KDNode& b)
             : k(b.k), v(b.v),
-              left( b.left ? NewNode(*b.left) : 0),
-              right( b.right ? NewNode(*b.right) : 0 ) { }
+              left( b.left ? NewNode(*b.left) : nullptr),
+              right( b.right ? NewNode(*b.right) : nullptr ) { }
     };
 private:
-    KDNode* m_root;
-    size_t  m_count;
+    KDNode*     m_root;
+    std::size_t m_count;
 public:
-    KDTree() : m_root(0), m_count(0) { }
+    KDTree() : m_root(nullptr), m_count(0) { }
     virtual ~KDTree() { DisposeNode(m_root); }
 
     void insert(const KDPoint& key, const V& val)
@@ -251,65 +248,66 @@ public:
 
         typename KDNode::Nearest nn;
         nn.kd       = 0;
-        nn.dist_sqd = 1e99;
-        KDNode::nnbr(m_root, key, hr, 0, nn);
+        nn.dist_sqd = std::numeric_limits<CoordType>::max();
+        KDNode::template nnbr<0>(key, m_root, std::move(hr), nn);
         if(nn.kd)
             return & nn.kd->v;
-        return 0;
+        return nullptr;
     }
 
-    const std::pair<V,double>
-        nearest_info(const KDPoint& key) const
+    const std::pair<V,CoordType> nearest_info(const KDPoint& key) const
     {
         KDRect hr;
         hr.MakeInfinite();
 
         typename KDNode::Nearest nn;
         nn.kd       = 0;
-        nn.dist_sqd = 1e99;
-        KDNode::nnbr(m_root, key, hr, 0, nn);
+        nn.dist_sqd = std::numeric_limits<CoordType>::max();
+        KDNode::template nnbr<0>(key, m_root, std::move(hr), nn);
         if(nn.kd)
-            return std::pair<V,double> ( nn.kd->v, nn.dist_sqd);
-        return std::pair<V,double> ( V(), 1e99 );
+            return std::pair<V,CoordType> ( nn.kd->v, nn.dist_sqd);
+        return std::pair<V,CoordType> ( V(), std::numeric_limits<CoordType>::max() );
     }
 
-    size_t size() const { return m_count; }
+    std::size_t size() const { return m_count; }
 public:
     KDTree& operator=(const KDTree&b)
     {
         if(this != &b)
         {
             if(m_root) DisposeNode(m_root);
-            m_root = b.m_root ? NewNode(*b.m_root) : 0;
+            m_root = b.m_root ? NewNode(*b.m_root) : nullptr;
             m_count = b.m_count;
         }
         return *this;
     }
     KDTree(const KDTree& b)
-        : m_root( b.m_root ? NewNode(*b.m_root) : 0 ),
+        : m_root( b.m_root ? NewNode(*b.m_root) : nullptr ),
           m_count( b.m_count ) { }
 };
 
-template<typename V, unsigned K>
-typename KDTree<V,K>::KDNode* KDTree<V,K>::NewNode(const KDNode& b)
+template<typename V, unsigned K, typename D>
+typename KDTree<V,K,D>::KDNode* KDTree<V,K,D>::NewNode(const KDNode& b)
 {
     KDNode* result = FSBAllocator<KDNode>().allocate(1);
     new ((void*)result) KDNode(b);
     return result;
 }
 
-template<typename V, unsigned K>
-typename KDTree<V,K>::KDNode* KDTree<V,K>::NewNode(const KDPoint& k, const V& v)
+template<typename V, unsigned K, typename D>
+typename KDTree<V,K,D>::KDNode* KDTree<V,K,D>::NewNode(const KDPoint& k, const V& v)
 {
     KDNode* result = FSBAllocator<KDNode>().allocate(1);
     new ((void*)result) KDNode(k,v);
     return result;
 }
 
-template<typename V, unsigned K>
-void KDTree<V,K>::DisposeNode(KDNode* p)
+template<typename V, unsigned K, typename D>
+void KDTree<V,K,D>::DisposeNode(KDNode* p)
 {
     if(!p) return;
     p->~KDNode();
     FSBAllocator<KDNode>().deallocate(p, 1);
 }
+
+#endif
