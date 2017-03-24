@@ -484,9 +484,10 @@ class FSBAllocator
         FSBAllocator_ElemAllocator<sizeof(Ty)>::deallocate(ptr);
     }
 
-    void construct(pointer ptr, const Ty& val)
+    template<typename...Args>
+    void construct(pointer ptr, Args&&... args)
     {
-        new ((void *)ptr) Ty(val);
+        new ((void *)ptr) Ty(std::forward<Args>(args)...);
     }
 
     void destroy(pointer ptr)
@@ -542,9 +543,10 @@ class FSBAllocator2
         FSBAllocator2_ElemAllocator<sizeof(Ty)>::deallocate(ptr);
     }
 
-    void construct(pointer ptr, const Ty& val)
+    template<typename...Args>
+    void construct(pointer ptr, Args&&... args)
     {
-        new ((void *)ptr) Ty(val);
+        new ((void *)ptr) Ty(std::forward<Args>(args)...);
     }
 
     void destroy(pointer ptr)
