@@ -47,3 +47,4 @@ CXXWARNINGS +=
 #           libgd/zlib-1.2.8/libz.a \
 #           -static \
 #           -static-libgcc -static-libstdc++
+#

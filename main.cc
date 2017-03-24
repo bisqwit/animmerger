@@ -974,9 +974,9 @@ rate.\n\
                     // Try parse as RxGxB or RxGxBxI expression
                     char* q = arg;
                     while(*q>='0' && *q<='9') { r_dim = r_dim*10 + (*q++ - '0'); }
-                    if(*q != 'x') goto not_rgb_Q; ++q;
+                    if(*q != 'x') { goto not_rgb_Q; } ++q;
                     while(*q>='0' && *q<='9') { g_dim = g_dim*10 + (*q++ - '0'); }
-                    if(*q != 'x') goto not_rgb_Q; ++q;
+                    if(*q != 'x') { goto not_rgb_Q; } ++q;
                     while(*q>='0' && *q<='9') { b_dim = b_dim*10 + (*q++ - '0'); }
                     if(*q == 'x')
                     {
