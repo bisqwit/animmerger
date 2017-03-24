@@ -26,6 +26,168 @@ int SaveGif = -1;
 bool UseDitherCache = true;
 std::string OutputNameTemplate = "%2$s-%1$04u.%3$s";
 
+#ifdef __MINGW32__
+/* A version of snprintf() that adds support for positional parameters */
+static int Msnprintf(char* target, std::size_t limit, const char* format, ...)
+{
+    std::vector<char>     types;
+    std::vector<uint64_t> parameters;
+
+    auto Set = [&](unsigned n, char type)
+    {
+        if(!n--) return;
+        if(types.size() <= n) types.resize(n+1);
+        types[n] = type;
+    };
+
+    int auto_number = 0;
+
+    va_list ap;
+    va_start(ap, format);
+    // First scan the format to get the list of all parameters
+    for(const char* fmt = format; *fmt; ++fmt)
+    {
+        if(*fmt != '%') continue;
+        if(fmt[1] == '%') { ++fmt; continue; }
+        int n, argno = -1;
+    another_number:
+        n=0;
+        ++fmt;
+        while(*fmt && *fmt >= '0' && *fmt <= '9') n = n*10 + (*fmt++ - '0');
+        if(*fmt == '.') goto another_number;
+        if(*fmt == '$') { argno = n; goto another_number; }
+        int i = 'd', d = 'f';
+        if(argno < 0) argno = ++auto_number;
+    more_fmt:
+        switch(*fmt)
+        {
+            case 'l': if(i == 'd') i = 'l'; else {
+            case 'L': i = 'L'; d = 'F';          } goto more_fmt;
+            case 'z': i = 'z'; goto more_fmt;
+            case 'h': goto more_fmt;
+            case 'p':
+            case 'n':
+            case 's':           Set(argno, 's'); break;
+            case 'o': case 'u': case 'c':
+            case 'x': case 'X':
+            case 'd': case 'i': Set(argno, i); break;
+            case 'e': case 'E':
+            case 'f': case 'F':
+            case 'g': case 'G': Set(argno, d); break;
+        }
+        if(!*fmt) break;
+    }
+    // Then load all the parameters
+    for(auto c: types)
+        switch(c)
+        {
+            case 'd': parameters.push_back(va_arg(ap, unsigned int)); break;
+            case 'l': parameters.push_back(va_arg(ap, unsigned long)); break;
+            case 'L': parameters.push_back(va_arg(ap, unsigned long long)); break;
+            case 'z': parameters.push_back(va_arg(ap, size_t)); break;
+            case 's': parameters.push_back((uint64_t)va_arg(ap, void*)); break;
+            case 'f':
+            {
+                double d = va_arg(ap, double);
+                parameters.push_back(*(uint64_t*)&d);
+                break;
+            }
+            case 'F':
+            {
+                double d = va_arg(ap, long double);
+                parameters.push_back(*(uint64_t*)&d);
+                break;
+            }
+        }
+    va_end(ap);
+
+    auto_number = 0;
+    std::string output;
+    // Rescan the format string, taking one token at a time.
+    for(const char* fmt = format; *fmt; )
+    {
+        if(*fmt != '%' || !fmt[1]) { output += *fmt++; continue; }
+        if(fmt[1] == '%') { output += *fmt; fmt += 2; continue; }
+        std::string fmt_string;
+        const char* fmt_start = fmt;
+        int n, argno = -1;
+    another_number2:
+        fmt_string.append(fmt_start, ++fmt); fmt_start = fmt;
+    another_number2b:
+        n=0;
+        while(*fmt && *fmt >= '0' && *fmt <= '9') n = n*10 + (*fmt++ - '0');
+        if(*fmt == '.') { goto another_number2; }
+        if(*fmt == '$') { fmt_start = ++fmt; argno = n; goto another_number2b; }
+        int i = 'd', d = 'f';
+        if(argno < 0) argno = ++auto_number;
+        char typecode = 0;
+        bool uns = false;
+    more_fmt2:
+        switch(*fmt++)
+        {
+            case 'l': if(i == 'd') i = 'l'; else {
+            case 'L': i = 'L'; d = 'F';          } goto more_fmt2;
+            case 'z': i = 'z'; goto more_fmt2;
+            case 'h': goto more_fmt2;
+            case 'p':
+            case 'n':
+            case 's':           typecode = ('s'); break;
+            case 'o': case 'u': case 'c':
+            case 'x': case 'X':
+            case 'd': case 'i': typecode = (i); break;
+            case 'e': case 'E':
+            case 'f': case 'F':
+            case 'g': case 'G': typecode = (d); break;
+        }
+        fmt_string.append(fmt_start, fmt);
+
+        if(argno > 0) --argno;
+        uint64_t param = parameters[argno];
+        n=0;
+        switch(typecode)
+        {
+            case 'd':
+                if(uns)
+                    n=snprintf(target, limit, fmt_string.c_str(), (unsigned int)(param));
+                else
+                    n=snprintf(target, limit, fmt_string.c_str(), (int)(param));
+                break;
+            case 'l':
+                if(uns)
+                    n=snprintf(target, limit, fmt_string.c_str(), (unsigned long)(param));
+                else
+                    n=snprintf(target, limit, fmt_string.c_str(), (long)(param));
+                break;
+            case 'L':
+                if(uns)
+                    n=snprintf(target, limit, fmt_string.c_str(), (unsigned long long)(param));
+                else
+                    n=snprintf(target, limit, fmt_string.c_str(), (long long)(param));
+                break;
+            case 'z': n=snprintf(target, limit, fmt_string.c_str(), size_t(param)); break;
+            case 's': n=snprintf(target, limit, fmt_string.c_str(), (void*)(param)); break;
+            case 'f':
+            {
+                double d = *(double*)param;
+                n=snprintf(target, limit, fmt_string.c_str(), d);
+                break;
+            }
+            case 'F':
+            {
+                long double d = *(double*)param;
+                n=snprintf(target, limit, fmt_string.c_str(), d);
+                break;
+            }
+        }
+        output.append(target, target+n);
+    }
+    if(output.size() > limit) output.erase(output.begin()+limit, output.end());
+    for(unsigned n=0, m=output.size(); n<m; ++n)
+        target[n] = output[n];
+    return output.size();
+}
+#endif
+
 class CanvasFunctionParser: public FunctionParser
 {
 public:
@@ -686,7 +848,7 @@ void TILE_Tracker::SaveFrame(PixelMethod method, unsigned frameno, unsigned img_
 
     char Filename[512] = {0}; // explicit init keeps valgrind happy
 #ifdef __MINGW32__
-    snprintf(Filename, sizeof(Filename),
+    Msnprintf(Filename, sizeof(Filename),
 #else
     std::snprintf(Filename, sizeof(Filename),
 #endif
